@@ -1,41 +1,47 @@
 import React from 'react'
 
-function getPctColor(value) {
-  const v = parseFloat(value)
-  if (isNaN(v) || v === 0) return '#2C2C2C'
-  if (v < 100) return '#E05C5C'
-  if (v < 120) return '#4CAF7D'
-  if (v < 150) return '#2E9455'
+export function getColorFromObjectif(valeur, objectifPct, objectifNb = null, valeurNb = null) {
+  let ratio = null
+  if (objectifPct && objectifPct > 0) {
+    ratio = parseFloat(valeur) / objectifPct
+  } else if (objectifNb && objectifNb > 0 && valeurNb !== null) {
+    ratio = valeurNb / objectifNb
+  }
+  if (ratio === null) {
+    if (!valeur || parseFloat(valeur) === 0) return '#2C2C2C'
+    return '#C9A84C'
+  }
+  if (ratio < 1) return '#E05C5C'
+  if (ratio < 1.1) return '#4CAF7D'
+  if (ratio < 1.2) return '#2E9455'
   return '#1a6b3c'
 }
 
-export default function KpiCard({ label, value, unit = '%', sub, badge, badgeType = 'neutral', objectif, onClick }) {
+export default function KpiCard({ label, value, unit = '%', sub, badge, badgeType = 'neutral', objectifPct, objectifNb, valeurNb, onClick }) {
   const bgColors = { neutral: 'rgba(201,168,76,0.1)', up: 'rgba(76,175,125,0.1)', down: 'rgba(224,92,92,0.1)' }
   const textColors = { neutral: '#8a6a1a', up: '#2d7a54', down: '#a03030' }
-  const objPct = objectif ? Math.min((parseFloat(value) / objectif) * 100, 100) : null
-  const valueColor = unit === '%' ? getPctColor(value) : '#2C2C2C'
+
+  const valueColor = getColorFromObjectif(value, objectifPct, objectifNb, valeurNb)
+  const objPct = objectifPct ? Math.min((parseFloat(value) / objectifPct) * 100, 100) :
+                 objectifNb && valeurNb ? Math.min((valeurNb / objectifNb) * 100, 100) : null
 
   return (
-    <div onClick={onClick} style={{
-      background: '#fff', borderRadius: 14, padding: '20px',
-      border: '1px solid rgba(201,168,76,0.15)',
-      cursor: onClick ? 'pointer' : 'default',
-      transition: 'all 0.2s'
-    }}
-    onMouseEnter={e => onClick && (e.currentTarget.style.transform = 'translateY(-2px)')}
-    onMouseLeave={e => onClick && (e.currentTarget.style.transform = 'translateY(0)')}
+    <div onClick={onClick} style={{ background: '#fff', borderRadius: 14, padding: '20px', border: '1px solid rgba(201,168,76,0.15)', cursor: onClick ? 'pointer' : 'default', transition: 'all 0.2s' }}
+      onMouseEnter={e => onClick && (e.currentTarget.style.transform = 'translateY(-2px)')}
+      onMouseLeave={e => onClick && (e.currentTarget.style.transform = 'translateY(0)')}
     >
       <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>{label}</div>
       <div style={{ fontSize: 34, fontWeight: 600, color: valueColor, lineHeight: 1, fontFamily: 'DM Sans, sans-serif' }}>
         {value}<span style={{ fontSize: 18 }}>{unit}</span>
       </div>
       {sub && <div style={{ fontSize: 12, color: '#8A8A7A', marginTop: 6 }}>{sub}</div>}
+      {(objectifPct || objectifNb) && (
+        <div style={{ fontSize: 11, color: '#8A8A7A', marginTop: 4 }}>
+          Obj: {objectifPct ? `${objectifPct}%` : ''}{objectifPct && objectifNb ? ' · ' : ''}{objectifNb ? `${objectifNb}` : ''}
+        </div>
+      )}
       {badge && (
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 4,
-          padding: '3px 8px', borderRadius: 10, fontSize: 11, fontWeight: 500,
-          marginTop: 8, background: bgColors[badgeType], color: textColors[badgeType]
-        }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 10, fontSize: 11, fontWeight: 500, marginTop: 8, background: bgColors[badgeType], color: textColors[badgeType] }}>
           {badge}
         </div>
       )}
