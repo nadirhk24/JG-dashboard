@@ -1,12 +1,28 @@
 import React, { useState, useMemo } from 'react'
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import PageHeader from '../components/PageHeader'
 import PeriodeFilter from '../components/PeriodeFilter'
 import ConseillereFilter from '../components/ConseillereFilter'
 import KpiCard from '../components/KpiCard'
 import SectionTitle from '../components/SectionTitle'
 import { filtrerParPeriode, groupByDay, groupByWeek, groupByMonth } from '../lib/dates'
-import { agregerParPeriode, calcCV, calcConversionTel, calcTauxPresence, calcEfficaciteComm, couleurPerf } from '../lib/kpi'
+import { agregerParPeriode, calcCV, couleurPerf } from '../lib/kpi'
+
+function getStars(rank, total) {
+  const maxStars = Math.min(total, 5)
+  const stars = Math.max(0, maxStars - rank)
+  return '★'.repeat(stars) + '☆'.repeat(Math.max(0, 5 - stars))
+}
+
+function getRankColor(rank, total) {
+  if (total <= 1) return '#C9A84C'
+  const ratio = rank / (total - 1)
+  if (ratio <= 0.2) return '#1a6b3c'
+  if (ratio <= 0.4) return '#2E9455'
+  if (ratio <= 0.6) return '#C9A84C'
+  if (ratio <= 0.8) return '#E07B30'
+  return '#E05C5C'
+}
 
 export default function DashboardCentreAppel({ conseilleres, saisies, reload }) {
   const [periode, setPeriode] = useState('mois')
@@ -28,12 +44,10 @@ export default function DashboardCentreAppel({ conseilleres, saisies, reload }) 
 
   const kpisGlobal = useMemo(() => agregerParPeriode(saisiesFiltrees), [saisiesFiltrees])
 
-  const kpisParConseillere = useMemo(() => {
-    return conseilleres.map(c => {
-      const k = agregerParPeriode(saisiesFiltrees, c.id)
-      return { ...c, ...k }
-    })
-  }, [conseilleres, saisiesFiltrees])
+  const kpisParConseillere = useMemo(() =>
+    conseilleres.map(c => ({ ...c, ...agregerParPeriode(saisiesFiltrees, c.id) })),
+    [conseilleres, saisiesFiltrees]
+  )
 
   const cvConvTel = useMemo(() => calcCV(kpisParConseillere.map(c => c.conversion_tel)), [kpisParConseillere])
   const cvPresence = useMemo(() => calcCV(kpisParConseillere.map(c => c.taux_presence)), [kpisParConseillere])
@@ -42,13 +56,14 @@ export default function DashboardCentreAppel({ conseilleres, saisies, reload }) 
   const chartData = useMemo(() => {
     let groups
     if (periode === 'jour') groups = groupByDay(saisiesFiltrees)
-    else if (periode === 'semaine' || periode === 'mois') groups = groupByWeek(saisiesFiltrees)
+    else if (periode === 'semaine') groups = groupByWeek(saisiesFiltrees)
+    else if (periode === 'mois') groups = groupByMonth(saisiesFiltrees)
     else groups = groupByMonth(saisiesFiltrees)
 
     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([key, items]) => {
       const agg = agregerParPeriode(items)
       return {
-        label: key.substring(5),
+        label: periode === 'jour' ? key.substring(5) : periode === 'semaine' ? 'S ' + key.substring(5) : key.substring(0, 7),
         conv: agg.conversion_tel,
         presence: agg.taux_presence,
         efficacite: agg.efficacite_comm,
@@ -61,14 +76,13 @@ export default function DashboardCentreAppel({ conseilleres, saisies, reload }) 
   const drillData = useMemo(() => {
     if (!drillConseillere) return null
     const c = conseilleres.find(c => c.id === drillConseillere)
-    const data = saisies.filter(s => s.conseillere_id === drillConseillere)
-    const filtered = filtrerParPeriode(data, periode, dateDebut, dateFin)
-    const groups = groupByDay(filtered)
+    const data = filtrerParPeriode(saisies.filter(s => s.conseillere_id === drillConseillere), periode, dateDebut, dateFin)
+    const groups = groupByDay(data)
     const chartItems = Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([key, items]) => {
       const agg = agregerParPeriode(items)
       return { label: key.substring(5), conv: agg.conversion_tel, presence: agg.taux_presence }
     })
-    return { conseillere: c, kpis: agregerParPeriode(filtered), chartItems }
+    return { conseillere: c, kpis: agregerParPeriode(data), chartItems }
   }, [drillConseillere, saisies, conseilleres, periode, dateDebut, dateFin])
 
   const cardStyle = { background: '#fff', borderRadius: 14, padding: 24, border: '1px solid rgba(201,168,76,0.15)', marginBottom: 20 }
@@ -82,7 +96,7 @@ export default function DashboardCentreAppel({ conseilleres, saisies, reload }) 
       </PageHeader>
 
       {drillConseillere && drillData && (
-        <div style={{ ...cardStyle, borderColor: '#C9A84C', marginBottom: 24 }}>
+        <div style={{ ...cardStyle, borderColor: '#C9A84C' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <div>
               <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 4 }}>
@@ -100,7 +114,7 @@ export default function DashboardCentreAppel({ conseilleres, saisies, reload }) 
             ].map(k => (
               <div key={k.label} style={{ background: 'var(--light)', borderRadius: 10, padding: '14px 16px' }}>
                 <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', marginBottom: 6 }}>{k.label}</div>
-                <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 26, fontWeight: 600 }}>{k.val}%</div>
+                <div style={{ fontSize: 26, fontWeight: 600, fontFamily: 'DM Sans, sans-serif' }}>{k.val}%</div>
               </div>
             ))}
           </div>
@@ -120,14 +134,15 @@ export default function DashboardCentreAppel({ conseilleres, saisies, reload }) 
       <SectionTitle>KPIs Globaux — Équipe</SectionTitle>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 16, marginBottom: 16 }}>
         <KpiCard label="Productivité" value={kpisGlobal.productivite} sub="Échanges / Leads nets" badge={`Leads nets: ${kpisGlobal.leads_nets}`} />
-        <KpiCard label="Joignabilité (indispos)" value={kpisGlobal.joignabilite} sub="Indispos / Leads bruts" accentColor="#E05C5C" badgeType="down" badge={`${kpisGlobal.indispos} indispos`} />
-        <KpiCard label="Conv. Téléphonique" value={kpisGlobal.conversion_tel} sub="RDV / Échanges" badge={`CV: ${cvConvTel}%`} badgeType="neutral" accentColor="#4CAF7D" />
-        <KpiCard label="Taux de Présence" value={kpisGlobal.taux_presence} sub="Visites / RDV" badge={`CV: ${cvPresence}%`} badgeType="neutral" />
+        <KpiCard label="Joignabilité (indispos)" value={kpisGlobal.joignabilite} sub="Indispos / Leads bruts" badge={`${kpisGlobal.indispos} indispos`} />
+        <KpiCard label="Conv. Téléphonique" value={kpisGlobal.conversion_tel} sub="RDV / Échanges" badge={`CV: ${cvConvTel}%`} />
+        <KpiCard label="Taux de Présence" value={kpisGlobal.taux_presence} sub="Visites / RDV" badge={`CV: ${cvPresence}%`} />
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 16, marginBottom: 28 }}>
-        <KpiCard label="Efficacité Commerciale" value={kpisGlobal.efficacite_comm} sub="Ventes / Visites" badge={`CV: ${cvEfficacite}%`} badgeType="up" accentColor="#4CAF7D" />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 16, marginBottom: 28 }}>
+        <KpiCard label="Efficacité Commerciale" value={kpisGlobal.efficacite_comm} sub="Ventes / Visites" badge={`CV: ${cvEfficacite}%`} />
         <KpiCard label="Total RDV" value={kpisGlobal.rdv} unit="" sub="Période sélectionnée" />
-        <KpiCard label="Total Ventes" value={kpisGlobal.ventes} unit="" sub="Période sélectionnée" accentColor="#C9A84C" />
+        <KpiCard label="Total Visites" value={kpisGlobal.visites} unit="" sub="Période sélectionnée" />
+        <KpiCard label="Total Ventes" value={kpisGlobal.ventes} unit="" sub="Période sélectionnée" />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 28 }}>
@@ -140,7 +155,7 @@ export default function DashboardCentreAppel({ conseilleres, saisies, reload }) 
             <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.08)" />
               <XAxis dataKey="label" tick={{ fontSize: 10 }} />
-              <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${v}%`} domain={[0, 100]} />
+              <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${v}%`} domain={[0, 'auto']} />
               <Tooltip contentStyle={tooltipStyle} formatter={v => [`${v}%`, 'Conv. Tél.']} />
               <Bar dataKey="conv" fill="#C9A84C" radius={[4, 4, 0, 0]} name="Conv. Tél." />
             </BarChart>
@@ -155,7 +170,7 @@ export default function DashboardCentreAppel({ conseilleres, saisies, reload }) 
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(76,175,125,0.08)" />
               <XAxis dataKey="label" tick={{ fontSize: 10 }} />
-              <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${v}%`} domain={[0, 100]} />
+              <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${v}%`} domain={[0, 'auto']} />
               <Tooltip contentStyle={tooltipStyle} formatter={v => [`${v}%`, 'Présence']} />
               <Line type="monotone" dataKey="presence" stroke="#4CAF7D" strokeWidth={2.5} dot={{ r: 4, fill: '#4CAF7D' }} name="Présence" />
             </LineChart>
@@ -168,32 +183,33 @@ export default function DashboardCentreAppel({ conseilleres, saisies, reload }) 
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
-              {['#', 'Conseillère', 'Leads Bruts', 'Leads Nets', 'Productivité', 'Joignabilité', 'Conv. Tél.', 'Présence', 'Eff. Comm.', 'Détail'].map(h => (
+              {['#', 'Étoiles', 'Conseillère', 'Leads Bruts', 'Leads Nets', 'Productivité', 'Joignabilité', 'Conv. Tél.', 'Présence', 'Eff. Comm.', 'Détail'].map(h => (
                 <th key={h} style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '10px 10px', borderBottom: '1px solid rgba(201,168,76,0.15)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 500 }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {rankingSorted.map((c, i) => {
-              const obj = c.objectif_conv || 65
-              const convColor = couleurPerf(c.conversion_tel, obj)
+              const rankColor = getRankColor(i, rankingSorted.length)
+              const stars = getStars(i, rankingSorted.length)
               return (
-                <tr key={c.id} style={{ cursor: 'pointer' }}
+                <tr key={c.id}
                   onMouseEnter={e => e.currentTarget.style.background = '#F7F0DC'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
-                  <td style={{ padding: '12px 10px', fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#C9A84C' }}>{i + 1}</td>
-                  <td style={{ padding: '12px 10px', fontWeight: 500, fontSize: 13 }}>{c.nom}</td>
+                  <td style={{ padding: '12px 10px', fontSize: 18, fontWeight: 700, color: rankColor, fontFamily: 'DM Sans, sans-serif' }}>{i + 1}</td>
+                  <td style={{ padding: '12px 10px', fontSize: 13, color: '#C9A84C', letterSpacing: 1 }}>{stars}</td>
+                  <td style={{ padding: '12px 10px', fontWeight: 500, fontSize: 13, color: rankColor }}>{c.nom}</td>
                   <td style={{ padding: '12px 10px', fontSize: 13 }}>{c.leads_bruts}</td>
                   <td style={{ padding: '12px 10px', fontSize: 13 }}>{c.leads_nets}</td>
-                  <td style={{ padding: '12px 10px', fontSize: 13, fontWeight: 500 }}>{c.productivite}%</td>
+                  <td style={{ padding: '12px 10px', fontSize: 13, fontWeight: 500, color: rankColor }}>{c.productivite}%</td>
                   <td style={{ padding: '12px 10px', fontSize: 13, color: c.joignabilite > 30 ? '#E05C5C' : '#4CAF7D' }}>{c.joignabilite}%</td>
                   <td style={{ padding: '12px 10px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <div style={{ flex: 1, height: 6, background: 'rgba(201,168,76,0.1)', borderRadius: 3, overflow: 'hidden', minWidth: 60 }}>
-                        <div style={{ height: '100%', width: `${Math.min(c.conversion_tel, 100)}%`, background: convColor, borderRadius: 3 }}></div>
+                      <div style={{ flex: 1, height: 6, background: 'rgba(201,168,76,0.1)', borderRadius: 3, overflow: 'hidden', minWidth: 50 }}>
+                        <div style={{ height: '100%', width: `${Math.min(c.conversion_tel, 100)}%`, background: rankColor, borderRadius: 3 }}></div>
                       </div>
-                      <span style={{ fontSize: 12, fontWeight: 500, minWidth: 38, color: convColor }}>{c.conversion_tel}%</span>
+                      <span style={{ fontSize: 12, fontWeight: 500, minWidth: 38, color: rankColor }}>{c.conversion_tel}%</span>
                     </div>
                   </td>
                   <td style={{ padding: '12px 10px', fontSize: 13 }}>{c.taux_presence}%</td>

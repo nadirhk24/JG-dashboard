@@ -5,11 +5,11 @@ export function getDateRange(periode, dateDebut = null, dateFin = null) {
   const now = new Date()
   switch (periode) {
     case 'jour':
-      return { debut: startOfDay(now), fin: endOfDay(now) }
+      return { debut: new Date('2000-01-01'), fin: new Date('2099-12-31') }
     case 'semaine':
-      return { debut: startOfWeek(now, { weekStartsOn: 1 }), fin: endOfWeek(now, { weekStartsOn: 1 }) }
+      return { debut: new Date('2000-01-01'), fin: new Date('2099-12-31') }
     case 'mois':
-      return { debut: startOfMonth(now), fin: endOfMonth(now) }
+      return { debut: new Date('2000-01-01'), fin: new Date('2099-12-31') }
     case 'trimestre':
       return { debut: startOfQuarter(now), fin: endOfQuarter(now) }
     case 'perso':
@@ -18,16 +18,26 @@ export function getDateRange(periode, dateDebut = null, dateFin = null) {
         fin: dateFin ? endOfDay(new Date(dateFin)) : endOfMonth(now)
       }
     default:
-      return { debut: startOfMonth(now), fin: endOfMonth(now) }
+      return { debut: new Date('2000-01-01'), fin: new Date('2099-12-31') }
   }
 }
 
 export function filtrerParPeriode(saisies, periode, dateDebut = null, dateFin = null) {
-  const { debut, fin } = getDateRange(periode, dateDebut, dateFin)
-  return saisies.filter(s => {
-    const date = parseISO(s.date)
-    return isWithinInterval(date, { start: debut, end: fin })
-  })
+  if (periode === 'trimestre') {
+    const { debut, fin } = getDateRange(periode, dateDebut, dateFin)
+    return saisies.filter(s => {
+      const date = parseISO(s.date)
+      return isWithinInterval(date, { start: debut, end: fin })
+    })
+  }
+  if (periode === 'perso') {
+    const { debut, fin } = getDateRange(periode, dateDebut, dateFin)
+    return saisies.filter(s => {
+      const date = parseISO(s.date)
+      return isWithinInterval(date, { start: debut, end: fin })
+    })
+  }
+  return saisies
 }
 
 export function formatDate(dateStr) {
