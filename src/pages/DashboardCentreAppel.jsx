@@ -250,20 +250,20 @@ export default function DashboardCentreAppel({ conseilleres, saisies, reload }) 
                     <td style={tdStyle}>{c.leads_nets}</td>
                     <td style={{ ...tdStyle, fontWeight: 500 }}>{c.productivite}%</td>
                     <td style={{ ...tdStyle, color: c.joignabilite < 70 ? '#E05C5C' : '#4CAF7D' }}>{c.joignabilite}%</td>
-                    <td style={{ ...tdStyle, minWidth: 120 }}>
+                    <td style={{ ...tdStyle, minWidth: 130 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <div style={{ flex: 1, height: 8, background: 'rgba(201,168,76,0.15)', borderRadius: 4, overflow: 'hidden', minWidth: 60 }}>
-                          <div style={{ height: '100%', width: `${Math.min(c.conversion_tel, 100)}%`, background: rankColor, borderRadius: 4 }}></div>
+                        <div style={{ flex: 1, height: 8, background: 'rgba(201,168,76,0.15)', borderRadius: 4, overflow: 'hidden', minWidth: 70 }}>
+                          <div style={{ height: '100%', width: `${Math.min(c.conversion_tel, 100)}%`, background: rankColor, borderRadius: 4, opacity: 1 }}></div>
                         </div>
-                        <span style={{ fontSize: 11, fontWeight: 500, minWidth: 38, color: rankColor }}>{c.conversion_tel}%</span>
+                        <span style={{ fontSize: 11, fontWeight: 600, minWidth: 40, color: rankColor }}>{c.conversion_tel}%</span>
                       </div>
                     </td>
-                    <td style={{ ...tdStyle, minWidth: 120 }}>
+                    <td style={{ ...tdStyle, minWidth: 130 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <div style={{ flex: 1, height: 8, background: 'rgba(76,175,125,0.15)', borderRadius: 4, overflow: 'hidden', minWidth: 60 }}>
-                          <div style={{ height: '100%', width: `${Math.min(c.taux_presence, 100)}%`, background: '#4CAF7D', borderRadius: 4 }}></div>
+                        <div style={{ flex: 1, height: 8, background: 'rgba(201,168,76,0.15)', borderRadius: 4, overflow: 'hidden', minWidth: 70 }}>
+                          <div style={{ height: '100%', width: `${Math.min(c.taux_presence, 100)}%`, background: rankColor, borderRadius: 4, opacity: 1 }}></div>
                         </div>
-                        <span style={{ fontSize: 11, fontWeight: 500, minWidth: 38, color: '#4CAF7D' }}>{c.taux_presence}%</span>
+                        <span style={{ fontSize: 11, fontWeight: 600, minWidth: 40, color: rankColor }}>{c.taux_presence}%</span>
                       </div>
                     </td>
                     <td style={tdStyle}>{c.efficacite_comm}%</td>
