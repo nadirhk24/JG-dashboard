@@ -6,7 +6,7 @@ import DashboardMarketing from './pages/DashboardMarketing'
 import Saisie from './pages/Saisie'
 import Conseilleres from './pages/Conseilleres'
 import Objectifs from './pages/Objectifs'
-import VueCohort from './pages/VueCohort'
+import AnalyseCV from './pages/AnalyseCV'
 import Historique from './pages/Historique'
 import { supabase } from './lib/supabase'
 
@@ -15,9 +15,7 @@ export default function App() {
   const [saisies, setSaisies] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    loadData()
-  }, [])
+  useEffect(() => { loadData() }, [])
 
   async function loadData() {
     setLoading(true)
@@ -28,9 +26,7 @@ export default function App() {
       ])
       setConseilleres(cons || [])
       setSaisies(sais || [])
-    } catch (err) {
-      console.error('Erreur chargement:', err)
-    }
+    } catch (err) { console.error('Erreur chargement:', err) }
     setLoading(false)
   }
 
@@ -53,11 +49,11 @@ export default function App() {
             <Routes>
               <Route path="/" element={<Navigate to="/centre-appel" />} />
               <Route path="/centre-appel" element={<DashboardCentreAppel {...sharedProps} />} />
-              <Route path="/marketing" element={<DashboardMarketing {...sharedProps} />} />
+              <Route path="/marketing" element={<DashboardMarketing />} />
               <Route path="/saisie" element={<Saisie {...sharedProps} />} />
               <Route path="/conseilleres" element={<Conseilleres {...sharedProps} />} />
-              <Route path="/objectifs" element={<Objectifs {...sharedProps} />} />
-              <Route path="/cohort" element={<VueCohort {...sharedProps} />} />
+              <Route path="/objectifs" element={<Objectifs />} />
+              <Route path="/analyse-cv" element={<AnalyseCV {...sharedProps} />} />
               <Route path="/historique" element={<Historique {...sharedProps} />} />
             </Routes>
           )}

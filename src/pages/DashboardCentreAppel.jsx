@@ -43,6 +43,19 @@ function getMoisCourant() {
   return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`
 }
 
+const RANK_COLS = [
+  { key: 'leads_bruts', label: 'Leads Bruts' },
+  { key: 'leads_nets', label: 'Leads Nets' },
+  { key: 'productivite', label: 'Productivité', color: '#378ADD' },
+  { key: 'joignabilite', label: 'Joignabilité', color: '#2E9455' },
+  { key: 'conv_tel', label: 'Conv. Tél.', color: '#C9A84C' },
+  { key: 'rdv', label: 'RDV', color: '#534AB7' },
+  { key: 'presence', label: 'Présence', color: '#4CAF7D' },
+  { key: 'visites', label: 'Visites', color: '#4CAF7D' },
+  { key: 'efficacite_comm', label: 'Eff. Comm.', color: '#534AB7' },
+  { key: 'ventes', label: 'Ventes', color: '#1a6b3c' },
+]
+
 export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   const [periode, setPeriode] = useState('mois')
   const [dateDebut, setDateDebut] = useState('')
@@ -50,6 +63,8 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   const [filtreConseillere, setFiltreConseillere] = useState('all')
   const [drillConseillere, setDrillConseillere] = useState(null)
   const [objectifs, setObjectifs] = useState({})
+  const [hiddenRankCols, setHiddenRankCols] = useState({})
+  const [showRankCols, setShowRankCols] = useState(false)
 
   useEffect(() => {
     loadObjectifs()
@@ -202,48 +217,83 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
         </div>
       </div>
 
-      <SectionTitle>Ranking Conseillères <span style={{fontSize:11,color:'#5A5A5A',fontWeight:400,fontFamily:'DM Sans'}}>(Conv. Tél. + Présence)</span></SectionTitle>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C', display: 'flex', alignItems: 'center', gap: 12 }}>
+          Ranking Conseillères
+          <span style={{ fontSize: 11, color: '#5A5A5A', fontWeight: 400, fontFamily: 'DM Sans' }}>(Conv. Tél. + Présence)</span>
+          <div style={{ flex: 1, height: 1, background: 'rgba(201,168,76,0.2)', width: 40 }}></div>
+        </div>
+        <div style={{ position: 'relative' }}>
+          <button onClick={() => setShowRankCols(p => !p)} style={{ padding: '6px 16px', borderRadius: 16, border: '1.5px solid rgba(201,168,76,0.3)', background: '#fff', color: '#C9A84C', fontSize: 12, cursor: 'pointer', fontWeight: 500 }}>Colonnes ▾</button>
+          {showRankCols && (
+            <div style={{ position: 'absolute', right: 0, top: '110%', background: '#fff', border: '1px solid rgba(201,168,76,0.2)', borderRadius: 10, padding: '12px', zIndex: 100, minWidth: 200, boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+              <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, fontWeight: 500 }}>Masquer / Afficher</div>
+              {RANK_COLS.map(c => (
+                <label key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', cursor: 'pointer', fontSize: 12, color: hiddenRankCols[c.key] ? '#8A8A7A' : '#2C2C2C' }}>
+                  <input type="checkbox" checked={!hiddenRankCols[c.key]} onChange={() => setHiddenRankCols(p => ({ ...p, [c.key]: !p[c.key] }))} style={{ accentColor: '#C9A84C' }} />
+                  {c.label}
+                </label>
+              ))}
+              <button onClick={() => setHiddenRankCols({})} style={{ marginTop: 8, width: '100%', padding: '5px', borderRadius: 6, border: '1px solid rgba(201,168,76,0.3)', background: 'transparent', color: '#C9A84C', fontSize: 11, cursor: 'pointer' }}>Tout afficher</button>
+            </div>
+          )}
+        </div>
+      </div>
       <div style={cardStyle}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr>{['#','Étoiles','Conseillère','Leads Bruts','Leads Nets','Productivité','Joignabilité','Conv. Tél.','Présence','Eff. Comm.','Score','Détail'].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr>
+              <tr>
+                <th style={thStyle}>#</th>
+                <th style={thStyle}>Étoiles</th>
+                <th style={thStyle}>Conseillère</th>
+                {RANK_COLS.filter(c => !hiddenRankCols[c.key]).map(c => <th key={c.key} style={{ ...thStyle, color: c.color || '#5A5A5A' }}>{c.label}</th>)}
+                <th style={thStyle}>Score</th>
+                <th style={thStyle}>Détail</th>
+              </tr>
             </thead>
             <tbody>
               {rankingSorted.map((c, i) => {
                 const rankColor = getRankColor(i, rankingSorted.length)
                 const stars = getStars(i, rankingSorted.length)
                 const score = parseFloat(((c.conversion_tel + c.taux_presence) / 2).toFixed(1))
+                const colValues = {
+                  leads_bruts: { val: c.leads_bruts, style: tdStyle },
+                  leads_nets: { val: c.leads_nets, style: tdStyle },
+                  productivite: { val: `${c.productivite}%`, style: { ...tdStyle, fontWeight: 500, color: getColorFromObjectif(c.productivite, objectifs.obj_productivite_pct) } },
+                  joignabilite: { val: `${c.joignabilite}%`, style: { ...tdStyle, color: c.joignabilite < 70 ? '#E05C5C' : '#4CAF7D' } },
+                  conv_tel: { val: null, isBar: true, value: c.conversion_tel, color: rankColor, objColor: getColorFromObjectif(c.conversion_tel, objectifs.obj_conv_tel_pct) },
+                  rdv: { val: c.rdv, style: { ...tdStyle, color: '#534AB7' } },
+                  presence: { val: null, isBar: true, value: c.taux_presence, color: rankColor, objColor: getColorFromObjectif(c.taux_presence, objectifs.obj_presence_pct) },
+                  visites: { val: c.visites, style: { ...tdStyle, color: '#4CAF7D' } },
+                  efficacite_comm: { val: `${c.efficacite_comm}%`, style: tdStyle },
+                  ventes: { val: c.ventes, style: { ...tdStyle, color: '#1a6b3c' } },
+                }
                 return (
-                  <tr key={c.id} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                    <td style={{...tdStyle,fontSize:16,fontWeight:700,color:rankColor}}>{i+1}</td>
-                    <td style={{...tdStyle,color:'#C9A84C',letterSpacing:2,fontSize:16}}>{stars}</td>
-                    <td style={{...tdStyle,fontWeight:500,color:rankColor,fontSize:12}}>{c.nom}</td>
-                    <td style={tdStyle}>{c.leads_bruts}</td>
-                    <td style={tdStyle}>{c.leads_nets}</td>
-                    <td style={{...tdStyle,fontWeight:500,color:getColorFromObjectif(c.productivite,objectifs.obj_productivite_pct)}}>{c.productivite}%</td>
-                    <td style={{...tdStyle,color:c.joignabilite<70?'#E05C5C':'#4CAF7D'}}>{c.joignabilite}%</td>
-                    <td style={{...tdStyle,minWidth:120}}>
-                      <div style={{display:'flex',alignItems:'center',gap:6}}>
-                        <div style={{flex:1,height:8,background:'rgba(201,168,76,0.15)',borderRadius:4,overflow:'hidden',minWidth:60}}>
-                          <div style={{height:'100%',width:`${Math.min(c.conversion_tel,100)}%`,background:rankColor,borderRadius:4}}></div>
-                        </div>
-                        <span style={{fontSize:11,fontWeight:600,minWidth:40,color:getColorFromObjectif(c.conversion_tel,objectifs.obj_conv_tel_pct)}}>{c.conversion_tel}%</span>
-                      </div>
-                    </td>
-                    <td style={{...tdStyle,minWidth:120}}>
-                      <div style={{display:'flex',alignItems:'center',gap:6}}>
-                        <div style={{flex:1,height:8,background:'rgba(76,175,125,0.15)',borderRadius:4,overflow:'hidden',minWidth:60}}>
-                          <div style={{height:'100%',width:`${Math.min(c.taux_presence,100)}%`,background:rankColor,borderRadius:4}}></div>
-                        </div>
-                        <span style={{fontSize:11,fontWeight:600,minWidth:40,color:getColorFromObjectif(c.taux_presence,objectifs.obj_presence_pct)}}>{c.taux_presence}%</span>
-                      </div>
-                    </td>
-                    <td style={tdStyle}>{c.efficacite_comm}%</td>
-                    <td style={{...tdStyle,fontWeight:600,color:rankColor,fontSize:13}}>{score}%</td>
+                  <tr key={c.id} onMouseEnter={e => e.currentTarget.style.background = '#F7F0DC'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    <td style={{ ...tdStyle, fontSize: 16, fontWeight: 700, color: rankColor }}>{i + 1}</td>
+                    <td style={{ ...tdStyle, color: '#C9A84C', letterSpacing: 2, fontSize: 16 }}>{stars}</td>
+                    <td style={{ ...tdStyle, fontWeight: 500, color: rankColor, fontSize: 12 }}>{c.nom}</td>
+                    {RANK_COLS.filter(col => !hiddenRankCols[col.key]).map(col => {
+                      const cv = colValues[col.key]
+                      if (!cv) return <td key={col.key} style={tdStyle}>—</td>
+                      if (cv.isBar) return (
+                        <td key={col.key} style={{ ...tdStyle, minWidth: 120 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div style={{ flex: 1, height: 8, background: 'rgba(201,168,76,0.15)', borderRadius: 4, overflow: 'hidden', minWidth: 60 }}>
+                              <div style={{ height: '100%', width: `${Math.min(cv.value, 100)}%`, background: cv.color, borderRadius: 4 }}></div>
+                            </div>
+                            <span style={{ fontSize: 11, fontWeight: 600, minWidth: 40, color: cv.objColor }}>{cv.value}%</span>
+                          </div>
+                        </td>
+                      )
+                      return <td key={col.key} style={cv.style}>{cv.val}</td>
+                    })}
+                    <td style={{ ...tdStyle, fontWeight: 600, color: rankColor, fontSize: 13 }}>{score}%</td>
                     <td style={tdStyle}>
-                      <button onClick={()=>setDrillConseillere(drillConseillere===c.id?null:c.id)} style={{padding:'4px 10px',borderRadius:8,border:'1px solid rgba(201,168,76,0.3)',background:drillConseillere===c.id?'#C9A84C':'transparent',color:drillConseillere===c.id?'#fff':'#C9A84C',fontSize:11,cursor:'pointer'}}>
-                        {drillConseillere===c.id?'Fermer':'Détail ↗'}
+                      <button onClick={() => setDrillConseillere(drillConseillere === c.id ? null : c.id)}
+                        style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid rgba(201,168,76,0.3)', background: drillConseillere === c.id ? '#C9A84C' : 'transparent', color: drillConseillere === c.id ? '#fff' : '#C9A84C', fontSize: 11, cursor: 'pointer' }}>
+                        {drillConseillere === c.id ? 'Fermer' : 'Détail ↗'}
                       </button>
                     </td>
                   </tr>

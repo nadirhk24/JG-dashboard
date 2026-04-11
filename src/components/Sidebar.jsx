@@ -10,7 +10,7 @@ const navItems = [
   { path: '/objectifs', label: 'Objectifs' },
   { path: '/conseilleres', label: 'Conseillères' },
   { section: 'Analyse' },
-  { path: '/cohort', label: 'Vue Cohorte' },
+  { path: '/analyse-cv', label: 'Analyse CV' },
   { path: '/historique', label: 'Historique' },
 ]
 
