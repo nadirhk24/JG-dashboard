@@ -1,0 +1,52 @@
+:root {
+  --gold: #C9A84C;
+  --gold-light: #E8D5A3;
+  --gold-pale: #F7F0DC;
+  --dark: #2C2C2C;
+  --mid: #5A5A5A;
+  --light: #F8F7F4;
+  --white: #FFFFFF;
+  --border: rgba(201, 168, 76, 0.2);
+  --success: #4CAF7D;
+  --danger: #E05C5C;
+  --warning: #F59E0B;
+  --sidebar-width: 230px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--light);
+  color: var(--dark);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+h1, h2, h3 {
+  font-family: 'Cormorant Garamond', serif;
+}
+
+button {
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+}
+
+input, select {
+  font-family: 'DM Sans', sans-serif;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--gold-light);
+  border-radius: 3px;
+}
