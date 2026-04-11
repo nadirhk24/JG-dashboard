@@ -1,39 +1,34 @@
-// Calcul productivite = echanges / leads nets * 100
 export function calcProductivite(echanges, leadsNets) {
   if (!leadsNets || leadsNets === 0) return 0
   return parseFloat(((echanges / leadsNets) * 100).toFixed(1))
 }
 
-// Calcul joignabilite = indispos / leads bruts * 100
+// CORRIGE : joignabilite = leads joints / leads bruts (pas indispos)
 export function calcJoignabilite(indispos, leadsBruts) {
   if (!leadsBruts || leadsBruts === 0) return 0
-  return parseFloat(((indispos / leadsBruts) * 100).toFixed(1))
+  const joints = leadsBruts - indispos
+  return parseFloat(((joints / leadsBruts) * 100).toFixed(1))
 }
 
-// Calcul conversion telephonique = rdv / echanges * 100
 export function calcConversionTel(rdv, echanges) {
   if (!echanges || echanges === 0) return 0
   return parseFloat(((rdv / echanges) * 100).toFixed(1))
 }
 
-// Calcul taux de presence = visites / rdv * 100
 export function calcTauxPresence(visites, rdv) {
   if (!rdv || rdv === 0) return 0
   return parseFloat(((visites / rdv) * 100).toFixed(1))
 }
 
-// Calcul efficacite commerciale = ventes / visites * 100
 export function calcEfficaciteComm(ventes, visites) {
   if (!visites || visites === 0) return 0
   return parseFloat(((ventes / visites) * 100).toFixed(1))
 }
 
-// Calcul leads nets = leads bruts - indispos
 export function calcLeadsNets(leadsBruts, indispos) {
   return Math.max(0, (leadsBruts || 0) - (indispos || 0))
 }
 
-// Coefficient de variation = ecart-type / moyenne * 100
 export function calcCV(valeurs) {
   const vals = valeurs.filter(v => v !== null && v !== undefined && !isNaN(v))
   if (vals.length < 2) return 0
@@ -44,20 +39,17 @@ export function calcCV(valeurs) {
   return parseFloat(((ecartType / moyenne) * 100).toFixed(1))
 }
 
-// Moyenne d'un tableau de valeurs
 export function moyenne(valeurs) {
   const vals = valeurs.filter(v => v !== null && v !== undefined && !isNaN(v))
   if (vals.length === 0) return 0
   return parseFloat((vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1))
 }
 
-// Statut objectif atteint ou non
 export function statutObjectif(valeur, objectif) {
   if (!objectif) return 'N/A'
   return valeur >= objectif ? 'Atteint' : 'En cours'
 }
 
-// Couleur selon performance vs objectif
 export function couleurPerf(valeur, objectif) {
   if (!objectif) return '#C9A84C'
   const ratio = valeur / objectif
@@ -66,7 +58,6 @@ export function couleurPerf(valeur, objectif) {
   return '#E05C5C'
 }
 
-// Agregation des donnees par periode
 export function agregerParPeriode(saisies, conseillereId = null) {
   let data = saisies
   if (conseillereId) {

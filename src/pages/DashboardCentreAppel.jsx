@@ -28,7 +28,6 @@ function getPeriodeLabel(periode) {
   return labels[periode] || periode
 }
 
-// Calcul CV sur un tableau de valeurs
 function cvSerie(valeurs) {
   const vals = valeurs.filter(v => v !== null && v !== undefined && !isNaN(v) && v > 0)
   if (vals.length < 2) return 0
@@ -71,9 +70,8 @@ export default function DashboardCentreAppel({ conseilleres, saisies, reload }) 
 
   const tableData = useMemo(() => {
     const groups = groupFn(saisiesFiltrees)
-    const rows = Object.entries(groups).sort(([a], [b]) => b.localeCompare(a)).map(([key, items]) => {
+    return Object.entries(groups).sort(([a], [b]) => b.localeCompare(a)).map(([key, items]) => {
       const agg = agregerParPeriode(items)
-      // CV par conseillere sur cette periode
       const convParC = conseilleres.map(c => calcConversionTel(
         items.filter(s => s.conseillere_id === c.id).reduce((a, s) => a + s.rdv, 0),
         items.filter(s => s.conseillere_id === c.id).reduce((a, s) => a + s.echanges, 0)
@@ -88,27 +86,26 @@ export default function DashboardCentreAppel({ conseilleres, saisies, reload }) 
       ))
       return {
         label: formatGroupLabel(key, periode),
-        key,
-        ...agg,
+        key, ...agg,
         cv_conv: cvSerie(convParC),
         cv_presence: cvSerie(presParC),
         cv_efficacite: cvSerie(effParC),
       }
     })
-    return rows
   }, [saisiesFiltrees, periode, groupFn, conseilleres])
 
-  const chartData = useMemo(() =>
-    [...tableData].reverse().map(r => ({
-      label: r.label,
-      conv: r.conversion_tel,
-      presence: r.taux_presence,
-      efficacite: r.efficacite_comm,
-    })),
-    [tableData]
-  )
+  const chartData = useMemo(() => [...tableData].reverse().map(r => ({
+    label: r.label, conv: r.conversion_tel, presence: r.taux_presence, efficacite: r.efficacite_comm,
+  })), [tableData])
 
-  const rankingSorted = [...kpisParConseillere].sort((a, b) => b.conversion_tel - a.conversion_tel)
+  // Ranking basé sur moyenne Conv. Tél. + Taux Présence
+  const rankingSorted = useMemo(() => {
+    return [...kpisParConseillere].sort((a, b) => {
+      const scoreA = (a.conversion_tel + a.taux_presence) / 2
+      const scoreB = (b.conversion_tel + b.taux_presence) / 2
+      return scoreB - scoreA
+    })
+  }, [kpisParConseillere])
 
   const drillData = useMemo(() => {
     if (!drillConseillere) return null
@@ -124,8 +121,8 @@ export default function DashboardCentreAppel({ conseilleres, saisies, reload }) 
 
   const cardStyle = { background: '#fff', borderRadius: 14, padding: 24, border: '1px solid rgba(201,168,76,0.15)', marginBottom: 20 }
   const tooltipStyle = { background: '#2C2C2C', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12 }
-  const thStyle = { fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '10px 10px', borderBottom: '1px solid rgba(201,168,76,0.15)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 500 }
-  const tdStyle = { padding: '10px 10px', fontSize: 12, borderBottom: '1px solid rgba(201,168,76,0.06)' }
+  const thStyle = { fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '8px 8px', borderBottom: '1px solid rgba(201,168,76,0.15)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 500, whiteSpace: 'nowrap' }
+  const tdStyle = { padding: '9px 8px', fontSize: 11, borderBottom: '1px solid rgba(201,168,76,0.06)', whiteSpace: 'nowrap' }
 
   const periodeLabel = periode === 'jour' ? 'jour' : periode === 'semaine' ? 'semaine' : periode === 'mois' ? 'mois' : 'trimestre'
 
@@ -139,7 +136,7 @@ export default function DashboardCentreAppel({ conseilleres, saisies, reload }) 
       <SectionTitle>KPIs Globaux — Équipe</SectionTitle>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 16, marginBottom: 16 }}>
         <KpiCard label="Productivité" value={kpisGlobal.productivite} sub="Échanges / Leads nets" badge={`Leads nets: ${kpisGlobal.leads_nets}`} />
-        <KpiCard label="Joignabilité (indispos)" value={kpisGlobal.joignabilite} sub="Indispos / Leads bruts" badge={`${kpisGlobal.indispos} indispos`} />
+        <KpiCard label="Joignabilité" value={kpisGlobal.joignabilite} sub="Leads joints / Leads bruts" badge={`${kpisGlobal.indispos} indispos`} />
         <KpiCard label="Conv. Téléphonique" value={kpisGlobal.conversion_tel} sub="RDV / Échanges" badge={`CV équipe: ${cvConvTel}%`} />
         <KpiCard label="Taux de Présence" value={kpisGlobal.taux_presence} sub="Visites / RDV" badge={`CV équipe: ${cvPresence}%`} />
       </div>
@@ -210,11 +207,11 @@ export default function DashboardCentreAppel({ conseilleres, saisies, reload }) 
                   <td style={tdStyle}>{row.ventes}</td>
                   <td style={{ ...tdStyle, fontWeight: 500 }}>{row.productivite}%</td>
                   <td style={{ ...tdStyle, fontWeight: 500, color: '#C9A84C' }}>{row.conversion_tel}%</td>
-                  <td style={{ ...tdStyle, color: '#8a6a1a', fontSize: 11 }}>{row.cv_conv}%</td>
+                  <td style={{ ...tdStyle, color: '#8a6a1a', fontSize: 10 }}>{row.cv_conv}%</td>
                   <td style={{ ...tdStyle, color: '#4CAF7D' }}>{row.taux_presence}%</td>
-                  <td style={{ ...tdStyle, color: '#2d7a54', fontSize: 11 }}>{row.cv_presence}%</td>
+                  <td style={{ ...tdStyle, color: '#2d7a54', fontSize: 10 }}>{row.cv_presence}%</td>
                   <td style={{ ...tdStyle, color: '#534AB7' }}>{row.efficacite_comm}%</td>
-                  <td style={{ ...tdStyle, color: '#3a3480', fontSize: 11 }}>{row.cv_efficacite}%</td>
+                  <td style={{ ...tdStyle, color: '#3a3480', fontSize: 10 }}>{row.cv_efficacite}%</td>
                 </tr>
               ))}
               {tableData.length === 0 && (
@@ -225,53 +222,64 @@ export default function DashboardCentreAppel({ conseilleres, saisies, reload }) 
         </div>
       </div>
 
-      <SectionTitle>Ranking Conseillères</SectionTitle>
+      <SectionTitle>Ranking Conseillères <span style={{ fontSize: 11, color: '#5A5A5A', fontWeight: 400, fontFamily: 'DM Sans' }}>(basé sur Conv. Tél. + Présence)</span></SectionTitle>
       <div style={cardStyle}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              {['#', 'Étoiles', 'Conseillère', 'Leads Bruts', 'Leads Nets', 'Productivité', 'Joignabilité', 'Conv. Tél.', 'Présence', 'Eff. Comm.', 'Détail'].map(h => (
-                <th key={h} style={thStyle}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rankingSorted.map((c, i) => {
-              const rankColor = getRankColor(i, rankingSorted.length)
-              const stars = getStars(i, rankingSorted.length)
-              return (
-                <tr key={c.id}
-                  onMouseEnter={e => e.currentTarget.style.background = '#F7F0DC'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                >
-                  <td style={{ ...tdStyle, fontSize: 18, fontWeight: 700, color: rankColor }}>{i + 1}</td>
-                  <td style={{ ...tdStyle, color: '#C9A84C', letterSpacing: 1 }}>{stars}</td>
-                  <td style={{ ...tdStyle, fontWeight: 500, color: rankColor }}>{c.nom}</td>
-                  <td style={tdStyle}>{c.leads_bruts}</td>
-                  <td style={tdStyle}>{c.leads_nets}</td>
-                  <td style={{ ...tdStyle, fontWeight: 500 }}>{c.productivite}%</td>
-                  <td style={{ ...tdStyle, color: c.joignabilite > 30 ? '#E05C5C' : '#4CAF7D' }}>{c.joignabilite}%</td>
-                  <td style={tdStyle}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <div style={{ flex: 1, height: 6, background: 'rgba(201,168,76,0.1)', borderRadius: 3, overflow: 'hidden', minWidth: 50 }}>
-                        <div style={{ height: '100%', width: `${Math.min(c.conversion_tel, 100)}%`, background: rankColor, borderRadius: 3 }}></div>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                {['#', 'Étoiles', 'Conseillère', 'Leads Bruts', 'Leads Nets', 'Productivité', 'Joignabilité', 'Conv. Tél.', 'Présence', 'Eff. Comm.', 'Score', 'Détail'].map(h => (
+                  <th key={h} style={thStyle}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rankingSorted.map((c, i) => {
+                const rankColor = getRankColor(i, rankingSorted.length)
+                const stars = getStars(i, rankingSorted.length)
+                const score = parseFloat(((c.conversion_tel + c.taux_presence) / 2).toFixed(1))
+                return (
+                  <tr key={c.id}
+                    onMouseEnter={e => e.currentTarget.style.background = '#F7F0DC'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <td style={{ ...tdStyle, fontSize: 16, fontWeight: 700, color: rankColor }}>{i + 1}</td>
+                    <td style={{ ...tdStyle, color: '#C9A84C', letterSpacing: 2, fontSize: 16 }}>{stars}</td>
+                    <td style={{ ...tdStyle, fontWeight: 500, color: rankColor, fontSize: 12 }}>{c.nom}</td>
+                    <td style={tdStyle}>{c.leads_bruts}</td>
+                    <td style={tdStyle}>{c.leads_nets}</td>
+                    <td style={{ ...tdStyle, fontWeight: 500 }}>{c.productivite}%</td>
+                    <td style={{ ...tdStyle, color: c.joignabilite < 70 ? '#E05C5C' : '#4CAF7D' }}>{c.joignabilite}%</td>
+                    <td style={{ ...tdStyle, minWidth: 120 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ flex: 1, height: 8, background: 'rgba(201,168,76,0.15)', borderRadius: 4, overflow: 'hidden', minWidth: 60 }}>
+                          <div style={{ height: '100%', width: `${Math.min(c.conversion_tel, 100)}%`, background: rankColor, borderRadius: 4 }}></div>
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 500, minWidth: 38, color: rankColor }}>{c.conversion_tel}%</span>
                       </div>
-                      <span style={{ fontSize: 12, fontWeight: 500, minWidth: 38, color: rankColor }}>{c.conversion_tel}%</span>
-                    </div>
-                  </td>
-                  <td style={tdStyle}>{c.taux_presence}%</td>
-                  <td style={tdStyle}>{c.efficacite_comm}%</td>
-                  <td style={tdStyle}>
-                    <button onClick={() => setDrillConseillere(drillConseillere === c.id ? null : c.id)}
-                      style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid rgba(201,168,76,0.3)', background: drillConseillere === c.id ? '#C9A84C' : 'transparent', color: drillConseillere === c.id ? '#fff' : '#C9A84C', fontSize: 11, cursor: 'pointer' }}>
-                      {drillConseillere === c.id ? 'Fermer' : 'Détail ↗'}
-                    </button>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+                    </td>
+                    <td style={{ ...tdStyle, minWidth: 120 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ flex: 1, height: 8, background: 'rgba(76,175,125,0.15)', borderRadius: 4, overflow: 'hidden', minWidth: 60 }}>
+                          <div style={{ height: '100%', width: `${Math.min(c.taux_presence, 100)}%`, background: '#4CAF7D', borderRadius: 4 }}></div>
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 500, minWidth: 38, color: '#4CAF7D' }}>{c.taux_presence}%</span>
+                      </div>
+                    </td>
+                    <td style={tdStyle}>{c.efficacite_comm}%</td>
+                    <td style={{ ...tdStyle, fontWeight: 600, color: rankColor, fontSize: 13 }}>{score}%</td>
+                    <td style={tdStyle}>
+                      <button onClick={() => setDrillConseillere(drillConseillere === c.id ? null : c.id)}
+                        style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid rgba(201,168,76,0.3)', background: drillConseillere === c.id ? '#C9A84C' : 'transparent', color: drillConseillere === c.id ? '#fff' : '#C9A84C', fontSize: 11, cursor: 'pointer' }}>
+                        {drillConseillere === c.id ? 'Fermer' : 'Détail ↗'}
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {drillConseillere && drillData && (
