@@ -13,7 +13,7 @@ const navItems = [
   { section: 'Commercial' },
   { path: '/flux-rdv', label: 'Flux de Rendez-vous' },
   { section: 'Analyse' },
-  { path: '/analyse-cv', label: 'Analyse CV' },
+  { path: '/analyse-cv', label: 'Analyse de la capabilité' },
 ]
 
 export default function Sidebar() {
