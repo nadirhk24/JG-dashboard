@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react'
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from 'recharts'
+import { BarChart, Bar, LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, LabelList } from 'recharts'
 import PageHeader from '../components/PageHeader'
 import SectionTitle from '../components/SectionTitle'
 import { supabase } from '../lib/supabase'
-import { filtrerParPeriode, getGroupFunction, formatGroupLabel } from '../lib/dates'
+import { filtrerParSelection, getGroupFunction, formatGroupLabel } from '../lib/dates'
 import { agregerParPeriode } from '../lib/kpi'
 
 const CC_KPIS = [
@@ -23,27 +23,52 @@ const MKT_KPIS = [
   { key: 'taux_non_exp', label: 'Taux Non exploit.', color: '#8A8A7A', unit: '%' },
 ]
 
-function calcCV(valeurs) {
-  const vals = valeurs.filter(v => v > 0)
-  if (vals.length < 2) return 0
-  const moy = vals.reduce((a, b) => a + b, 0) / vals.length
-  if (moy === 0) return 0
-  const variance = vals.reduce((sum, v) => sum + Math.pow(v - moy, 2), 0) / vals.length
-  return parseFloat(((Math.sqrt(variance) / moy) * 100).toFixed(1))
-}
-
 function calcTaux(val, base) {
   if (!base || base === 0) return 0
   return parseFloat(((val / base) * 100).toFixed(1))
 }
 
+function calcMoyenne(vals) {
+  const v = vals.filter(x => x > 0)
+  if (v.length === 0) return 0
+  return v.reduce((a, b) => a + b, 0) / v.length
+}
+
+function calcEcartType(vals) {
+  const v = vals.filter(x => x > 0)
+  if (v.length < 2) return 0
+  const moy = calcMoyenne(v)
+  const variance = v.reduce((sum, x) => sum + Math.pow(x - moy, 2), 0) / v.length
+  return Math.sqrt(variance)
+}
+
+function calcCV(vals) {
+  const moy = calcMoyenne(vals)
+  if (moy === 0) return 0
+  return parseFloat(((calcEcartType(vals) / moy) * 100).toFixed(1))
+}
+
+// Genere les points de la courbe normale
+function generateBellCurve(mean, stdDev, numPoints = 100) {
+  if (stdDev === 0) return []
+  const points = []
+  const min = mean - 4 * stdDev
+  const max = mean + 4 * stdDev
+  const step = (max - min) / numPoints
+  for (let x = min; x <= max; x += step) {
+    const y = (1 / (stdDev * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * Math.pow((x - mean) / stdDev, 2))
+    points.push({ x: parseFloat(x.toFixed(2)), y: parseFloat(y.toFixed(6)) })
+  }
+  return points
+}
+
 const CustomBarLabel = ({ x, y, width, value }) => {
   if (!value) return null
-  return <text x={x + width / 2} y={y - 4} fill="#5A5A5A" textAnchor="middle" fontSize={10}>{value}%</text>
+  return <text x={x + width / 2} y={y - 5} fill="#5A5A5A" textAnchor="middle" fontSize={10}>{value}%</text>
 }
 
 const CustomDotLabel = ({ cx, cy, value }) => {
-  if (!value) return null
+  if (!value && value !== 0) return null
   return <text x={cx} y={cy - 10} fill="#C9A84C" textAnchor="middle" fontSize={10} fontWeight={500}>{value}%</text>
 }
 
@@ -53,10 +78,7 @@ export default function AnalyseCV({ conseilleres, saisies }) {
   const [periode, setPeriode] = useState('mois')
   const [marketingData, setMarketingData] = useState([])
 
-  useEffect(() => {
-    loadMarketing()
-  }, [])
-
+  useEffect(() => { loadMarketing() }, [])
   async function loadMarketing() {
     const { data } = await supabase.from('marketing_saisies').select('*').order('date', { ascending: true })
     setMarketingData(data || [])
@@ -74,15 +96,13 @@ export default function AnalyseCV({ conseilleres, saisies }) {
 
   const chartData = useMemo(() => {
     if (segment === 'callcenter') {
-      const filtered = filtrerParPeriode(saisies, periode)
-      const groups = groupFn(filtered)
+      const groups = groupFn(saisies)
       return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([key, items]) => {
         const agg = agregerParPeriode(items)
         return { label: formatGroupLabel(key, periode), taux: agg[kpiKey] || 0 }
       })
     } else {
-      const filtered = filtrerParPeriode(marketingData, periode)
-      const groups = groupFn(filtered)
+      const groups = groupFn(marketingData)
       return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([key, items]) => {
         const t = items.reduce((acc, s) => ({
           injections: acc.injections + (s.injections || 0),
@@ -107,9 +127,12 @@ export default function AnalyseCV({ conseilleres, saisies }) {
     }
   }, [segment, saisies, marketingData, kpiKey, periode, groupFn])
 
+  // CV cumulatif - inclut le premier point avec CV=0
   const cvData = useMemo(() => {
-    if (chartData.length < 2) return []
+    if (chartData.length === 0) return []
     const result = []
+    // Premier point = CV 0 (pas assez de données)
+    result.push({ label: chartData[0].label, cv: 0 })
     for (let i = 1; i < chartData.length; i++) {
       const slice = chartData.slice(0, i + 1)
       const cv = calcCV(slice.map(r => r.taux))
@@ -120,6 +143,18 @@ export default function AnalyseCV({ conseilleres, saisies }) {
 
   const cvGlobal = useMemo(() => calcCV(chartData.map(r => r.taux)), [chartData])
 
+  // Statistiques pour la courbe en cloche
+  const stats = useMemo(() => {
+    const vals = chartData.map(r => r.taux).filter(v => v > 0)
+    const moy = calcMoyenne(vals)
+    const ecart = calcEcartType(vals)
+    const ucl = parseFloat((moy + 2 * ecart).toFixed(2))
+    const lcl = parseFloat(Math.max(0, moy - 2 * ecart).toFixed(2))
+    return { moy: parseFloat(moy.toFixed(2)), ecart: parseFloat(ecart.toFixed(2)), ucl, lcl }
+  }, [chartData])
+
+  const bellCurveData = useMemo(() => generateBellCurve(stats.moy, stats.ecart), [stats])
+
   const periodes = [
     { key: 'jour', label: 'Jour' },
     { key: 'semaine', label: 'Semaine' },
@@ -127,7 +162,7 @@ export default function AnalyseCV({ conseilleres, saisies }) {
     { key: 'trimestre', label: 'Trimestre' },
   ]
 
-  const cardStyle = { background: '#fff', borderRadius: 14, padding: 24, border: '1px solid rgba(201,168,76,0.15)' }
+  const cardStyle = { background: '#fff', borderRadius: 14, padding: 24, border: '1px solid rgba(201,168,76,0.15)', marginBottom: 20 }
   const tooltipStyle = { background: '#2C2C2C', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12 }
   const btnStyle = (active, color = '#C9A84C') => ({
     padding: '7px 16px', borderRadius: 20,
@@ -137,11 +172,17 @@ export default function AnalyseCV({ conseilleres, saisies }) {
     fontSize: 12, fontWeight: active ? 500 : 400, cursor: 'pointer', transition: 'all 0.2s'
   })
 
+  const maitrise = cvGlobal === 0 ? { label: 'Pas assez de données', color: '#8A8A7A', dot: '⚪' } :
+    cvGlobal < 15 ? { label: 'Processus maîtrisé', color: '#1a6b3c', dot: '🟢' } :
+    cvGlobal < 30 ? { label: 'Modérément variable', color: '#C9A84C', dot: '🟡' } :
+    cvGlobal < 50 ? { label: 'Variable — à surveiller', color: '#E07B30', dot: '🟠' } :
+    { label: 'Hors contrôle — action requise', color: '#E05C5C', dot: '🔴' }
+
   return (
     <div>
-      <PageHeader title="Analyse CV" subtitle="Coefficient de variation par segment et KPI" />
+      <PageHeader title="Analyse CV" subtitle="Coefficient de variation & maîtrise des procédés" />
 
-      <div style={{ display: 'flex', gap: 20, marginBottom: 28, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', gap: 20, marginBottom: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
           <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, fontWeight: 500 }}>Segment</div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -160,63 +201,77 @@ export default function AnalyseCV({ conseilleres, saisies }) {
       </div>
 
       <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10, fontWeight: 500 }}>KPI</div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 28 }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>
         {kpis.map(k => (
           <button key={k.key} style={btnStyle(kpiKey === k.key, k.color)} onClick={() => setKpiKey(k.key)}>{k.label}</button>
         ))}
       </div>
 
-      <div style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', border: '1px solid rgba(201,168,76,0.15)', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 24 }}>
+      {/* Bandeau synthese */}
+      <div style={{ background: '#fff', borderRadius: 12, padding: '16px 24px', border: '1px solid rgba(201,168,76,0.15)', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 32, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>KPI sélectionné</div>
+          <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>KPI</div>
           <div style={{ fontSize: 16, fontWeight: 600, color: selectedKpi.color }}>{selectedKpi.label}</div>
         </div>
         <div style={{ width: 1, height: 40, background: 'rgba(201,168,76,0.2)' }}></div>
         <div>
           <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>CV Global</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: cvGlobal > 50 ? '#E05C5C' : cvGlobal > 25 ? '#C9A84C' : '#4CAF7D', fontFamily: 'DM Sans' }}>{cvGlobal}%</div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: maitrise.color, fontFamily: 'DM Sans' }}>{cvGlobal}%</div>
         </div>
         <div style={{ width: 1, height: 40, background: 'rgba(201,168,76,0.2)' }}></div>
         <div>
-          <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Interprétation</div>
-          <div style={{ fontSize: 13, color: '#5A5A5A' }}>
-            {cvGlobal === 0 ? 'Pas assez de données' :
-             cvGlobal < 15 ? '✅ Très stable' :
-             cvGlobal < 30 ? '🟡 Modérément variable' :
-             cvGlobal < 50 ? '🟠 Variable — surveiller' :
-             '🔴 Très variable — action requise'}
-          </div>
+          <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Moyenne</div>
+          <div style={{ fontSize: 20, fontWeight: 600, color: '#2C2C2C' }}>{stats.moy}%</div>
+        </div>
+        <div style={{ width: 1, height: 40, background: 'rgba(201,168,76,0.2)' }}></div>
+        <div>
+          <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>UCL / LCL</div>
+          <div style={{ fontSize: 14, fontWeight: 500, color: '#2C2C2C' }}>{stats.ucl}% / {stats.lcl}%</div>
+        </div>
+        <div style={{ width: 1, height: 40, background: 'rgba(201,168,76,0.2)' }}></div>
+        <div>
+          <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Maîtrise</div>
+          <div style={{ fontSize: 13, color: maitrise.color, fontWeight: 500 }}>{maitrise.dot} {maitrise.label}</div>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      {/* Graphes taux + CV */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
         <div style={cardStyle}>
           <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C', marginBottom: 4 }}>{selectedKpi.label}</div>
-          <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 16 }}>Taux par {periode}</div>
+          <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 16 }}>Taux par {periode} · UCL: {stats.ucl}% · LCL: {stats.lcl}%</div>
           {chartData.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px 0', color: '#5A5A5A', fontSize: 13 }}>Pas de données pour cette période</div>
+            <div style={{ textAlign: 'center', padding: '40px 0', color: '#5A5A5A', fontSize: 13 }}>Pas de données</div>
           ) : (
-            <ResponsiveContainer width="100%" height={280}>
+            <ResponsiveContainer width="100%" height={260}>
               <BarChart data={chartData} margin={{ top: 20, right: 10, bottom: 0, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.08)" />
                 <XAxis dataKey="label" tick={{ fontSize: 10 }} />
                 <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${v}%`} domain={[0, 'auto']} />
                 <Tooltip contentStyle={tooltipStyle} formatter={v => [`${v}%`, selectedKpi.label]} />
+                {stats.ucl > 0 && <ReferenceLine y={stats.ucl} stroke="#E05C5C" strokeDasharray="4 4" label={{ value: `UCL ${stats.ucl}%`, fill: '#E05C5C', fontSize: 10, position: 'right' }} />}
+                {stats.lcl > 0 && <ReferenceLine y={stats.lcl} stroke="#4CAF7D" strokeDasharray="4 4" label={{ value: `LCL ${stats.lcl}%`, fill: '#4CAF7D', fontSize: 10, position: 'right' }} />}
+                {stats.moy > 0 && <ReferenceLine y={stats.moy} stroke="#C9A84C" strokeDasharray="2 2" label={{ value: `Moy ${stats.moy}%`, fill: '#C9A84C', fontSize: 10, position: 'right' }} />}
                 <Bar dataKey="taux" fill={selectedKpi.color} radius={[4, 4, 0, 0]} name={selectedKpi.label}>
                   <LabelList dataKey="taux" content={<CustomBarLabel />} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           )}
+          <div style={{ display: 'flex', gap: 16, marginTop: 12, flexWrap: 'wrap' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#5A5A5A' }}><span style={{ width: 14, height: 2, background: '#E05C5C', display: 'inline-block', borderTop: '2px dashed #E05C5C' }}></span>UCL</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#5A5A5A' }}><span style={{ width: 14, height: 2, background: '#C9A84C', display: 'inline-block', borderTop: '2px dashed #C9A84C' }}></span>Moyenne</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#5A5A5A' }}><span style={{ width: 14, height: 2, background: '#4CAF7D', display: 'inline-block', borderTop: '2px dashed #4CAF7D' }}></span>LCL</span>
+          </div>
         </div>
 
         <div style={cardStyle}>
           <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C', marginBottom: 4 }}>CV — {selectedKpi.label}</div>
           <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 16 }}>Évolution du coefficient de variation</div>
           {cvData.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px 0', color: '#5A5A5A', fontSize: 13 }}>Pas assez de données pour calculer le CV</div>
+            <div style={{ textAlign: 'center', padding: '40px 0', color: '#5A5A5A', fontSize: 13 }}>Pas assez de données</div>
           ) : (
-            <ResponsiveContainer width="100%" height={280}>
+            <ResponsiveContainer width="100%" height={260}>
               <LineChart data={cvData} margin={{ top: 20, right: 10, bottom: 0, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.08)" />
                 <XAxis dataKey="label" tick={{ fontSize: 10 }} />
@@ -231,37 +286,70 @@ export default function AnalyseCV({ conseilleres, saisies }) {
         </div>
       </div>
 
-      <SectionTitle>Tableau détaillé</SectionTitle>
-      <div style={{ ...cardStyle, marginTop: 20 }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                <th style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '8px 10px', borderBottom: '1px solid rgba(201,168,76,0.15)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 500 }}>Période</th>
-                <th style={{ fontSize: 10, color: selectedKpi.color, textAlign: 'left', padding: '8px 10px', borderBottom: '1px solid rgba(201,168,76,0.15)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 500 }}>{selectedKpi.label}</th>
-                <th style={{ fontSize: 10, color: '#C9A84C', textAlign: 'left', padding: '8px 10px', borderBottom: '1px solid rgba(201,168,76,0.15)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 500 }}>CV cumulé</th>
-              </tr>
-            </thead>
-            <tbody>
-              {chartData.map((row, i) => {
-                const cvRow = cvData.find(c => c.label === row.label)
-                return (
-                  <tr key={i} onMouseEnter={e => e.currentTarget.style.background = '#F7F0DC'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                    <td style={{ padding: '9px 10px', fontSize: 12, fontWeight: 500, color: '#C9A84C', borderBottom: '1px solid rgba(201,168,76,0.06)' }}>{row.label}</td>
-                    <td style={{ padding: '9px 10px', fontSize: 12, color: selectedKpi.color, fontWeight: 500, borderBottom: '1px solid rgba(201,168,76,0.06)' }}>{row.taux}%</td>
-                    <td style={{ padding: '9px 10px', fontSize: 12, color: cvRow ? (cvRow.cv > 50 ? '#E05C5C' : cvRow.cv > 25 ? '#C9A84C' : '#4CAF7D') : '#8A8A7A', borderBottom: '1px solid rgba(201,168,76,0.06)' }}>
-                      {cvRow ? `${cvRow.cv}%` : '—'}
-                    </td>
-                  </tr>
-                )
-              })}
-              {chartData.length === 0 && (
-                <tr><td colSpan={3} style={{ textAlign: 'center', padding: '32px', color: '#5A5A5A', fontSize: 13 }}>Aucune donnée disponible</td></tr>
-              )}
-            </tbody>
-          </table>
+      {/* Courbe en cloche */}
+      {bellCurveData.length > 0 && (
+        <div style={cardStyle}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C', marginBottom: 4 }}>Distribution — Loi normale</div>
+          <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 4 }}>
+            Moyenne: <strong>{stats.moy}%</strong> · Écart-type: <strong>{stats.ecart}%</strong> · UCL: <strong style={{ color: '#E05C5C' }}>{stats.ucl}%</strong> · LCL: <strong style={{ color: '#4CAF7D' }}>{stats.lcl}%</strong>
+          </div>
+          <div style={{ fontSize: 11, color: maitrise.color, marginBottom: 16, fontWeight: 500 }}>{maitrise.dot} {maitrise.label}</div>
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={bellCurveData} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
+              <defs>
+                <linearGradient id="bellGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={selectedKpi.color} stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor={selectedKpi.color} stopOpacity={0.05}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.08)" />
+              <XAxis dataKey="x" tick={{ fontSize: 9 }} tickFormatter={v => `${v}%`} />
+              <YAxis tick={{ fontSize: 9 }} tickFormatter={v => v.toFixed(3)} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v, n, p) => [`${p.payload.x}%`, 'Valeur']} labelFormatter={() => ''} />
+              {stats.ucl > 0 && <ReferenceLine x={stats.ucl} stroke="#E05C5C" strokeDasharray="4 4" label={{ value: `UCL`, fill: '#E05C5C', fontSize: 10 }} />}
+              {stats.lcl > 0 && <ReferenceLine x={stats.lcl} stroke="#4CAF7D" strokeDasharray="4 4" label={{ value: `LCL`, fill: '#4CAF7D', fontSize: 10 }} />}
+              {stats.moy > 0 && <ReferenceLine x={stats.moy} stroke="#C9A84C" strokeWidth={2} label={{ value: `μ=${stats.moy}%`, fill: '#C9A84C', fontSize: 10 }} />}
+              <Area type="monotone" dataKey="y" stroke={selectedKpi.color} strokeWidth={2.5} fill="url(#bellGrad)" dot={false} />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
+      )}
+
+      <SectionTitle>Tableau détaillé</SectionTitle>
+      <div style={{ ...cardStyle, marginTop: 8 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              {['Période', selectedKpi.label, 'CV cumulé', 'Statut'].map(h => (
+                <th key={h} style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '8px 10px', borderBottom: '1px solid rgba(201,168,76,0.15)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 500 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {chartData.map((row, i) => {
+              const cvRow = cvData.find(c => c.label === row.label)
+              const cvVal = cvRow?.cv || 0
+              const statut = cvVal === 0 ? { label: '—', color: '#8A8A7A' } :
+                cvVal < 15 ? { label: '✅ Maîtrisé', color: '#1a6b3c' } :
+                cvVal < 30 ? { label: '🟡 Modéré', color: '#C9A84C' } :
+                cvVal < 50 ? { label: '🟠 Variable', color: '#E07B30' } :
+                { label: '🔴 Hors contrôle', color: '#E05C5C' }
+              const horsLimite = row.taux > stats.ucl || (stats.lcl > 0 && row.taux < stats.lcl)
+              return (
+                <tr key={i} onMouseEnter={e => e.currentTarget.style.background = '#F7F0DC'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <td style={{ padding: '9px 10px', fontSize: 12, fontWeight: 500, color: '#C9A84C', borderBottom: '1px solid rgba(201,168,76,0.06)' }}>{row.label}</td>
+                  <td style={{ padding: '9px 10px', fontSize: 12, fontWeight: 500, color: horsLimite ? '#E05C5C' : selectedKpi.color, borderBottom: '1px solid rgba(201,168,76,0.06)' }}>
+                    {row.taux}% {horsLimite && <span style={{ fontSize: 10, marginLeft: 4 }}>⚠️ hors limites</span>}
+                  </td>
+                  <td style={{ padding: '9px 10px', fontSize: 12, color: statut.color, borderBottom: '1px solid rgba(201,168,76,0.06)' }}>{cvVal > 0 ? `${cvVal}%` : '—'}</td>
+                  <td style={{ padding: '9px 10px', fontSize: 12, color: statut.color, borderBottom: '1px solid rgba(201,168,76,0.06)' }}>{statut.label}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   )
 }
+

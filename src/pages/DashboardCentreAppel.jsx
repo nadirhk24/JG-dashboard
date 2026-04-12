@@ -129,6 +129,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   const [msg, setMsg] = useState(null)
   const [confirmModal, setConfirmModal] = useState(null)
   const [selectedRows, setSelectedRows] = useState(new Set())
+  const [showHistorique, setShowHistorique] = useState(false)
   const [saisieMode, setSaisieMode] = useState('jour')
   const today = new Date().toISOString().split('T')[0]
   const [form, setForm] = useState({ conseillere_id: '', date: today, date_debut: '', date_fin: '', leads_bruts: '', indispos: '', echanges: '', rdv: '', visites: '', ventes: '' })
@@ -220,20 +221,24 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
       await supabase.from('saisies').delete().in('id', oldData.map(d => d.id))
     }
 
-    // Inserer UNE SEULE saisie avec date_debut et date_fin
+    // Construire le payload - seulement les champs renseignes
+    // Si mise a jour : fusionner avec les anciennes valeurs
+    const existingData = oldData && oldData.length > 0 ? oldData[0] : null
+    
     const payload = {
       conseillere_id: form.conseillere_id,
       date: dateDebut,
       date_debut: dateDebut,
       date_fin: dateFin,
       type_saisie: saisieMode,
-      leads_bruts: base('leads_bruts'),
-      indispos: base('indispos'),
-      leads_nets: leadsNetsForm,
-      echanges: base('echanges'),
-      rdv: base('rdv'),
-      visites: base('visites'),
-      ventes: base('ventes'),
+      // Pour chaque champ : utiliser la nouvelle valeur si renseignee, sinon garder l'ancienne
+      leads_bruts: form.leads_bruts !== '' ? base('leads_bruts') : (existingData?.leads_bruts ?? 0),
+      indispos: form.indispos !== '' ? base('indispos') : (existingData?.indispos ?? 0),
+      leads_nets: (form.leads_bruts !== '' || form.indispos !== '') ? leadsNetsForm : (existingData?.leads_nets ?? 0),
+      echanges: form.echanges !== '' ? base('echanges') : (existingData?.echanges ?? 0),
+      rdv: form.rdv !== '' ? base('rdv') : (existingData?.rdv ?? 0),
+      visites: form.visites !== '' ? base('visites') : (existingData?.visites ?? 0),
+      ventes: form.ventes !== '' ? base('ventes') : (existingData?.ventes ?? 0),
     }
 
     const { error } = await supabase.from('saisies').insert(payload)
@@ -574,8 +579,11 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
         )
       })()}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, marginTop: 8 }}>
-        <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C' }}>Historique des saisies</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showHistorique ? 16 : 0, marginTop: 8 }}>
+        <div onClick={() => setShowHistorique(p=>!p)} style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
+          Historique des saisies
+          <span style={{ fontSize: 12, color: '#C9A84C', fontFamily: 'DM Sans' }}>{showHistorique ? '▲ Fermer' : '▼ Ouvrir'}</span>
+        </div>
         {selectedRows.size > 0 && (
           <button onClick={async () => {
             if (!window.confirm(`Supprimer ${selectedRows.size} saisie(s) ?`)) return
@@ -587,7 +595,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
           </button>
         )}
       </div>
-      <div style={cardStyle}>
+      {showHistorique && <div style={cardStyle}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
@@ -643,7 +651,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
             </tbody>
           </table>
         </div>
-      </div>
+      </div>}
     </div>
   )
 }

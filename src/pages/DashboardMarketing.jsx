@@ -257,6 +257,7 @@ export default function DashboardMarketing() {
   const [hiddenKpis, setHiddenKpis] = useState({})
   const [confirmModal, setConfirmModal] = useState(null)
   const [selectedRows, setSelectedRows] = useState(new Set())
+  const [showHistorique, setShowHistorique] = useState(false)
   const [hiddenG1, setHiddenG1] = useState({})
   const [hiddenG2, setHiddenG2] = useState({})
   const [hiddenCols, setHiddenCols] = useState({})
@@ -360,18 +361,20 @@ export default function DashboardMarketing() {
     }
 
     // UNE SEULE ligne avec date_debut et date_fin
+    // Fusionner avec les anciennes valeurs pour les champs non renseignes
+    const existingData = oldData && oldData.length > 0 ? oldData[0] : null
     const payload = {
       date: dateDebut,
       date_debut: dateDebut,
       date_fin: dateFin,
       type_saisie: saisieMode,
-      injections: base('injections'),
-      non_exploitables: base('non_exploitables'),
-      indispos: base('indispos'),
-      suivis: base('suivis'),
-      rdv: base('rdv'),
-      visites: base('visites'),
-      ventes: base('ventes'),
+      injections: form.injections !== '' ? base('injections') : (existingData?.injections ?? 0),
+      non_exploitables: form.non_exploitables !== '' ? base('non_exploitables') : (existingData?.non_exploitables ?? 0),
+      indispos: form.indispos !== '' ? base('indispos') : (existingData?.indispos ?? 0),
+      suivis: form.suivis !== '' ? base('suivis') : (existingData?.suivis ?? 0),
+      rdv: form.rdv !== '' ? base('rdv') : (existingData?.rdv ?? 0),
+      visites: form.visites !== '' ? base('visites') : (existingData?.visites ?? 0),
+      ventes: form.ventes !== '' ? base('ventes') : (existingData?.ventes ?? 0),
     }
     const { error } = await supabase.from('marketing_saisies').insert(payload)
     setSaving(false)
@@ -601,8 +604,11 @@ export default function DashboardMarketing() {
           </div>
         </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, marginTop: 8 }}>
-        <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C' }}>Historique des saisies</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showHistorique ? 16 : 0, marginTop: 8 }}>
+        <div onClick={() => setShowHistorique(p=>!p)} style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
+          Historique des saisies
+          <span style={{ fontSize: 12, color: '#C9A84C', fontFamily: 'DM Sans' }}>{showHistorique ? '▲ Fermer' : '▼ Ouvrir'}</span>
+        </div>
         {selectedRows.size > 0 && (
           <button onClick={async () => {
             if (!window.confirm(`Supprimer ${selectedRows.size} saisie(s) ?`)) return
@@ -615,7 +621,7 @@ export default function DashboardMarketing() {
           </button>
         )}
       </div>
-      <div style={{ background: '#fff', borderRadius: 14, padding: 24, border: '1px solid rgba(201,168,76,0.15)' }}>
+      {showHistorique && <div style={{ background: '#fff', borderRadius: 14, padding: 24, border: '1px solid rgba(201,168,76,0.15)' }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
@@ -669,7 +675,7 @@ export default function DashboardMarketing() {
             </tbody>
           </table>
         </div>
-      </div>
+      </div>}
     </div>
   )
 }
