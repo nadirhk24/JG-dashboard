@@ -337,7 +337,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 20 }}>
               {[['echanges','Échanges'],['rdv','RDV fixés'],['visites','Visites'],['ventes','Ventes']].map(([k,l]) => (
-                <div key={k}><label style={labelStyle}>{l}</label><input type="number" min="0" value={form[k]} onChange={e=>setForm(p=>({...p,[k]:e.target.value}))} placeholder="0" style={inputStyle}/></div>
+                <div key={k}><label style={labelStyle}>{l}</label><input type="number" min="0" step="0.5" value={form[k]} onChange={e=>setForm(p=>({...p,[k]:e.target.value}))} placeholder="0" style={inputStyle}/></div>
               ))}
             </div>
             <button type="submit" disabled={saving} style={{ background: saving?'#E8D5A3':'#C9A84C', color:'#fff', border:'none', padding:'11px 28px', borderRadius:8, fontSize:13, fontWeight:500, cursor:saving?'wait':'pointer' }}>
