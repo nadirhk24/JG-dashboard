@@ -255,6 +255,7 @@ export default function DashboardMarketing() {
   const [msg, setMsg] = useState(null)
   const [selected, setSelected] = useState({ type: 'global', value: 'all', label: 'Global' })
   const [hiddenKpis, setHiddenKpis] = useState({})
+  const [confirmModal, setConfirmModal] = useState(null)
   const [hiddenG1, setHiddenG1] = useState({})
   const [hiddenG2, setHiddenG2] = useState({})
   const [hiddenCols, setHiddenCols] = useState({})
@@ -320,42 +321,81 @@ export default function DashboardMarketing() {
     taux_ventes: calcCV(chartData.map(r => r.taux_ventes)),
   }), [chartData])
 
-  async function handleSubmit(e) {
+  async function checkAndSave(e) {
     e.preventDefault()
-    setSaving(true)
     const { supabase } = await import('../lib/supabase')
     const base = (f) => parseInt(form[f]) || 0
+    let dates = []
     if (saisieMode === 'jour') {
-      const existing = marketingData.find(s => s.date === form.date)
-      const payload = {
-        date: form.date,
-        injections: (existing?.injections || 0) + base('injections'),
-        non_exploitables: (existing?.non_exploitables || 0) + base('non_exploitables'),
-        indispos: (existing?.indispos || 0) + base('indispos'),
-        suivis: (existing?.suivis || 0) + base('suivis'),
-        rdv: (existing?.rdv || 0) + base('rdv'),
-        visites: (existing?.visites || 0) + base('visites'),
-        ventes: (existing?.ventes || 0) + base('ventes'),
-      }
-      const { error } = await supabase.from('marketing_saisies').upsert(payload, { onConflict: 'date' })
-      if (error) setMsg({ type: 'error', text: error.message })
-      else { setMsg({ type: 'success', text: 'Données ajoutées !' }); loadMarketing(); setForm(p => ({ ...p, injections: '', non_exploitables: '', indispos: '', suivis: '', rdv: '', visites: '', ventes: '' })); setTimeout(() => setMsg(null), 3000) }
+      dates = [form.date]
     } else {
       const debut = new Date(form.date_debut), fin = new Date(form.date_fin)
       const days = Math.round((fin - debut) / 86400000) + 1
-      if (days <= 0) { setMsg({ type: 'error', text: 'Dates invalides' }); setSaving(false); return }
-      const rows = []
+      if (days <= 0) { setMsg({ type: 'error', text: 'Dates invalides' }); return }
       for (let i = 0; i < days; i++) {
         const d = new Date(debut); d.setDate(d.getDate() + i)
-        const dateStr = d.toISOString().split('T')[0]
-        const ex = marketingData.find(s => s.date === dateStr)
-        rows.push({ date: dateStr, injections: (ex?.injections||0)+Math.round(base('injections')/days), non_exploitables: (ex?.non_exploitables||0)+Math.round(base('non_exploitables')/days), indispos: (ex?.indispos||0)+Math.round(base('indispos')/days), suivis: (ex?.suivis||0)+Math.round(base('suivis')/days), rdv: (ex?.rdv||0)+Math.round(base('rdv')/days), visites: (ex?.visites||0)+Math.round(base('visites')/days), ventes: (ex?.ventes||0)+Math.round(base('ventes')/days) })
+        dates.push(d.toISOString().split('T')[0])
       }
-      const { error } = await supabase.from('marketing_saisies').upsert(rows, { onConflict: 'date' })
-      if (error) setMsg({ type: 'error', text: error.message })
-      else { setMsg({ type: 'success', text: `Données ajoutées sur ${days} jours !` }); loadMarketing(); setTimeout(() => setMsg(null), 3000) }
     }
+    const existing = marketingData.filter(s => dates.includes(s.date))
+    if (existing.length > 0) {
+      setConfirmModal({ dates, message: `Des données existent déjà pour ${existing.length} jour(s) sur cette période.` })
+    } else {
+      await doSave(dates)
+    }
+  }
+
+  async function doSave(dates) {
+    setSaving(true)
+    setConfirmModal(null)
+    const { supabase } = await import('../lib/supabase')
+    const base = (f) => parseInt(form[f]) || 0
+    const totalDays = dates.length
+
+    // Backup avant ecrasement
+    const oldData = marketingData.filter(s => dates.includes(s.date))
+    if (oldData.length > 0) {
+      const backups = oldData.map(d => ({ saisie_id: d.id, ancienne_valeur: JSON.stringify(d) }))
+      await supabase.from('historique_marketing').upsert(backups, { onConflict: 'saisie_id' })
+    }
+
+    const rows = dates.map(dateStr => ({
+      date: dateStr,
+      injections: totalDays === 1 ? base('injections') : Math.round(base('injections') / totalDays),
+      non_exploitables: totalDays === 1 ? base('non_exploitables') : Math.round(base('non_exploitables') / totalDays),
+      indispos: totalDays === 1 ? base('indispos') : Math.round(base('indispos') / totalDays),
+      suivis: totalDays === 1 ? base('suivis') : Math.round(base('suivis') / totalDays),
+      rdv: totalDays === 1 ? base('rdv') : Math.round(base('rdv') / totalDays),
+      visites: totalDays === 1 ? base('visites') : Math.round(base('visites') / totalDays),
+      ventes: totalDays === 1 ? base('ventes') : Math.round(base('ventes') / totalDays),
+    }))
+    const { error } = await supabase.from('marketing_saisies').upsert(rows, { onConflict: 'date' })
     setSaving(false)
+    if (error) setMsg({ type: 'error', text: error.message })
+    else {
+      setMsg({ type: 'success', text: totalDays === 1 ? 'Données enregistrées !' : `Données enregistrées sur ${totalDays} jours !` })
+      loadMarketing()
+      setForm(p => ({ ...p, injections: '', non_exploitables: '', indispos: '', suivis: '', rdv: '', visites: '', ventes: '' }))
+      setTimeout(() => setMsg(null), 3000)
+    }
+  }
+
+  async function annulerMajMarketing(saisieId) {
+    const { supabase } = await import('../lib/supabase')
+    const { data: backup } = await supabase.from('historique_marketing').select('*').eq('saisie_id', saisieId).order('created_at', { ascending: false }).limit(1).maybeSingle()
+    if (!backup) { setMsg({ type: 'error', text: 'Aucun historique disponible' }); return }
+    const ancienne = JSON.parse(backup.ancienne_valeur)
+    const { id, created_at, ...updateData } = ancienne
+    const { error } = await supabase.from('marketing_saisies').update(updateData).eq('id', saisieId)
+    if (error) setMsg({ type: 'error', text: error.message })
+    else { setMsg({ type: 'success', text: 'Mise à jour annulée !' }); loadMarketing(); setTimeout(() => setMsg(null), 3000) }
+  }
+
+  async function supprimerMktSaisie(id) {
+    if (!window.confirm('Supprimer cette saisie ?')) return
+    const { supabase } = await import('../lib/supabase')
+    await supabase.from('marketing_saisies').delete().eq('id', id)
+    loadMarketing()
   }
 
   const cardStyle = { background: '#fff', borderRadius: 14, padding: 24, border: '1px solid rgba(201,168,76,0.15)', marginBottom: 20 }
@@ -374,7 +414,23 @@ export default function DashboardMarketing() {
   return (
     <div>
       <PageHeader title="Dashboard Marketing" subtitle={selected.label}>
-        <button onClick={() => setShowSaisie(!showSaisie)} style={{ padding: '8px 18px', borderRadius: 20, border: '1.5px solid #C9A84C', background: showSaisie ? '#C9A84C' : '#fff', color: showSaisie ? '#fff' : '#C9A84C', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+        {confirmModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 32, maxWidth: 460, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+            <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 22, fontWeight: 600, color: '#2C2C2C', marginBottom: 12 }}>Mise à jour ?</div>
+            <div style={{ fontSize: 14, color: '#5A5A5A', marginBottom: 8, lineHeight: 1.6 }}>{confirmModal.message}</div>
+            <div style={{ fontSize: 13, color: '#C9A84C', fontWeight: 500, marginBottom: 20 }}>S'agit-il d'une mise à jour des données existantes ?</div>
+            <div style={{ padding: '12px 16px', background: 'rgba(201,168,76,0.05)', borderRadius: 10, border: '1px solid rgba(201,168,76,0.2)', marginBottom: 24, fontSize: 12, color: '#8A8A7A' }}>
+              Les données actuelles seront sauvegardées. Tu pourras annuler depuis l'historique en bas de page.
+            </div>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button onClick={() => doSave(confirmModal.dates)} style={{ flex: 1, padding: '12px', borderRadius: 8, background: '#C9A84C', color: '#fff', border: 'none', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>Oui, mettre à jour</button>
+              <button onClick={() => setConfirmModal(null)} style={{ flex: 1, padding: '12px', borderRadius: 8, background: '#fff', color: '#5A5A5A', border: '1.5px solid rgba(201,168,76,0.25)', fontSize: 14, cursor: 'pointer' }}>Non, annuler</button>
+            </div>
+          </div>
+        </div>
+      )}
+      <button onClick={() => setShowSaisie(!showSaisie)} style={{ padding: '8px 18px', borderRadius: 20, border: '1.5px solid #C9A84C', background: showSaisie ? '#C9A84C' : '#fff', color: showSaisie ? '#fff' : '#C9A84C', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
           {showSaisie ? '✕ Fermer' : '+ Saisir données'}
         </button>
       </PageHeader>
@@ -389,7 +445,7 @@ export default function DashboardMarketing() {
             ))}
           </div>
           {msg && <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 14, fontSize: 12, fontWeight: 500, background: msg.type==='success'?'rgba(76,175,125,0.1)':'rgba(224,92,92,0.1)', color: msg.type==='success'?'#2d7a54':'#a03030' }}>{msg.text}</div>}
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={checkAndSave}>
             <div style={{ display: 'grid', gridTemplateColumns: saisieMode==='jour'?'200px':'200px 200px', gap: 16, marginBottom: 16 }}>
               {saisieMode==='jour' ? <div><label style={labelStyle}>Date</label><input type="date" value={form.date} onChange={e => setForm(p=>({...p,date:e.target.value}))} style={inputStyle}/></div>
               : <><div><label style={labelStyle}>Date début</label><input type="date" value={form.date_debut} onChange={e=>setForm(p=>({...p,date_debut:e.target.value}))} style={inputStyle}/></div><div><label style={labelStyle}>Date fin</label><input type="date" value={form.date_fin} onChange={e=>setForm(p=>({...p,date_fin:e.target.value}))} style={inputStyle}/></div></>}
@@ -539,6 +595,43 @@ export default function DashboardMarketing() {
             </div>
           </div>
         </div>
+
+      <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C', marginBottom: 16, marginTop: 8, display: 'flex', alignItems: 'center', gap: 12 }}>
+        Historique des saisies
+        <div style={{ flex: 1, height: 1, background: 'rgba(201,168,76,0.2)' }}></div>
+      </div>
+      <div style={{ background: '#fff', borderRadius: 14, padding: 24, border: '1px solid rgba(201,168,76,0.15)' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>{['Date','Injections','Non Expl.','Indispos','Suivis','RDV','Visites','Ventes','Actions'].map(h => (
+                <th key={h} style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '8px 8px', borderBottom: '1px solid rgba(201,168,76,0.15)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 500, whiteSpace: 'nowrap' }}>{h}</th>
+              ))}</tr>
+            </thead>
+            <tbody>
+              {[...marketingData].sort((a,b) => b.date.localeCompare(a.date)).slice(0, 30).map(s => (
+                <tr key={s.id} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                  <td style={{ padding: '9px 8px', fontSize: 12, fontWeight: 500, color: '#C9A84C', whiteSpace: 'nowrap' }}>{s.date}</td>
+                  <td style={{ padding: '9px 8px', fontSize: 11 }}>{s.injections}</td>
+                  <td style={{ padding: '9px 8px', fontSize: 11, color: '#8A8A7A' }}>{s.non_exploitables}</td>
+                  <td style={{ padding: '9px 8px', fontSize: 11, color: '#E05C5C' }}>{s.indispos}</td>
+                  <td style={{ padding: '9px 8px', fontSize: 11, color: '#C9A84C' }}>{s.suivis}</td>
+                  <td style={{ padding: '9px 8px', fontSize: 11, color: '#534AB7' }}>{s.rdv}</td>
+                  <td style={{ padding: '9px 8px', fontSize: 11, color: '#4CAF7D' }}>{s.visites}</td>
+                  <td style={{ padding: '9px 8px', fontSize: 11, color: '#1a6b3c' }}>{s.ventes}</td>
+                  <td style={{ padding: '9px 8px' }}>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button onClick={() => annulerMajMarketing(s.id)} style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(201,168,76,0.3)', color: '#C9A84C', background: 'transparent', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}>↩ Annuler MàJ</button>
+                      <button onClick={() => supprimerMktSaisie(s.id)} style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(224,92,92,0.3)', color: '#E05C5C', background: 'transparent', fontSize: 11, cursor: 'pointer' }}>Suppr.</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {marketingData.length === 0 && <tr><td colSpan={9} style={{ textAlign: 'center', padding: '32px', color: '#5A5A5A', fontSize: 13 }}>Aucune saisie</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   )
 }

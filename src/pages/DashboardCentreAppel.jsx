@@ -5,7 +5,7 @@ import ConseillereFilter from '../components/ConseillereFilter'
 import KpiCard, { getColorFromObjectif } from '../components/KpiCard'
 import SectionTitle from '../components/SectionTitle'
 import { getGroupFunction, formatGroupLabel } from '../lib/dates'
-import { agregerParPeriode, calcCV, calcConversionTel, calcTauxPresence, calcEfficaciteComm, calcLeadsNets } from '../lib/kpi'
+import { agregerParPeriode, calcCV, calcConversionTel, calcTauxPresence, calcEfficaciteComm } from '../lib/kpi'
 import { supabase } from '../lib/supabase'
 
 function getStars(rank, total) {
@@ -40,7 +40,6 @@ function getMoisCourant() {
 const MOIS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
 function getQuarter(m) { return Math.floor(m / 3) + 1 }
 
-// Navigation drill-down horizontale
 function DrillNav({ data, onSelect, selected }) {
   const [expandedYear, setExpandedYear] = useState(null)
   const [expandedQ, setExpandedQ] = useState(null)
@@ -61,17 +60,14 @@ function DrillNav({ data, onSelect, selected }) {
   const btnStyle = (active, color = '#C9A84C') => ({
     padding: '5px 12px', borderRadius: 14, fontSize: 12, cursor: 'pointer',
     border: `1.5px solid ${active ? color : 'rgba(201,168,76,0.2)'}`,
-    background: active ? color : '#fff',
-    color: active ? '#fff' : '#5A5A5A',
+    background: active ? color : '#fff', color: active ? '#fff' : '#5A5A5A',
     fontWeight: active ? 500 : 400, transition: 'all 0.15s', whiteSpace: 'nowrap'
   })
 
   return (
     <div style={{ background: '#fff', borderRadius: 12, padding: '12px 16px', border: '1px solid rgba(201,168,76,0.15)', marginBottom: 20 }}>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-        <button style={btnStyle(!selected || selected.type === 'global')} onClick={() => { onSelect({ type: 'global', label: 'Global' }); setExpandedYear(null); setExpandedQ(null); setExpandedMonth(null) }}>
-          Global
-        </button>
+        <button style={btnStyle(!selected || selected.type === 'global')} onClick={() => { onSelect({ type: 'global', label: 'Global' }); setExpandedYear(null); setExpandedQ(null); setExpandedMonth(null) }}>Global</button>
         {Object.keys(years).sort().reverse().map(year => (
           <React.Fragment key={year}>
             <button style={btnStyle(selected?.type === 'year' && selected?.value === year)} onClick={() => { setExpandedYear(expandedYear === year ? null : year); setExpandedQ(null); setExpandedMonth(null); onSelect({ type: 'year', value: year, label: year }) }}>
@@ -138,11 +134,10 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   useEffect(() => { loadObjectifs() }, [])
 
   async function loadObjectifs() {
-    const { data } = await supabase.from('objectifs_callcenter').select('*').eq('mois', getMoisCourant()).maybeSingle()
+    const { data } = await supabase.from('objectifs_callcenter').select('*').eq('mois', getMoisCourant()).is('conseillere_id', null).maybeSingle()
     setObjectifs(data || {})
   }
 
-  // Filtrer selon sélection drill
   const saisiesFiltrees = useMemo(() => {
     let data = saisies
     if (filtreConseillere !== 'all') data = data.filter(s => s.conseillere_id === filtreConseillere)
@@ -166,10 +161,8 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   const cvPresence = useMemo(() => calcCV(kpisParConseillere.map(c => c.taux_presence)), [kpisParConseillere])
   const cvEfficacite = useMemo(() => calcCV(kpisParConseillere.map(c => c.efficacite_comm)), [kpisParConseillere])
 
-  // Grouper selon le niveau sélectionné
   const groupFn = useMemo(() => {
     if (selected.type === 'day' || selected.type === 'month') return getGroupFunction('jour')
-    if (selected.type === 'quarter' || selected.type === 'year') return getGroupFunction('mois')
     return getGroupFunction('mois')
   }, [selected])
 
@@ -197,16 +190,17 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   async function checkAndSave(e) {
     e.preventDefault()
     if (!form.conseillere_id) { setMsg({ type: 'error', text: 'Sélectionne une conseillère' }); return }
-    const base = f => parseInt(form[f]) || 0
     let dates = []
     if (saisieMode === 'jour') {
+      if (!form.date) { setMsg({ type: 'error', text: 'Sélectionne une date' }); return }
       dates = [form.date]
     } else {
+      if (!form.date_debut || !form.date_fin) { setMsg({ type: 'error', text: 'Sélectionne une période' }); return }
       const debut = new Date(form.date_debut), fin = new Date(form.date_fin)
-      const days = Math.round((fin-debut)/86400000)+1
+      const days = Math.round((fin - debut) / 86400000) + 1
       if (days <= 0) { setMsg({ type: 'error', text: 'Dates invalides' }); return }
       for (let i = 0; i < days; i++) {
-        const d = new Date(debut); d.setDate(d.getDate()+i)
+        const d = new Date(debut); d.setDate(d.getDate() + i)
         dates.push(d.toISOString().split('T')[0])
       }
     }
@@ -223,25 +217,53 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
     setConfirmModal(null)
     const base = f => parseInt(form[f]) || 0
     const totalDays = dates.length
+
+    // Backup avant ecrasement
     const { data: oldData } = await supabase.from('saisies').select('*').eq('conseillere_id', form.conseillere_id).in('date', dates)
     if (oldData && oldData.length > 0) {
       const backups = oldData.map(d => ({ saisie_id: d.id, conseillere_id: d.conseillere_id, date: d.date, ancienne_valeur: JSON.stringify(d) }))
       await supabase.from('historique_saisies').upsert(backups, { onConflict: 'saisie_id' })
     }
+
+    // Pour saisie par jour : pas de division
+    // Pour saisie par periode : diviser uniformement
     const rows = dates.map(dateStr => ({
-      conseillere_id: form.conseillere_id, date: dateStr,
-      leads_bruts: Math.round(base('leads_bruts')/totalDays),
-      indispos: Math.round(base('indispos')/totalDays),
-      leads_nets: Math.round(leadsNetsForm/totalDays),
-      echanges: Math.round(base('echanges')/totalDays),
-      rdv: Math.round(base('rdv')/totalDays),
-      visites: Math.round(base('visites')/totalDays),
-      ventes: Math.round(base('ventes')/totalDays),
+      conseillere_id: form.conseillere_id,
+      date: dateStr,
+      leads_bruts: totalDays === 1 ? base('leads_bruts') : Math.round(base('leads_bruts') / totalDays),
+      indispos: totalDays === 1 ? base('indispos') : Math.round(base('indispos') / totalDays),
+      leads_nets: totalDays === 1 ? leadsNetsForm : Math.round(leadsNetsForm / totalDays),
+      echanges: totalDays === 1 ? base('echanges') : Math.round(base('echanges') / totalDays),
+      rdv: totalDays === 1 ? base('rdv') : Math.round(base('rdv') / totalDays),
+      visites: totalDays === 1 ? base('visites') : Math.round(base('visites') / totalDays),
+      ventes: totalDays === 1 ? base('ventes') : Math.round(base('ventes') / totalDays),
     }))
+
     const { error } = await supabase.from('saisies').upsert(rows, { onConflict: 'conseillere_id,date' })
     setSaving(false)
     if (error) setMsg({ type: 'error', text: error.message })
-    else { setMsg({ type: 'success', text: `Données enregistrées sur ${totalDays} jour(s) !` }); reload(); setForm(p => ({ ...p, leads_bruts: '', indispos: '', echanges: '', rdv: '', visites: '', ventes: '' })); setTimeout(() => setMsg(null), 3000) }
+    else {
+      setMsg({ type: 'success', text: totalDays === 1 ? 'Données enregistrées !' : `Données enregistrées sur ${totalDays} jours !` })
+      reload()
+      setForm(p => ({ ...p, leads_bruts: '', indispos: '', echanges: '', rdv: '', visites: '', ventes: '' }))
+      setTimeout(() => setMsg(null), 3000)
+    }
+  }
+
+  async function annulerMiseAJour(saisieId) {
+    const { data: backup } = await supabase.from('historique_saisies').select('*').eq('saisie_id', saisieId).order('created_at', { ascending: false }).limit(1).maybeSingle()
+    if (!backup) { setMsg({ type: 'error', text: 'Aucun historique disponible' }); return }
+    const ancienne = JSON.parse(backup.ancienne_valeur)
+    const { id, created_at, ...updateData } = ancienne
+    const { error } = await supabase.from('saisies').update(updateData).eq('id', saisieId)
+    if (error) setMsg({ type: 'error', text: error.message })
+    else { setMsg({ type: 'success', text: 'Mise à jour annulée — données restaurées !' }); reload(); setTimeout(() => setMsg(null), 3000) }
+  }
+
+  async function supprimerSaisie(id) {
+    if (!window.confirm('Supprimer cette saisie définitivement ?')) return
+    await supabase.from('saisies').delete().eq('id', id)
+    reload()
   }
 
   const cardStyle = { background: '#fff', borderRadius: 14, padding: 24, border: '1px solid rgba(201,168,76,0.15)', marginBottom: 20 }
@@ -250,16 +272,11 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   const tdStyle = { padding: '9px 8px', fontSize: 11, borderBottom: '1px solid rgba(201,168,76,0.06)', whiteSpace: 'nowrap' }
   const inputStyle = { width: '100%', padding: '9px 12px', border: '1.5px solid rgba(201,168,76,0.25)', borderRadius: 8, fontSize: 13, color: '#2C2C2C', background: '#F8F7F4', outline: 'none' }
   const labelStyle = { fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 500, marginBottom: 5, display: 'block' }
+  const periodeLabel = selected.type === 'jour' || selected.type === 'day' || selected.type === 'month' ? 'jour' : 'mois'
 
   return (
     <div>
-      <PageHeader title="Call Center" subtitle={selected.label}>
-        <ConseillereFilter conseilleres={conseilleres} value={filtreConseillere} onChange={setFiltreConseillere} />
-        <button onClick={() => setShowSaisie(p => !p)} style={{ padding: '8px 18px', borderRadius: 20, border: '1.5px solid #C9A84C', background: showSaisie ? '#C9A84C' : '#fff', color: showSaisie ? '#fff' : '#C9A84C', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
-          {showSaisie ? '✕ Fermer' : '+ Saisir données'}
-        </button>
-      </PageHeader>
-
+      {/* Modal confirmation */}
       {confirmModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ background: '#fff', borderRadius: 16, padding: 32, maxWidth: 460, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
@@ -267,7 +284,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
             <div style={{ fontSize: 14, color: '#5A5A5A', marginBottom: 8, lineHeight: 1.6 }}>{confirmModal.message}</div>
             <div style={{ fontSize: 13, color: '#C9A84C', fontWeight: 500, marginBottom: 20 }}>S'agit-il d'une mise à jour des données existantes ?</div>
             <div style={{ padding: '12px 16px', background: 'rgba(201,168,76,0.05)', borderRadius: 10, border: '1px solid rgba(201,168,76,0.2)', marginBottom: 24, fontSize: 12, color: '#8A8A7A' }}>
-              Les données actuelles seront sauvegardées. Tu pourras annuler la mise à jour depuis le tableau de saisies.
+              Les données actuelles seront sauvegardées. Tu pourras annuler depuis l'historique en bas de page.
             </div>
             <div style={{ display: 'flex', gap: 12 }}>
               <button onClick={() => doSave(confirmModal.dates)} style={{ flex: 1, padding: '12px', borderRadius: 8, background: '#C9A84C', color: '#fff', border: 'none', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>Oui, mettre à jour</button>
@@ -276,6 +293,13 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
           </div>
         </div>
       )}
+
+      <PageHeader title="Call Center" subtitle={selected.label}>
+        <ConseillereFilter conseilleres={conseilleres} value={filtreConseillere} onChange={setFiltreConseillere} />
+        <button onClick={() => setShowSaisie(p => !p)} style={{ padding: '8px 18px', borderRadius: 20, border: '1.5px solid #C9A84C', background: showSaisie ? '#C9A84C' : '#fff', color: showSaisie ? '#fff' : '#C9A84C', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+          {showSaisie ? '✕ Fermer' : '+ Saisir données'}
+        </button>
+      </PageHeader>
 
       {showSaisie && (
         <div style={{ ...cardStyle, borderColor: '#C9A84C' }}>
@@ -303,6 +327,11 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
                 </>
               )}
             </div>
+            {saisieMode === 'periode' && (
+              <div style={{ padding: '10px 14px', background: 'rgba(201,168,76,0.08)', borderRadius: 8, marginBottom: 14, fontSize: 12, color: '#8a6a1a' }}>
+                Les chiffres seront répartis uniformément sur chaque jour de la période.
+              </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 14 }}>
               <div><label style={labelStyle}>Leads Bruts</label><input type="number" min="0" value={form.leads_bruts} onChange={e=>setForm(p=>({...p,leads_bruts:e.target.value}))} placeholder="ex: 120" style={inputStyle}/></div>
               <div><label style={labelStyle}>Indispos</label><input type="number" min="0" value={form.indispos} onChange={e=>setForm(p=>({...p,indispos:e.target.value}))} placeholder="ex: 20" style={inputStyle}/></div>
@@ -342,13 +371,13 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
             <div style={{ fontSize: 13, fontWeight: 500 }}>Conv. Téléphonique</div>
             <div style={{ fontSize: 11, color: '#5A5A5A' }}>CV: <span style={{ color: '#C9A84C', fontWeight: 500 }}>{cvConvTel}%</span></div>
           </div>
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height={200}>
             <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.08)" />
               <XAxis dataKey="label" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${v}%`} domain={[0, 'auto']} />
               <Tooltip contentStyle={tooltipStyle} formatter={v => [`${v}%`, 'Conv. Tél.']} />
-              <Bar dataKey="conv" fill="#C9A84C" radius={[4,4,0,0]} name="Conv. Tél." />
+              <Bar dataKey="conv" fill="#C9A84C" radius={[4,4,0,0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -357,13 +386,13 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
             <div style={{ fontSize: 13, fontWeight: 500 }}>Taux de Présence</div>
             <div style={{ fontSize: 11, color: '#5A5A5A' }}>CV: <span style={{ color: '#4CAF7D', fontWeight: 500 }}>{cvPresence}%</span></div>
           </div>
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height={200}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(76,175,125,0.08)" />
               <XAxis dataKey="label" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${v}%`} domain={[0, 'auto']} />
               <Tooltip contentStyle={tooltipStyle} formatter={v => [`${v}%`, 'Présence']} />
-              <Line type="monotone" dataKey="presence" stroke="#4CAF7D" strokeWidth={2.5} dot={{ r: 4, fill: '#4CAF7D' }} name="Présence" />
+              <Line type="monotone" dataKey="presence" stroke="#4CAF7D" strokeWidth={2.5} dot={{ r: 4, fill: '#4CAF7D' }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -372,13 +401,13 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
             <div style={{ fontSize: 13, fontWeight: 500 }}>Efficacité Commerciale</div>
             <div style={{ fontSize: 11, color: '#5A5A5A' }}>CV: <span style={{ color: '#534AB7', fontWeight: 500 }}>{cvEfficacite}%</span></div>
           </div>
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height={200}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(83,74,183,0.08)" />
               <XAxis dataKey="label" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${v}%`} domain={[0, 'auto']} />
               <Tooltip contentStyle={tooltipStyle} formatter={v => [`${v}%`, 'Eff. Comm.']} />
-              <Line type="monotone" dataKey="efficacite" stroke="#534AB7" strokeWidth={2.5} dot={{ r: 4, fill: '#534AB7' }} name="Eff. Comm." />
+              <Line type="monotone" dataKey="efficacite" stroke="#534AB7" strokeWidth={2.5} dot={{ r: 4, fill: '#534AB7' }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -418,9 +447,8 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, marginTop: 8 }}>
-        <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C', display: 'flex', alignItems: 'center', gap: 12 }}>
-          Ranking Conseillères
-          <span style={{ fontSize: 11, color: '#5A5A5A', fontWeight: 400, fontFamily: 'DM Sans' }}>(Conv. Tél. + Présence)</span>
+        <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C' }}>
+          Ranking Conseillères <span style={{ fontSize: 11, color: '#5A5A5A', fontWeight: 400, fontFamily: 'DM Sans' }}>(Conv. Tél. + Présence)</span>
         </div>
         <div style={{ position: 'relative' }}>
           <button onClick={() => setShowRankCols(p=>!p)} style={{ padding: '6px 16px', borderRadius: 16, border: '1.5px solid rgba(201,168,76,0.3)', background: '#fff', color: '#C9A84C', fontSize: 12, cursor: 'pointer', fontWeight: 500 }}>Colonnes ▾</button>
@@ -547,6 +575,44 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
           </>
         )
       })()}
+
+      <SectionTitle>Historique des saisies</SectionTitle>
+      <div style={cardStyle}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>{['Date','Conseillère','Leads Bruts','Indispos','Leads Nets','Échanges','RDV','Visites','Ventes','Actions'].map(h => (
+                <th key={h} style={thStyle}>{h}</th>
+              ))}</tr>
+            </thead>
+            <tbody>
+              {[...saisies].slice(0, 30).map(s => {
+                const c = conseilleres.find(c => c.id === s.conseillere_id)
+                return (
+                  <tr key={s.id} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                    <td style={{...tdStyle,fontWeight:500,color:'#C9A84C'}}>{s.date}</td>
+                    <td style={{...tdStyle,fontWeight:500}}>{c?.nom || '—'}</td>
+                    <td style={tdStyle}>{s.leads_bruts}</td>
+                    <td style={{...tdStyle,color:'#E05C5C'}}>{s.indispos}</td>
+                    <td style={{...tdStyle,color:'#C9A84C',fontWeight:500}}>{s.leads_nets}</td>
+                    <td style={tdStyle}>{s.echanges}</td>
+                    <td style={tdStyle}>{s.rdv}</td>
+                    <td style={tdStyle}>{s.visites}</td>
+                    <td style={tdStyle}>{s.ventes}</td>
+                    <td style={{...tdStyle,minWidth:160}}>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button onClick={() => annulerMiseAJour(s.id)} style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(201,168,76,0.3)', color: '#C9A84C', background: 'transparent', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}>↩ Annuler MàJ</button>
+                        <button onClick={() => supprimerSaisie(s.id)} style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(224,92,92,0.3)', color: '#E05C5C', background: 'transparent', fontSize: 11, cursor: 'pointer' }}>Suppr.</button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+              {saisies.length === 0 && <tr><td colSpan={10} style={{textAlign:'center',padding:'32px',color:'#5A5A5A',fontSize:13}}>Aucune saisie</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   )
 }
