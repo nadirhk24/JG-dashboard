@@ -177,7 +177,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   const chartData = useMemo(() => [...tableData].reverse().map(r => ({ label: r.label, conv: r.conversion_tel, presence: r.taux_presence, efficacite: r.efficacite_comm })), [tableData])
   const rankingSorted = useMemo(() => [...kpisParConseillere].sort((a,b) => ((b.conversion_tel+b.taux_presence)/2) - ((a.conversion_tel+a.taux_presence)/2)), [kpisParConseillere])
 
-  const leadsNetsForm = Math.max(0, (parseInt(form.leads_bruts)||0) - (parseInt(form.indispos)||0))
+  const leadsNetsForm = Math.max(0, (parseFloat(form.leads_bruts)||0) - (parseFloat(form.indispos)||0))
 
   async function checkAndSave(e) {
     e.preventDefault()
@@ -205,7 +205,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   async function doSave(dateDebut, dateFin) {
     setSaving(true)
     setConfirmModal(null)
-    const base = f => parseInt(form[f]) || 0
+    const base = f => parseFloat(form[f]) || 0
 
     // Backup des saisies existantes avant ecrasement
     const { data: oldData } = await supabase.from('saisies').select('*')
