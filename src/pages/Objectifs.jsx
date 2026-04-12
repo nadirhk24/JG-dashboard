@@ -121,8 +121,16 @@ export default function Objectifs({ conseilleres }) {
       payload[f.nbKey] = parseFloat(objectifs[f.nbKey]) || 0
       payload[f.jourKey] = joursOuvrables > 0 ? parseFloat(((parseFloat(objectifs[f.nbKey])||0) / joursOuvrables).toFixed(2)) : 0
     })
-    const conflictKeys = selectedConseillere === 'equipe' ? 'mois' : 'conseillere_id,mois'
-    const { error } = await supabase.from('objectifs_callcenter').upsert(payload, { onConflict: conflictKeys })
+    let error
+    if (selectedConseillere === 'equipe') {
+      // Pour l'equipe : supprimer puis inserer (gere les NULL)
+      await supabase.from('objectifs_callcenter').delete().eq('mois', mois).is('conseillere_id', null)
+      const { error: e } = await supabase.from('objectifs_callcenter').insert(payload)
+      error = e
+    } else {
+      const { error: e } = await supabase.from('objectifs_callcenter').upsert(payload, { onConflict: 'conseillere_id,mois' })
+      error = e
+    }
     setSaving(false)
     if (error) setMsg({ type: 'error', text: error.message })
     else {
