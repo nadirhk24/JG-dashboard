@@ -501,42 +501,46 @@ export default function DashboardMarketing() {
             ))}
           </div>
 
-          {/* Graphes */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:20 }}>
-            <div style={cardStyle}>
-              <div style={{ fontSize:13, fontWeight:500, marginBottom:8 }}>Qualité des leads</div>
-              <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:12 }}>
-                {GRAPH1_SERIES.map(s => (
+          {/* Graphe barres - tous les indicateurs */}
+          <div style={{ ...cardStyle, marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C' }}>Volume des indicateurs</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {[...GRAPH1_SERIES, ...GRAPH2_SERIES].map(s => (
                   <button key={s.key} onClick={() => toggleSeries(setHiddenG1, s.key)} style={{ padding:'3px 10px', borderRadius:12, fontSize:11, border:`1px solid ${hiddenG1[s.key]?'rgba(0,0,0,0.1)':s.color}`, background: hiddenG1[s.key]?'#F8F7F4':`${s.color}15`, color: hiddenG1[s.key]?'#8A8A7A':s.color, cursor:'pointer', textDecoration: hiddenG1[s.key]?'line-through':'none' }}>{s.label}</button>
                 ))}
               </div>
-              <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.08)"/>
-                  <XAxis dataKey="label" tick={{fontSize:9}}/>
-                  <YAxis tick={{fontSize:9}} tickFormatter={v=>`${v}%`}/>
-                  <Tooltip contentStyle={tooltipStyle} formatter={v=>`${v}%`}/>
-                  {GRAPH1_SERIES.filter(s=>!hiddenG1[s.key]).map(s => <Bar key={s.key} dataKey={s.key} fill={s.color} radius={[3,3,0,0]} name={s.label}/>)}
-                </BarChart>
-              </ResponsiveContainer>
             </div>
-            <div style={cardStyle}>
-              <div style={{ fontSize:13, fontWeight:500, marginBottom:8 }}>Pipeline conversion</div>
-              <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:12 }}>
-                {GRAPH2_SERIES.map(s => (
-                  <button key={s.key} onClick={() => toggleSeries(setHiddenG2, s.key)} style={{ padding:'3px 10px', borderRadius:12, fontSize:11, border:`1px solid ${hiddenG2[s.key]?'rgba(0,0,0,0.1)':s.color}`, background: hiddenG2[s.key]?'#F8F7F4':`${s.color}15`, color: hiddenG2[s.key]?'#8A8A7A':s.color, cursor:'pointer', textDecoration: hiddenG2[s.key]?'line-through':'none' }}>{s.label}</button>
-                ))}
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.08)"/>
+                <XAxis dataKey="label" tick={{fontSize:9}}/>
+                <YAxis tick={{fontSize:9}} tickFormatter={v=>`${v}%`}/>
+                <Tooltip contentStyle={tooltipStyle} formatter={v=>`${v}%`}/>
+                {[...GRAPH1_SERIES, ...GRAPH2_SERIES].filter(s=>!hiddenG1[s.key]).map(s => <Bar key={s.key} dataKey={s.key} fill={s.color} radius={[3,3,0,0]} name={s.label}/>)}
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Courbes separees par KPI avec dots visibles */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 20 }}>
+            {[...GRAPH1_SERIES, ...GRAPH2_SERIES].map(s => (
+              <div key={s.key} style={cardStyle}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: s.color }}>{s.label}</div>
+                  <div style={{ fontSize: 11, color: '#5A5A5A' }}>CV: <span style={{ color: s.color, fontWeight: 500 }}>{cvs[s.key] || 0}%</span></div>
+                </div>
+                <ResponsiveContainer width="100%" height={160}>
+                  <LineChart data={chartData} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={`${s.color}15`}/>
+                    <XAxis dataKey="label" tick={{fontSize:9}}/>
+                    <YAxis tick={{fontSize:9}} tickFormatter={v=>`${v}%`}/>
+                    <Tooltip contentStyle={tooltipStyle} formatter={v=>`${v}%`}/>
+                    <Line type="monotone" dataKey={s.key} stroke={s.color} strokeWidth={2.5} dot={{ r: 5, fill: s.color, strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 7 }} name={s.label}/>
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
-              <ResponsiveContainer width="100%" height={180}>
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.08)"/>
-                  <XAxis dataKey="label" tick={{fontSize:9}}/>
-                  <YAxis tick={{fontSize:9}} tickFormatter={v=>`${v}%`}/>
-                  <Tooltip contentStyle={tooltipStyle} formatter={v=>`${v}%`}/>
-                  {GRAPH2_SERIES.filter(s=>!hiddenG2[s.key]).map(s => <Line key={s.key} type="monotone" dataKey={s.key} stroke={s.color} strokeWidth={2} dot={{r:3}} name={s.label}/>)}
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+            ))}
           </div>
 
           {/* Cohorte */}

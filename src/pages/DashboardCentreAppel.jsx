@@ -242,6 +242,21 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
     }
 
     const { error } = await supabase.from('saisies').insert(payload)
+    
+    // Sync automatique: leads bruts CC → injections Marketing
+    if (!error && payload.leads_bruts > 0) {
+      const mktExisting = await supabase.from('marketing_saisies').select('*')
+        .lte('date_debut', dateFin).gte('date_fin', dateDebut).maybeSingle()
+      
+      if (mktExisting.data) {
+        // Mise a jour partielle - ajouter les leads bruts aux injections existantes
+        const newInjections = (mktExisting.data.injections || 0) - (mktExisting.data._cc_leads_before || 0) + payload.leads_bruts
+        await supabase.from('marketing_saisies').update({ 
+          injections: Math.max(0, (mktExisting.data.injections || 0) + payload.leads_bruts)
+        }).eq('id', mktExisting.data.id)
+      }
+    }
+
     setSaving(false)
     if (error) setMsg({ type: 'error', text: error.message })
     else {
@@ -355,9 +370,8 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
       <DrillNav data={saisies} onSelect={setSelected} selected={selected} />
 
       <SectionTitle>KPIs Globaux — {selected.label}</SectionTitle>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 16, marginBottom: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 16, marginBottom: 16 }}>
         <KpiCard label="Productivité" value={kpisGlobal.productivite} sub="Échanges / Leads nets" badge={`Leads nets: ${kpisGlobal.leads_nets}`} objectifPct={objectifs.obj_productivite_pct} />
-        <KpiCard label="Joignabilité" value={kpisGlobal.joignabilite} sub="Leads joints / Leads bruts" badge={`${kpisGlobal.indispos} indispos`} objectifPct={objectifs.obj_joignabilite_pct} />
         <KpiCard label="Conv. Téléphonique" value={kpisGlobal.conversion_tel} sub="RDV / Échanges" badge={`CV: ${cvConvTel}%`} objectifPct={objectifs.obj_conv_tel_pct} objectifNb={objectifs.obj_conv_tel_nb} valeurNb={kpisGlobal.rdv} />
         <KpiCard label="Taux de Présence" value={kpisGlobal.taux_presence} sub="Visites / RDV" badge={`CV: ${cvPresence}%`} objectifPct={objectifs.obj_presence_pct} />
       </div>
