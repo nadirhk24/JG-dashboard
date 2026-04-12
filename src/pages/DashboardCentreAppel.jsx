@@ -2,7 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import PageHeader from '../components/PageHeader'
 import ConseillereFilter from '../components/ConseillereFilter'
-import KpiCard, { getColorFromObjectif } from '../components/KpiCard'
+import KpiCard from '../components/KpiCard'
+import { getColorFromObjectif, getObjectifsPourPeriode, clearObjectifsCache } from '../lib/objectifs'
 import SectionTitle from '../components/SectionTitle'
 import { getGroupFunction, formatGroupLabel, filtrerParSelection } from '../lib/dates'
 import { agregerParPeriode, calcCV, calcConversionTel, calcTauxPresence, calcEfficaciteComm } from '../lib/kpi'
@@ -132,11 +133,12 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   const today = new Date().toISOString().split('T')[0]
   const [form, setForm] = useState({ conseillere_id: '', date: today, date_debut: '', date_fin: '', leads_bruts: '', indispos: '', echanges: '', rdv: '', visites: '', ventes: '' })
 
-  useEffect(() => { loadObjectifs() }, [])
+  useEffect(() => { loadObjectifsPeriode() }, [selected])
 
-  async function loadObjectifs() {
-    const { data } = await supabase.from('objectifs_callcenter').select('*').eq('mois', getMoisCourant()).is('conseillere_id', null).maybeSingle()
-    setObjectifs(data || {})
+  async function loadObjectifsPeriode() {
+    clearObjectifsCache()
+    const obj = await getObjectifsPourPeriode(selected)
+    setObjectifs(obj)
   }
 
   const saisiesFiltrees = useMemo(() => {
