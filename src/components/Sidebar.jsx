@@ -10,6 +10,8 @@ const navItems = [
   { section: 'Équipe' },
   { path: '/conseilleres', label: 'Conseillères' },
   { path: '/calendrier', label: 'Calendrier' },
+  { section: 'Commercial' },
+  { path: '/flux-rdv', label: 'Flux de Rendez-vous' },
   { section: 'Analyse' },
   { path: '/analyse-cv', label: 'Analyse CV' },
 ]
