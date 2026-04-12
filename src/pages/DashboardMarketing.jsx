@@ -140,6 +140,37 @@ function DrillNav({ data, onSelect, selected }) {
           </React.Fragment>
         ))}
       </div>
+      {/* Modal zoom graphe */}
+      {zoomedChart && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={() => setZoomedChart(null)}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 32, width: '90%', maxWidth: 900, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div>
+                <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 24, fontWeight: 600, color: zoomedChart.color }}>{zoomedChart.label}</div>
+                <div style={{ fontSize: 12, color: '#5A5A5A', marginTop: 4 }}>CV: <span style={{ color: zoomedChart.color, fontWeight: 600 }}>{cvs[zoomedChart.key] || 0}%</span></div>
+              </div>
+              <button onClick={() => setZoomedChart(null)} style={{ width: 36, height: 36, borderRadius: '50%', border: '1.5px solid rgba(201,168,76,0.3)', background: '#fff', color: '#C9A84C', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+            </div>
+            <ResponsiveContainer width="100%" height={380}>
+              <LineChart data={chartData} margin={{ top: 10, right: 30, bottom: 10, left: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={`${zoomedChart.color}20`}/>
+                <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} tickFormatter={v => `${v}%`} />
+                <Tooltip contentStyle={{ background: '#2C2C2C', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13 }} formatter={v => [`${v}%`, zoomedChart.label]} />
+                <Line type="monotone" dataKey={zoomedChart.key} stroke={zoomedChart.color} strokeWidth={3} dot={{ r: 7, fill: zoomedChart.color, strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 9 }} name={zoomedChart.label}/>
+              </LineChart>
+            </ResponsiveContainer>
+            <div style={{ display: 'flex', gap: 16, marginTop: 16, flexWrap: 'wrap' }}>
+              {[...chartData].map((d, i) => (
+                <div key={i} style={{ background: `${zoomedChart.color}10`, borderRadius: 8, padding: '8px 14px', border: `1px solid ${zoomedChart.color}30` }}>
+                  <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 2 }}>{d.label}</div>
+                  <div style={{ fontSize: 16, fontWeight: 600, color: zoomedChart.color }}>{d[zoomedChart.key]}%</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -256,6 +287,7 @@ export default function DashboardMarketing() {
   const [selected, setSelected] = useState({ type: 'global', value: 'all', label: 'Global' })
   const [hiddenKpis, setHiddenKpis] = useState({})
   const [confirmModal, setConfirmModal] = useState(null)
+  const [zoomedChart, setZoomedChart] = useState(null)
   const [selectedRows, setSelectedRows] = useState(new Set())
   const [showHistorique, setShowHistorique] = useState(false)
   const [hiddenG1, setHiddenG1] = useState({})
@@ -525,7 +557,10 @@ export default function DashboardMarketing() {
           {/* Courbes separees par KPI avec dots visibles */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 20 }}>
             {[...GRAPH1_SERIES, ...GRAPH2_SERIES].map(s => (
-              <div key={s.key} style={cardStyle}>
+              <div key={s.key} style={{ ...cardStyle, cursor: 'pointer', transition: 'box-shadow 0.2s' }}
+                onClick={() => setZoomedChart(s)}
+                onMouseEnter={e => e.currentTarget.style.boxShadow = `0 4px 20px ${s.color}30`}
+                onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                   <div style={{ fontSize: 13, fontWeight: 500, color: s.color }}>{s.label}</div>
                   <div style={{ fontSize: 11, color: '#5A5A5A' }}>CV: <span style={{ color: s.color, fontWeight: 500 }}>{cvs[s.key] || 0}%</span></div>
