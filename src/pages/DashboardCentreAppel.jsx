@@ -188,7 +188,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
     })
   }, [saisiesFiltrees, groupFn, conseilleres, periodeForLabel])
 
-  const chartData = useMemo(() => [...tableData].reverse().map(r => ({ label: r.label, conv: r.conversion_tel, presence: r.taux_presence })), [tableData])
+  const chartData = useMemo(() => [...tableData].reverse().map(r => ({ label: r.label, conv: r.conversion_tel, presence: r.taux_presence, efficacite: r.efficacite_comm })), [tableData])
   const rankingSorted = useMemo(() => [...kpisParConseillere].sort((a,b) => ((b.conversion_tel+b.taux_presence)/2) - ((a.conversion_tel+a.taux_presence)/2)), [kpisParConseillere])
 
   const leadsNetsForm = Math.max(0, (parseInt(form.leads_bruts)||0) - (parseInt(form.indispos)||0))
@@ -295,7 +295,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
         <KpiCard label="Total Ventes" value={kpisGlobal.ventes} unit="" sub="Période sélectionnée" objectifNb={objectifs.obj_ventes_nb} valeurNb={kpisGlobal.ventes} />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 28 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20, marginBottom: 28 }}>
         <div style={cardStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <div style={{ fontSize: 13, fontWeight: 500 }}>Conv. Téléphonique</div>
@@ -323,6 +323,21 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
               <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${v}%`} domain={[0, 'auto']} />
               <Tooltip contentStyle={tooltipStyle} formatter={v => [`${v}%`, 'Présence']} />
               <Line type="monotone" dataKey="presence" stroke="#4CAF7D" strokeWidth={2.5} dot={{ r: 4, fill: '#4CAF7D' }} name="Présence" />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={cardStyle}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 500 }}>Efficacité Commerciale</div>
+            <div style={{ fontSize: 11, color: '#5A5A5A' }}>CV: <span style={{ color: '#534AB7', fontWeight: 500 }}>{cvEfficacite}%</span></div>
+          </div>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(83,74,183,0.08)" />
+              <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${v}%`} domain={[0, 'auto']} />
+              <Tooltip contentStyle={tooltipStyle} formatter={v => [`${v}%`, 'Eff. Comm.']} />
+              <Line type="monotone" dataKey="efficacite" stroke="#534AB7" strokeWidth={2.5} dot={{ r: 4, fill: '#534AB7' }} name="Eff. Comm." />
             </LineChart>
           </ResponsiveContainer>
         </div>
