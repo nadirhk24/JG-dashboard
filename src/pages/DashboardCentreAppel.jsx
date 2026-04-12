@@ -4,7 +4,7 @@ import PageHeader from '../components/PageHeader'
 import ConseillereFilter from '../components/ConseillereFilter'
 import KpiCard, { getColorFromObjectif } from '../components/KpiCard'
 import SectionTitle from '../components/SectionTitle'
-import { getGroupFunction, formatGroupLabel } from '../lib/dates'
+import { getGroupFunction, formatGroupLabel, filtrerParSelection } from '../lib/dates'
 import { agregerParPeriode, calcCV, calcConversionTel, calcTauxPresence, calcEfficaciteComm } from '../lib/kpi'
 import { supabase } from '../lib/supabase'
 
@@ -127,6 +127,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState(null)
   const [confirmModal, setConfirmModal] = useState(null)
+  const [selectedRows, setSelectedRows] = useState(new Set())
   const [saisieMode, setSaisieMode] = useState('jour')
   const today = new Date().toISOString().split('T')[0]
   const [form, setForm] = useState({ conseillere_id: '', date: today, date_debut: '', date_fin: '', leads_bruts: '', indispos: '', echanges: '', rdv: '', visites: '', ventes: '' })
@@ -139,20 +140,9 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   }
 
   const saisiesFiltrees = useMemo(() => {
-    let data = saisies
+    let data = filtrerParSelection(saisies, selected)
     if (filtreConseillere !== 'all') data = data.filter(s => s.conseillere_id === filtreConseillere)
-    if (!selected || selected.type === 'global') return data
-    return data.filter(s => {
-      if (selected.type === 'year') return s.date.startsWith(selected.value)
-      if (selected.type === 'quarter') {
-        const [y, q] = selected.value.split('-Q')
-        const d = new Date(s.date)
-        return d.getFullYear() === parseInt(y) && getQuarter(d.getMonth()) === parseInt(q)
-      }
-      if (selected.type === 'month') return s.date.startsWith(selected.value)
-      if (selected.type === 'day') return s.date === selected.value
-      return true
-    })
+    return data
   }, [saisies, selected, filtreConseillere])
 
   const kpisGlobal = useMemo(() => agregerParPeriode(saisiesFiltrees), [saisiesFiltrees])
@@ -190,60 +180,66 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   async function checkAndSave(e) {
     e.preventDefault()
     if (!form.conseillere_id) { setMsg({ type: 'error', text: 'Sélectionne une conseillère' }); return }
-    let dates = []
-    if (saisieMode === 'jour') {
-      if (!form.date) { setMsg({ type: 'error', text: 'Sélectionne une date' }); return }
-      dates = [form.date]
-    } else {
-      if (!form.date_debut || !form.date_fin) { setMsg({ type: 'error', text: 'Sélectionne une période' }); return }
-      const debut = new Date(form.date_debut), fin = new Date(form.date_fin)
-      const days = Math.round((fin - debut) / 86400000) + 1
-      if (days <= 0) { setMsg({ type: 'error', text: 'Dates invalides' }); return }
-      for (let i = 0; i < days; i++) {
-        const d = new Date(debut); d.setDate(d.getDate() + i)
-        dates.push(d.toISOString().split('T')[0])
-      }
-    }
-    const { data: existing } = await supabase.from('saisies').select('date').eq('conseillere_id', form.conseillere_id).in('date', dates)
+    const dateDebut = saisieMode === 'jour' ? form.date : form.date_debut
+    const dateFin = saisieMode === 'jour' ? form.date : form.date_fin
+    if (!dateDebut) { setMsg({ type: 'error', text: 'Sélectionne une date' }); return }
+    if (saisieMode === 'periode' && !dateFin) { setMsg({ type: 'error', text: 'Sélectionne une date de fin' }); return }
+    if (dateDebut > dateFin) { setMsg({ type: 'error', text: 'La date de fin doit être après la date de début' }); return }
+
+    // Verifier si une saisie existe deja pour cette periode/conseillere
+    const { data: existing } = await supabase.from('saisies')
+      .select('id, date_debut, date_fin')
+      .eq('conseillere_id', form.conseillere_id)
+      .lte('date_debut', dateFin)
+      .gte('date_fin', dateDebut)
+
     if (existing && existing.length > 0) {
-      setConfirmModal({ dates, message: `Des données existent déjà pour ${existing.length} jour(s) sur cette période.` })
+      setConfirmModal({ dateDebut, dateFin, existingIds: existing.map(e => e.id), message: `Des données existent déjà pour cette période (${existing.length} saisie(s)).` })
     } else {
-      await doSave(dates)
+      await doSave(dateDebut, dateFin)
     }
   }
 
-  async function doSave(dates) {
+  async function doSave(dateDebut, dateFin) {
     setSaving(true)
     setConfirmModal(null)
     const base = f => parseInt(form[f]) || 0
-    const totalDays = dates.length
 
-    // Backup avant ecrasement
-    const { data: oldData } = await supabase.from('saisies').select('*').eq('conseillere_id', form.conseillere_id).in('date', dates)
+    // Backup des saisies existantes avant ecrasement
+    const { data: oldData } = await supabase.from('saisies').select('*')
+      .eq('conseillere_id', form.conseillere_id)
+      .lte('date_debut', dateFin)
+      .gte('date_fin', dateDebut)
+
     if (oldData && oldData.length > 0) {
-      const backups = oldData.map(d => ({ saisie_id: d.id, conseillere_id: d.conseillere_id, date: d.date, ancienne_valeur: JSON.stringify(d) }))
+      const backups = oldData.map(d => ({ saisie_id: d.id, conseillere_id: d.conseillere_id, date: d.date_debut, ancienne_valeur: JSON.stringify(d) }))
       await supabase.from('historique_saisies').upsert(backups, { onConflict: 'saisie_id' })
+      // Supprimer les anciennes saisies qui chevauchent
+      await supabase.from('saisies').delete().in('id', oldData.map(d => d.id))
     }
 
-    // Pour saisie par jour : pas de division
-    // Pour saisie par periode : diviser uniformement
-    const rows = dates.map(dateStr => ({
+    // Inserer UNE SEULE saisie avec date_debut et date_fin
+    const payload = {
       conseillere_id: form.conseillere_id,
-      date: dateStr,
-      leads_bruts: totalDays === 1 ? base('leads_bruts') : Math.round(base('leads_bruts') / totalDays),
-      indispos: totalDays === 1 ? base('indispos') : Math.round(base('indispos') / totalDays),
-      leads_nets: totalDays === 1 ? leadsNetsForm : Math.round(leadsNetsForm / totalDays),
-      echanges: totalDays === 1 ? base('echanges') : Math.round(base('echanges') / totalDays),
-      rdv: totalDays === 1 ? base('rdv') : Math.round(base('rdv') / totalDays),
-      visites: totalDays === 1 ? base('visites') : Math.round(base('visites') / totalDays),
-      ventes: totalDays === 1 ? base('ventes') : Math.round(base('ventes') / totalDays),
-    }))
+      date: dateDebut,
+      date_debut: dateDebut,
+      date_fin: dateFin,
+      type_saisie: saisieMode,
+      leads_bruts: base('leads_bruts'),
+      indispos: base('indispos'),
+      leads_nets: leadsNetsForm,
+      echanges: base('echanges'),
+      rdv: base('rdv'),
+      visites: base('visites'),
+      ventes: base('ventes'),
+    }
 
-    const { error } = await supabase.from('saisies').upsert(rows, { onConflict: 'conseillere_id,date' })
+    const { error } = await supabase.from('saisies').insert(payload)
     setSaving(false)
     if (error) setMsg({ type: 'error', text: error.message })
     else {
-      setMsg({ type: 'success', text: totalDays === 1 ? 'Données enregistrées !' : `Données enregistrées sur ${totalDays} jours !` })
+      const label = saisieMode === 'jour' ? `Données enregistrées pour le ${dateDebut} !` : `Données enregistrées du ${dateDebut} au ${dateFin} !`
+      setMsg({ type: 'success', text: label })
       reload()
       setForm(p => ({ ...p, leads_bruts: '', indispos: '', echanges: '', rdv: '', visites: '', ventes: '' }))
       setTimeout(() => setMsg(null), 3000)
@@ -287,7 +283,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
               Les données actuelles seront sauvegardées. Tu pourras annuler depuis l'historique en bas de page.
             </div>
             <div style={{ display: 'flex', gap: 12 }}>
-              <button onClick={() => doSave(confirmModal.dates)} style={{ flex: 1, padding: '12px', borderRadius: 8, background: '#C9A84C', color: '#fff', border: 'none', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>Oui, mettre à jour</button>
+              <button onClick={() => doSave(confirmModal.dateDebut, confirmModal.dateFin)} style={{ flex: 1, padding: '12px', borderRadius: 8, background: '#C9A84C', color: '#fff', border: 'none', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>Oui, mettre à jour</button>
               <button onClick={() => setConfirmModal(null)} style={{ flex: 1, padding: '12px', borderRadius: 8, background: '#fff', color: '#5A5A5A', border: '1.5px solid rgba(201,168,76,0.25)', fontSize: 14, cursor: 'pointer' }}>Non, annuler</button>
             </div>
           </div>
@@ -576,21 +572,54 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
         )
       })()}
 
-      <SectionTitle>Historique des saisies</SectionTitle>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, marginTop: 8 }}>
+        <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C' }}>Historique des saisies</div>
+        {selectedRows.size > 0 && (
+          <button onClick={async () => {
+            if (!window.confirm(`Supprimer ${selectedRows.size} saisie(s) ?`)) return
+            await supabase.from('saisies').delete().in('id', [...selectedRows])
+            setSelectedRows(new Set())
+            reload()
+          }} style={{ padding: '7px 16px', borderRadius: 8, background: '#E05C5C', color: '#fff', border: 'none', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+            Supprimer la sélection ({selectedRows.size})
+          </button>
+        )}
+      </div>
       <div style={cardStyle}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr>{['Date','Conseillère','Leads Bruts','Indispos','Leads Nets','Échanges','RDV','Visites','Ventes','Actions'].map(h => (
-                <th key={h} style={thStyle}>{h}</th>
-              ))}</tr>
+              <tr>
+                <th style={thStyle}>
+                  <input type="checkbox" checked={selectedRows.size === saisies.slice(0,30).length && saisies.length > 0}
+                    onChange={e => setSelectedRows(e.target.checked ? new Set(saisies.slice(0,30).map(s=>s.id)) : new Set())}
+                    style={{ accentColor: '#C9A84C' }}/>
+                </th>
+                {['Période','Conseillère','Leads Bruts','Indispos','Leads Nets','Échanges','RDV','Visites','Ventes','Actions'].map(h => (
+                  <th key={h} style={thStyle}>{h}</th>
+                ))}
+              </tr>
             </thead>
             <tbody>
               {[...saisies].slice(0, 30).map(s => {
                 const c = conseilleres.find(c => c.id === s.conseillere_id)
+                const periode = s.date_debut && s.date_fin && s.date_debut !== s.date_fin
+                  ? `${s.date_debut.substring(8)}/${s.date_debut.substring(5,7)} → ${s.date_fin.substring(8)}/${s.date_fin.substring(5,7)}`
+                  : (s.date_debut || s.date)
+                const isSelected = selectedRows.has(s.id)
                 return (
-                  <tr key={s.id} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                    <td style={{...tdStyle,fontWeight:500,color:'#C9A84C'}}>{s.date}</td>
+                  <tr key={s.id} style={{ background: isSelected ? '#F7F0DC' : 'transparent' }}
+                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#F7F0DC' }}
+                    onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent' }}>
+                    <td style={tdStyle}>
+                      <input type="checkbox" checked={isSelected}
+                        onChange={e => {
+                          const next = new Set(selectedRows)
+                          e.target.checked ? next.add(s.id) : next.delete(s.id)
+                          setSelectedRows(next)
+                        }} style={{ accentColor: '#C9A84C' }}/>
+                    </td>
+                    <td style={{...tdStyle,fontWeight:500,color:'#C9A84C',whiteSpace:'nowrap'}}>{periode}</td>
                     <td style={{...tdStyle,fontWeight:500}}>{c?.nom || '—'}</td>
                     <td style={tdStyle}>{s.leads_bruts}</td>
                     <td style={{...tdStyle,color:'#E05C5C'}}>{s.indispos}</td>
@@ -608,7 +637,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
                   </tr>
                 )
               })}
-              {saisies.length === 0 && <tr><td colSpan={10} style={{textAlign:'center',padding:'32px',color:'#5A5A5A',fontSize:13}}>Aucune saisie</td></tr>}
+              {saisies.length === 0 && <tr><td colSpan={11} style={{textAlign:'center',padding:'32px',color:'#5A5A5A',fontSize:13}}>Aucune saisie</td></tr>}
             </tbody>
           </table>
         </div>

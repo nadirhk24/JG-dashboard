@@ -256,6 +256,7 @@ export default function DashboardMarketing() {
   const [selected, setSelected] = useState({ type: 'global', value: 'all', label: 'Global' })
   const [hiddenKpis, setHiddenKpis] = useState({})
   const [confirmModal, setConfirmModal] = useState(null)
+  const [selectedRows, setSelectedRows] = useState(new Set())
   const [hiddenG1, setHiddenG1] = useState({})
   const [hiddenG2, setHiddenG2] = useState({})
   const [hiddenCols, setHiddenCols] = useState({})
@@ -323,57 +324,61 @@ export default function DashboardMarketing() {
 
   async function checkAndSave(e) {
     e.preventDefault()
-    const { supabase } = await import('../lib/supabase')
-    const base = (f) => parseInt(form[f]) || 0
-    let dates = []
-    if (saisieMode === 'jour') {
-      dates = [form.date]
-    } else {
-      const debut = new Date(form.date_debut), fin = new Date(form.date_fin)
-      const days = Math.round((fin - debut) / 86400000) + 1
-      if (days <= 0) { setMsg({ type: 'error', text: 'Dates invalides' }); return }
-      for (let i = 0; i < days; i++) {
-        const d = new Date(debut); d.setDate(d.getDate() + i)
-        dates.push(d.toISOString().split('T')[0])
-      }
-    }
-    const existing = marketingData.filter(s => dates.includes(s.date))
+    const dateDebut = saisieMode === 'jour' ? form.date : form.date_debut
+    const dateFin = saisieMode === 'jour' ? form.date : form.date_fin
+    if (!dateDebut) { setMsg({ type: 'error', text: 'Sélectionne une date' }); return }
+    if (saisieMode === 'periode' && !dateFin) { setMsg({ type: 'error', text: 'Sélectionne une date de fin' }); return }
+
+    const existing = marketingData.filter(s => {
+      const sD = s.date_debut || s.date
+      const sF = s.date_fin || s.date
+      return sD <= dateFin && sF >= dateDebut
+    })
     if (existing.length > 0) {
-      setConfirmModal({ dates, message: `Des données existent déjà pour ${existing.length} jour(s) sur cette période.` })
+      setConfirmModal({ dateDebut, dateFin, message: `Des données existent déjà pour cette période (${existing.length} saisie(s)).` })
     } else {
-      await doSave(dates)
+      await doSave(dateDebut, dateFin)
     }
   }
 
-  async function doSave(dates) {
+  async function doSave(dateDebut, dateFin) {
     setSaving(true)
     setConfirmModal(null)
     const { supabase } = await import('../lib/supabase')
     const base = (f) => parseInt(form[f]) || 0
-    const totalDays = dates.length
 
-    // Backup avant ecrasement
-    const oldData = marketingData.filter(s => dates.includes(s.date))
+    // Backup et suppression des saisies existantes qui chevauchent
+    const oldData = marketingData.filter(s => {
+      const sD = s.date_debut || s.date
+      const sF = s.date_fin || s.date
+      return sD <= dateFin && sF >= dateDebut
+    })
     if (oldData.length > 0) {
       const backups = oldData.map(d => ({ saisie_id: d.id, ancienne_valeur: JSON.stringify(d) }))
       await supabase.from('historique_marketing').upsert(backups, { onConflict: 'saisie_id' })
+      await supabase.from('marketing_saisies').delete().in('id', oldData.map(d => d.id))
     }
 
-    const rows = dates.map(dateStr => ({
-      date: dateStr,
-      injections: totalDays === 1 ? base('injections') : Math.round(base('injections') / totalDays),
-      non_exploitables: totalDays === 1 ? base('non_exploitables') : Math.round(base('non_exploitables') / totalDays),
-      indispos: totalDays === 1 ? base('indispos') : Math.round(base('indispos') / totalDays),
-      suivis: totalDays === 1 ? base('suivis') : Math.round(base('suivis') / totalDays),
-      rdv: totalDays === 1 ? base('rdv') : Math.round(base('rdv') / totalDays),
-      visites: totalDays === 1 ? base('visites') : Math.round(base('visites') / totalDays),
-      ventes: totalDays === 1 ? base('ventes') : Math.round(base('ventes') / totalDays),
-    }))
-    const { error } = await supabase.from('marketing_saisies').upsert(rows, { onConflict: 'date' })
+    // UNE SEULE ligne avec date_debut et date_fin
+    const payload = {
+      date: dateDebut,
+      date_debut: dateDebut,
+      date_fin: dateFin,
+      type_saisie: saisieMode,
+      injections: base('injections'),
+      non_exploitables: base('non_exploitables'),
+      indispos: base('indispos'),
+      suivis: base('suivis'),
+      rdv: base('rdv'),
+      visites: base('visites'),
+      ventes: base('ventes'),
+    }
+    const { error } = await supabase.from('marketing_saisies').insert(payload)
     setSaving(false)
     if (error) setMsg({ type: 'error', text: error.message })
     else {
-      setMsg({ type: 'success', text: totalDays === 1 ? 'Données enregistrées !' : `Données enregistrées sur ${totalDays} jours !` })
+      const label = dateDebut === dateFin ? `Données enregistrées pour le ${dateDebut} !` : `Données enregistrées du ${dateDebut} au ${dateFin} !`
+      setMsg({ type: 'success', text: label })
       loadMarketing()
       setForm(p => ({ ...p, injections: '', non_exploitables: '', indispos: '', suivis: '', rdv: '', visites: '', ventes: '' }))
       setTimeout(() => setMsg(null), 3000)
@@ -424,7 +429,7 @@ export default function DashboardMarketing() {
               Les données actuelles seront sauvegardées. Tu pourras annuler depuis l'historique en bas de page.
             </div>
             <div style={{ display: 'flex', gap: 12 }}>
-              <button onClick={() => doSave(confirmModal.dates)} style={{ flex: 1, padding: '12px', borderRadius: 8, background: '#C9A84C', color: '#fff', border: 'none', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>Oui, mettre à jour</button>
+              <button onClick={() => doSave(confirmModal.dateDebut, confirmModal.dateFin)} style={{ flex: 1, padding: '12px', borderRadius: 8, background: '#C9A84C', color: '#fff', border: 'none', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>Oui, mettre à jour</button>
               <button onClick={() => setConfirmModal(null)} style={{ flex: 1, padding: '12px', borderRadius: 8, background: '#fff', color: '#5A5A5A', border: '1.5px solid rgba(201,168,76,0.25)', fontSize: 14, cursor: 'pointer' }}>Non, annuler</button>
             </div>
           </div>
@@ -596,38 +601,71 @@ export default function DashboardMarketing() {
           </div>
         </div>
 
-      <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C', marginBottom: 16, marginTop: 8, display: 'flex', alignItems: 'center', gap: 12 }}>
-        Historique des saisies
-        <div style={{ flex: 1, height: 1, background: 'rgba(201,168,76,0.2)' }}></div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, marginTop: 8 }}>
+        <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C' }}>Historique des saisies</div>
+        {selectedRows.size > 0 && (
+          <button onClick={async () => {
+            if (!window.confirm(`Supprimer ${selectedRows.size} saisie(s) ?`)) return
+            const { supabase } = await import('../lib/supabase')
+            await supabase.from('marketing_saisies').delete().in('id', [...selectedRows])
+            setSelectedRows(new Set())
+            loadMarketing()
+          }} style={{ padding: '7px 16px', borderRadius: 8, background: '#E05C5C', color: '#fff', border: 'none', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+            Supprimer la sélection ({selectedRows.size})
+          </button>
+        )}
       </div>
       <div style={{ background: '#fff', borderRadius: 14, padding: 24, border: '1px solid rgba(201,168,76,0.15)' }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr>{['Date','Injections','Non Expl.','Indispos','Suivis','RDV','Visites','Ventes','Actions'].map(h => (
-                <th key={h} style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '8px 8px', borderBottom: '1px solid rgba(201,168,76,0.15)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 500, whiteSpace: 'nowrap' }}>{h}</th>
-              ))}</tr>
+              <tr>
+                <th style={{ fontSize: 10, color: '#5A5A5A', padding: '8px 8px', borderBottom: '1px solid rgba(201,168,76,0.15)', fontWeight: 500 }}>
+                  <input type="checkbox" checked={selectedRows.size === marketingData.slice(0,30).length && marketingData.length > 0}
+                    onChange={e => setSelectedRows(e.target.checked ? new Set(marketingData.slice(0,30).map(s=>s.id)) : new Set())}
+                    style={{ accentColor: '#C9A84C' }}/>
+                </th>
+                {['Période','Injections','Non Expl.','Indispos','Suivis','RDV','Visites','Ventes','Actions'].map(h => (
+                  <th key={h} style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '8px 8px', borderBottom: '1px solid rgba(201,168,76,0.15)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 500, whiteSpace: 'nowrap' }}>{h}</th>
+                ))}
+              </tr>
             </thead>
             <tbody>
-              {[...marketingData].sort((a,b) => b.date.localeCompare(a.date)).slice(0, 30).map(s => (
-                <tr key={s.id} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                  <td style={{ padding: '9px 8px', fontSize: 12, fontWeight: 500, color: '#C9A84C', whiteSpace: 'nowrap' }}>{s.date}</td>
-                  <td style={{ padding: '9px 8px', fontSize: 11 }}>{s.injections}</td>
-                  <td style={{ padding: '9px 8px', fontSize: 11, color: '#8A8A7A' }}>{s.non_exploitables}</td>
-                  <td style={{ padding: '9px 8px', fontSize: 11, color: '#E05C5C' }}>{s.indispos}</td>
-                  <td style={{ padding: '9px 8px', fontSize: 11, color: '#C9A84C' }}>{s.suivis}</td>
-                  <td style={{ padding: '9px 8px', fontSize: 11, color: '#534AB7' }}>{s.rdv}</td>
-                  <td style={{ padding: '9px 8px', fontSize: 11, color: '#4CAF7D' }}>{s.visites}</td>
-                  <td style={{ padding: '9px 8px', fontSize: 11, color: '#1a6b3c' }}>{s.ventes}</td>
-                  <td style={{ padding: '9px 8px' }}>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button onClick={() => annulerMajMarketing(s.id)} style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(201,168,76,0.3)', color: '#C9A84C', background: 'transparent', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}>↩ Annuler MàJ</button>
-                      <button onClick={() => supprimerMktSaisie(s.id)} style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(224,92,92,0.3)', color: '#E05C5C', background: 'transparent', fontSize: 11, cursor: 'pointer' }}>Suppr.</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {marketingData.length === 0 && <tr><td colSpan={9} style={{ textAlign: 'center', padding: '32px', color: '#5A5A5A', fontSize: 13 }}>Aucune saisie</td></tr>}
+              {[...marketingData].sort((a,b) => (b.date_debut||b.date).localeCompare(a.date_debut||a.date)).slice(0, 30).map(s => {
+                const periode = s.date_debut && s.date_fin && s.date_debut !== s.date_fin
+                  ? `${s.date_debut.substring(8)}/${s.date_debut.substring(5,7)} → ${s.date_fin.substring(8)}/${s.date_fin.substring(5,7)}`
+                  : (s.date_debut || s.date)
+                const isSelected = selectedRows.has(s.id)
+                return (
+                  <tr key={s.id} style={{ background: isSelected ? '#F7F0DC' : 'transparent' }}
+                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#F7F0DC' }}
+                    onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent' }}>
+                    <td style={{ padding: '9px 8px' }}>
+                      <input type="checkbox" checked={isSelected}
+                        onChange={e => {
+                          const next = new Set(selectedRows)
+                          e.target.checked ? next.add(s.id) : next.delete(s.id)
+                          setSelectedRows(next)
+                        }} style={{ accentColor: '#C9A84C' }}/>
+                    </td>
+                    <td style={{ padding: '9px 8px', fontSize: 12, fontWeight: 500, color: '#C9A84C', whiteSpace: 'nowrap' }}>{periode}</td>
+                    <td style={{ padding: '9px 8px', fontSize: 11 }}>{s.injections}</td>
+                    <td style={{ padding: '9px 8px', fontSize: 11, color: '#8A8A7A' }}>{s.non_exploitables}</td>
+                    <td style={{ padding: '9px 8px', fontSize: 11, color: '#E05C5C' }}>{s.indispos}</td>
+                    <td style={{ padding: '9px 8px', fontSize: 11, color: '#C9A84C' }}>{s.suivis}</td>
+                    <td style={{ padding: '9px 8px', fontSize: 11, color: '#534AB7' }}>{s.rdv}</td>
+                    <td style={{ padding: '9px 8px', fontSize: 11, color: '#4CAF7D' }}>{s.visites}</td>
+                    <td style={{ padding: '9px 8px', fontSize: 11, color: '#1a6b3c' }}>{s.ventes}</td>
+                    <td style={{ padding: '9px 8px' }}>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button onClick={() => annulerMajMarketing(s.id)} style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(201,168,76,0.3)', color: '#C9A84C', background: 'transparent', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}>↩ Annuler MàJ</button>
+                        <button onClick={() => supprimerMktSaisie(s.id)} style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(224,92,92,0.3)', color: '#E05C5C', background: 'transparent', fontSize: 11, cursor: 'pointer' }}>Suppr.</button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+              {marketingData.length === 0 && <tr><td colSpan={10} style={{ textAlign: 'center', padding: '32px', color: '#5A5A5A', fontSize: 13 }}>Aucune saisie</td></tr>}
             </tbody>
           </table>
         </div>

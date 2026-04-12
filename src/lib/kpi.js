@@ -3,7 +3,6 @@ export function calcProductivite(echanges, leadsNets) {
   return parseFloat(((echanges / leadsNets) * 100).toFixed(1))
 }
 
-// CORRIGE : joignabilite = leads joints / leads bruts (pas indispos)
 export function calcJoignabilite(indispos, leadsBruts) {
   if (!leadsBruts || leadsBruts === 0) return 0
   const joints = leadsBruts - indispos
@@ -35,19 +34,7 @@ export function calcCV(valeurs) {
   const moyenne = vals.reduce((a, b) => a + b, 0) / vals.length
   if (moyenne === 0) return 0
   const variance = vals.reduce((sum, v) => sum + Math.pow(v - moyenne, 2), 0) / vals.length
-  const ecartType = Math.sqrt(variance)
-  return parseFloat(((ecartType / moyenne) * 100).toFixed(1))
-}
-
-export function moyenne(valeurs) {
-  const vals = valeurs.filter(v => v !== null && v !== undefined && !isNaN(v))
-  if (vals.length === 0) return 0
-  return parseFloat((vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1))
-}
-
-export function statutObjectif(valeur, objectif) {
-  if (!objectif) return 'N/A'
-  return valeur >= objectif ? 'Atteint' : 'En cours'
+  return parseFloat(((Math.sqrt(variance) / moyenne) * 100).toFixed(1))
 }
 
 export function couleurPerf(valeur, objectif) {
@@ -56,6 +43,17 @@ export function couleurPerf(valeur, objectif) {
   if (ratio >= 1) return '#4CAF7D'
   if (ratio >= 0.8) return '#C9A84C'
   return '#E05C5C'
+}
+
+// Filtre les saisies selon une plage de dates
+// Gere les saisies "par periode" (date_debut != date_fin)
+export function filtrerSaisiesParDate(saisies, dateDebut, dateFin) {
+  return saisies.filter(s => {
+    const sDebut = s.date_debut || s.date
+    const sFin = s.date_fin || s.date
+    // Inclure si la saisie chevauche la plage demandee
+    return sDebut <= dateFin && sFin >= dateDebut
+  })
 }
 
 export function agregerParPeriode(saisies, conseillereId = null) {
