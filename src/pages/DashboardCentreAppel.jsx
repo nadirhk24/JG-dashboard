@@ -130,6 +130,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   const [showSaisie, setShowSaisie] = useState(false)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState(null)
+  const [confirmModal, setConfirmModal] = useState(null)
   const [saisieMode, setSaisieMode] = useState('jour')
   const today = new Date().toISOString().split('T')[0]
   const [form, setForm] = useState({ conseillere_id: '', date: today, date_debut: '', date_fin: '', leads_bruts: '', indispos: '', echanges: '', rdv: '', visites: '', ventes: '' })
@@ -193,31 +194,54 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
 
   const leadsNetsForm = Math.max(0, (parseInt(form.leads_bruts)||0) - (parseInt(form.indispos)||0))
 
-  async function handleSaisie(e) {
+  async function checkAndSave(e) {
     e.preventDefault()
     if (!form.conseillere_id) { setMsg({ type: 'error', text: 'Sélectionne une conseillère' }); return }
-    setSaving(true)
     const base = f => parseInt(form[f]) || 0
+    let dates = []
     if (saisieMode === 'jour') {
-      const payload = { conseillere_id: form.conseillere_id, date: form.date, leads_bruts: base('leads_bruts'), indispos: base('indispos'), leads_nets: leadsNetsForm, echanges: base('echanges'), rdv: base('rdv'), visites: base('visites'), ventes: base('ventes') }
-      const { error } = await supabase.from('saisies').upsert(payload, { onConflict: 'conseillere_id,date' })
-      if (error) setMsg({ type: 'error', text: error.message })
-      else { setMsg({ type: 'success', text: 'Données enregistrées !' }); reload(); setForm(p => ({ ...p, leads_bruts: '', indispos: '', echanges: '', rdv: '', visites: '', ventes: '' })); setTimeout(() => setMsg(null), 3000) }
+      dates = [form.date]
     } else {
       const debut = new Date(form.date_debut), fin = new Date(form.date_fin)
       const days = Math.round((fin-debut)/86400000)+1
-      if (days <= 0) { setMsg({ type: 'error', text: 'Dates invalides' }); setSaving(false); return }
-      const rows = []
+      if (days <= 0) { setMsg({ type: 'error', text: 'Dates invalides' }); return }
       for (let i = 0; i < days; i++) {
         const d = new Date(debut); d.setDate(d.getDate()+i)
-        const dateStr = d.toISOString().split('T')[0]
-        rows.push({ conseillere_id: form.conseillere_id, date: dateStr, leads_bruts: Math.round(base('leads_bruts')/days), indispos: Math.round(base('indispos')/days), leads_nets: Math.round(leadsNetsForm/days), echanges: Math.round(base('echanges')/days), rdv: Math.round(base('rdv')/days), visites: Math.round(base('visites')/days), ventes: Math.round(base('ventes')/days) })
+        dates.push(d.toISOString().split('T')[0])
       }
-      const { error } = await supabase.from('saisies').upsert(rows, { onConflict: 'conseillere_id,date' })
-      if (error) setMsg({ type: 'error', text: error.message })
-      else { setMsg({ type: 'success', text: `Données enregistrées sur ${days} jours !` }); reload(); setTimeout(() => setMsg(null), 3000) }
     }
+    const { data: existing } = await supabase.from('saisies').select('date').eq('conseillere_id', form.conseillere_id).in('date', dates)
+    if (existing && existing.length > 0) {
+      setConfirmModal({ dates, message: `Des données existent déjà pour ${existing.length} jour(s) sur cette période.` })
+    } else {
+      await doSave(dates)
+    }
+  }
+
+  async function doSave(dates) {
+    setSaving(true)
+    setConfirmModal(null)
+    const base = f => parseInt(form[f]) || 0
+    const totalDays = dates.length
+    const { data: oldData } = await supabase.from('saisies').select('*').eq('conseillere_id', form.conseillere_id).in('date', dates)
+    if (oldData && oldData.length > 0) {
+      const backups = oldData.map(d => ({ saisie_id: d.id, conseillere_id: d.conseillere_id, date: d.date, ancienne_valeur: JSON.stringify(d) }))
+      await supabase.from('historique_saisies').upsert(backups, { onConflict: 'saisie_id' })
+    }
+    const rows = dates.map(dateStr => ({
+      conseillere_id: form.conseillere_id, date: dateStr,
+      leads_bruts: Math.round(base('leads_bruts')/totalDays),
+      indispos: Math.round(base('indispos')/totalDays),
+      leads_nets: Math.round(leadsNetsForm/totalDays),
+      echanges: Math.round(base('echanges')/totalDays),
+      rdv: Math.round(base('rdv')/totalDays),
+      visites: Math.round(base('visites')/totalDays),
+      ventes: Math.round(base('ventes')/totalDays),
+    }))
+    const { error } = await supabase.from('saisies').upsert(rows, { onConflict: 'conseillere_id,date' })
     setSaving(false)
+    if (error) setMsg({ type: 'error', text: error.message })
+    else { setMsg({ type: 'success', text: `Données enregistrées sur ${totalDays} jour(s) !` }); reload(); setForm(p => ({ ...p, leads_bruts: '', indispos: '', echanges: '', rdv: '', visites: '', ventes: '' })); setTimeout(() => setMsg(null), 3000) }
   }
 
   const cardStyle = { background: '#fff', borderRadius: 14, padding: 24, border: '1px solid rgba(201,168,76,0.15)', marginBottom: 20 }
@@ -236,6 +260,23 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
         </button>
       </PageHeader>
 
+      {confirmModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 32, maxWidth: 460, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+            <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 22, fontWeight: 600, color: '#2C2C2C', marginBottom: 12 }}>Mise à jour ?</div>
+            <div style={{ fontSize: 14, color: '#5A5A5A', marginBottom: 8, lineHeight: 1.6 }}>{confirmModal.message}</div>
+            <div style={{ fontSize: 13, color: '#C9A84C', fontWeight: 500, marginBottom: 20 }}>S'agit-il d'une mise à jour des données existantes ?</div>
+            <div style={{ padding: '12px 16px', background: 'rgba(201,168,76,0.05)', borderRadius: 10, border: '1px solid rgba(201,168,76,0.2)', marginBottom: 24, fontSize: 12, color: '#8A8A7A' }}>
+              Les données actuelles seront sauvegardées. Tu pourras annuler la mise à jour depuis le tableau de saisies.
+            </div>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button onClick={() => doSave(confirmModal.dates)} style={{ flex: 1, padding: '12px', borderRadius: 8, background: '#C9A84C', color: '#fff', border: 'none', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>Oui, mettre à jour</button>
+              <button onClick={() => setConfirmModal(null)} style={{ flex: 1, padding: '12px', borderRadius: 8, background: '#fff', color: '#5A5A5A', border: '1.5px solid rgba(201,168,76,0.25)', fontSize: 14, cursor: 'pointer' }}>Non, annuler</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showSaisie && (
         <div style={{ ...cardStyle, borderColor: '#C9A84C' }}>
           <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
@@ -244,7 +285,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
             ))}
           </div>
           {msg && <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 14, fontSize: 12, fontWeight: 500, background: msg.type==='success'?'rgba(76,175,125,0.1)':'rgba(224,92,92,0.1)', color: msg.type==='success'?'#2d7a54':'#a03030' }}>{msg.text}</div>}
-          <form onSubmit={handleSaisie}>
+          <form onSubmit={checkAndSave}>
             <div style={{ display: 'grid', gridTemplateColumns: saisieMode==='jour'?'1fr 1fr':'1fr 1fr 1fr', gap: 16, marginBottom: 16 }}>
               <div>
                 <label style={labelStyle}>Conseillère *</label>
