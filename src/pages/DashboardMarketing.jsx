@@ -140,37 +140,6 @@ function DrillNav({ data, onSelect, selected }) {
           </React.Fragment>
         ))}
       </div>
-      {/* Modal zoom graphe */}
-      {zoomedChart && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={() => setZoomedChart(null)}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 32, width: '90%', maxWidth: 900, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <div>
-                <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 24, fontWeight: 600, color: zoomedChart.color }}>{zoomedChart.label}</div>
-                <div style={{ fontSize: 12, color: '#5A5A5A', marginTop: 4 }}>CV: <span style={{ color: zoomedChart.color, fontWeight: 600 }}>{cvs[zoomedChart.key] || 0}%</span></div>
-              </div>
-              <button onClick={() => setZoomedChart(null)} style={{ width: 36, height: 36, borderRadius: '50%', border: '1.5px solid rgba(201,168,76,0.3)', background: '#fff', color: '#C9A84C', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
-            </div>
-            <ResponsiveContainer width="100%" height={380}>
-              <LineChart data={chartData} margin={{ top: 10, right: 30, bottom: 10, left: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={`${zoomedChart.color}20`}/>
-                <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} tickFormatter={v => `${v}%`} />
-                <Tooltip contentStyle={{ background: '#2C2C2C', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13 }} formatter={v => [`${v}%`, zoomedChart.label]} />
-                <Line type="monotone" dataKey={zoomedChart.key} stroke={zoomedChart.color} strokeWidth={3} dot={{ r: 7, fill: zoomedChart.color, strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 9 }} name={zoomedChart.label}/>
-              </LineChart>
-            </ResponsiveContainer>
-            <div style={{ display: 'flex', gap: 16, marginTop: 16, flexWrap: 'wrap' }}>
-              {[...chartData].map((d, i) => (
-                <div key={i} style={{ background: `${zoomedChart.color}10`, borderRadius: 8, padding: '8px 14px', border: `1px solid ${zoomedChart.color}30` }}>
-                  <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 2 }}>{d.label}</div>
-                  <div style={{ fontSize: 16, fontWeight: 600, color: zoomedChart.color }}>{d[zoomedChart.key]}%</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
@@ -715,6 +684,38 @@ export default function DashboardMarketing() {
           </table>
         </div>
       </div>}
+
+      {/* Modal zoom graphe */}
+      {zoomedChart && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={() => setZoomedChart(null)}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 32, width: '90%', maxWidth: 900, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div>
+                <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 24, fontWeight: 600, color: zoomedChart.color }}>{zoomedChart.label}</div>
+                <div style={{ fontSize: 12, color: '#5A5A5A', marginTop: 4 }}>CV: <span style={{ color: zoomedChart.color, fontWeight: 600 }}>{cvs[zoomedChart.key] || 0}%</span></div>
+              </div>
+              <button onClick={() => setZoomedChart(null)} style={{ width: 36, height: 36, borderRadius: '50%', border: '1.5px solid rgba(201,168,76,0.3)', background: '#fff', color: '#C9A84C', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+            </div>
+            <ResponsiveContainer width="100%" height={360}>
+              <LineChart data={chartData} margin={{ top: 10, right: 30, bottom: 10, left: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={`${zoomedChart.color}20`}/>
+                <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} tickFormatter={v => `${v}%`} />
+                <Tooltip contentStyle={{ background: '#2C2C2C', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13 }} formatter={v => [`${v}%`, zoomedChart.label]} />
+                <Line type="monotone" dataKey={zoomedChart.key} stroke={zoomedChart.color} strokeWidth={3} dot={{ r: 7, fill: zoomedChart.color, strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 9 }} name={zoomedChart.label}/>
+              </LineChart>
+            </ResponsiveContainer>
+            <div style={{ display: 'flex', gap: 12, marginTop: 20, flexWrap: 'wrap' }}>
+              {[...chartData].map((d, i) => (
+                <div key={i} style={{ background: `${zoomedChart.color}10`, borderRadius: 8, padding: '10px 16px', border: `1px solid ${zoomedChart.color}30` }}>
+                  <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 4 }}>{d.label}</div>
+                  <div style={{ fontSize: 18, fontWeight: 600, color: zoomedChart.color }}>{d[zoomedChart.key]}%</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
