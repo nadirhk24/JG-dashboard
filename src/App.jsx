@@ -3,11 +3,10 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Sidebar from './components/Sidebar'
 import DashboardCentreAppel from './pages/DashboardCentreAppel'
 import DashboardMarketing from './pages/DashboardMarketing'
-import Saisie from './pages/Saisie'
 import Conseilleres from './pages/Conseilleres'
 import Objectifs from './pages/Objectifs'
+import Calendrier from './pages/Calendrier'
 import AnalyseCV from './pages/AnalyseCV'
-import Historique from './pages/Historique'
 import { supabase } from './lib/supabase'
 
 export default function App() {
@@ -26,7 +25,7 @@ export default function App() {
       ])
       setConseilleres(cons || [])
       setSaisies(sais || [])
-    } catch (err) { console.error('Erreur chargement:', err) }
+    } catch (err) { console.error(err) }
     setLoading(false)
   }
 
@@ -40,8 +39,8 @@ export default function App() {
           {loading ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ width: 48, height: 48, border: '3px solid var(--gold-light)', borderTopColor: 'var(--gold)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }}></div>
-                <p style={{ color: 'var(--mid)', fontSize: 13 }}>Chargement...</p>
+                <div style={{ width: 48, height: 48, border: '3px solid #E8D5A3', borderTopColor: '#C9A84C', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }}></div>
+                <p style={{ color: '#5A5A5A', fontSize: 13 }}>Chargement...</p>
               </div>
               <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
@@ -50,11 +49,10 @@ export default function App() {
               <Route path="/" element={<Navigate to="/centre-appel" />} />
               <Route path="/centre-appel" element={<DashboardCentreAppel {...sharedProps} />} />
               <Route path="/marketing" element={<DashboardMarketing />} />
-              <Route path="/saisie" element={<Saisie {...sharedProps} />} />
+              <Route path="/objectifs" element={<Objectifs conseilleres={conseilleres} />} />
               <Route path="/conseilleres" element={<Conseilleres {...sharedProps} />} />
-              <Route path="/objectifs" element={<Objectifs />} />
+              <Route path="/calendrier" element={<Calendrier />} />
               <Route path="/analyse-cv" element={<AnalyseCV {...sharedProps} />} />
-              <Route path="/historique" element={<Historique {...sharedProps} />} />
             </Routes>
           )}
         </main>
