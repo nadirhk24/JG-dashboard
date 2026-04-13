@@ -72,6 +72,8 @@ export default function FluxRDV({ conseilleres }) {
   const [loading, setLoading] = useState(true)
   const [kpi, setKpi] = useState('rdv')
   const [filterEquipe, setFilterEquipe] = useState('all')
+  const [viewMode, setViewMode] = useState('separated')
+  const [hiddenKpis, setHiddenKpis] = useState({})
   const [selectedCommercial, setSelectedCommercial] = useState(null)
   const [detailMode, setDetailMode] = useState('%')
   const [showSaisie, setShowSaisie] = useState(false)
@@ -220,7 +222,7 @@ export default function FluxRDV({ conseilleres }) {
       {/* Modal detail commercial */}
       {selectedCommercial && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={() => setSelectedCommercial(null)}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '90%', maxWidth: 700, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }} onClick={e => e.stopPropagation()}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '90%', maxWidth: 900, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
               <div>
                 <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 22, fontWeight: 600, color: EQUIPES[selectedCommercial.equipe]?.color }}>{selectedCommercial.nom}</div>
@@ -234,22 +236,29 @@ export default function FluxRDV({ conseilleres }) {
               </div>
             </div>
 
+            {/* Toggle KPIs */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+              {KPIS.map(k => (
+                <button key={k.key} onClick={() => setHiddenKpis(p=>({...p,[k.key]:!p[k.key]}))} style={{ padding: '4px 12px', borderRadius: 12, border: `1.5px solid ${hiddenKpis[k.key]?'rgba(201,168,76,0.2)':k.color}`, background: hiddenKpis[k.key]?'#F8F7F4':`${k.color}15`, color: hiddenKpis[k.key]?'#8A8A7A':k.color, fontSize: 11, cursor: 'pointer', textDecoration: hiddenKpis[k.key]?'line-through':'none' }}>{k.label}</button>
+              ))}
+            </div>
             {/* KPIs */}
             {(() => {
               const d = fluxParCommercial[selectedCommercial.id] || { rdv: 0, visites: 0, ventes: 0 }
-              return (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 10, marginBottom: 20 }}>
-                  {KPIS.map(k => {
+              const visibleKpis = KPIS.filter(k => !hiddenKpis[k.key])
+              return visibleKpis.length > 0 ? (
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${visibleKpis.length},1fr)`, gap: 10, marginBottom: 20 }}>
+                  {visibleKpis.map(k => {
                     const val = getKpiVal(d, k.key)
                     return (
-                      <div key={k.key} style={{ background: '#F8F7F4', borderRadius: 10, padding: '12px', textAlign: 'center', borderTop: `3px solid ${k.color}` }}>
-                        <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', marginBottom: 4 }}>{k.label}</div>
-                        <div style={{ fontSize: 22, fontWeight: 600, color: k.color }}>{val}{k.unit}</div>
+                      <div key={k.key} style={{ background: '#F8F7F4', borderRadius: 10, padding: '16px', textAlign: 'center', borderTop: `3px solid ${k.color}` }}>
+                        <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', marginBottom: 6 }}>{k.label}</div>
+                        <div style={{ fontSize: 28, fontWeight: 600, color: k.color }}>{val}{k.unit}</div>
                       </div>
                     )
                   })}
                 </div>
-              )
+              ) : null
             })()}
 
             {/* Contenu selon mode */}
@@ -380,10 +389,16 @@ export default function FluxRDV({ conseilleres }) {
           {moisOptions.map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
         </select>
         <div style={{ display: 'flex', gap: 6 }}>
-          {[['all','Toutes'],['sale','Sale'],['kenitra','Kenitra']].map(([k,l]) => (
-            <button key={k} onClick={()=>setFilterEquipe(k)} style={btnStyle(filterEquipe===k)}>{l}</button>
-          ))}
+          <button onClick={()=>setViewMode('separated')} style={btnStyle(viewMode==='separated')}>Vue séparée</button>
+          <button onClick={()=>setViewMode('all')} style={btnStyle(viewMode==='all')}>Vue All</button>
         </div>
+        {viewMode === 'separated' && (
+          <div style={{ display: 'flex', gap: 6 }}>
+            {[['all','Toutes'],['sale','Sale'],['kenitra','Kenitra']].map(([k,l]) => (
+              <button key={k} onClick={()=>setFilterEquipe(k)} style={btnStyle(filterEquipe===k)}>{l}</button>
+            ))}
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {KPIS.map(k => (
             <button key={k.key} onClick={()=>setKpi(k.key)} style={btnStyle(kpi===k.key, k.color)}>{k.label}</button>
@@ -391,8 +406,54 @@ export default function FluxRDV({ conseilleres }) {
         </div>
       </div>
 
-      {/* Listes ranking */}
-      <div style={{ display: 'grid', gridTemplateColumns: filterEquipe==='all'?'1fr 1fr':'1fr', gap: 16, marginBottom: 24 }}>
+      {/* Vue All - ranking global */}
+      {viewMode === 'all' && (() => {
+        const allRanking = [...commerciaux]
+          .map(c => ({ ...c, val: getKpiVal(fluxParCommercial[c.id] || {rdv:0,visites:0,ventes:0}, kpi) }))
+          .sort((a,b) => b.val - a.val)
+        const maxVal = Math.max(...allRanking.map(c=>c.val), 1)
+        const cvAll = calcCV(allRanking.map(c=>c.val))
+        return (
+          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(201,168,76,0.15)', overflow: 'hidden', marginBottom: 24 }}>
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(201,168,76,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '4px solid #C9A84C' }}>
+              <div>
+                <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 17, fontWeight: 600, color: '#C9A84C' }}>Ranking Global — Toutes équipes</div>
+                <div style={{ fontSize: 11, color: '#5A5A5A' }}>{allRanking.length} commerciaux · CV: <span style={{ color: cvAll>30?'#E05C5C':'#4CAF7D', fontWeight: 500 }}>{cvAll}%</span></div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase' }}>Total {selectedKpi?.label}</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: '#C9A84C' }}>{allRanking.reduce((s,c)=>s+c.val,0).toFixed(1)}{selectedKpi?.unit}</div>
+              </div>
+            </div>
+            <div>
+              {allRanking.map((c, i) => {
+                const rankColor = getRankColor(i, allRanking.length)
+                const stars = getStars(i, allRanking.length)
+                const pct = maxVal > 0 ? (c.val / maxVal) * 100 : 0
+                const equipeColor = EQUIPES[c.equipe]?.color || '#C9A84C'
+                return (
+                  <div key={c.id} onClick={() => setSelectedCommercial(c)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', cursor: 'pointer', borderBottom: '1px solid rgba(201,168,76,0.05)' }}
+                    onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'}
+                    onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                    <div style={{ width: 24, fontSize: 14, fontWeight: 700, color: rankColor, textAlign: 'center', flexShrink: 0 }}>{i+1}</div>
+                    <div style={{ width: 150, fontSize: 13, fontWeight: 500, color: '#2C2C2C', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 0 }}>{c.nom}</div>
+                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: `${equipeColor}15`, color: equipeColor, flexShrink: 0 }}>{EQUIPES[c.equipe]?.label}</span>
+                    <div style={{ flex: 1, height: 7, background: 'rgba(201,168,76,0.1)', borderRadius: 4, overflow: 'hidden', minWidth: 40 }}>
+                      <div style={{ height: '100%', width: `${pct}%`, background: rankColor, borderRadius: 4 }}></div>
+                    </div>
+                    <div style={{ width: 44, fontSize: 13, fontWeight: 700, color: rankColor, textAlign: 'right', flexShrink: 0 }}>{c.val}{selectedKpi?.unit}</div>
+                    <div style={{ fontSize: 11, color: '#C9A84C', letterSpacing: 1, flexShrink: 0 }}>{stars}</div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Listes ranking séparées */}
+      {viewMode === 'separated' && <div style={{ display: 'grid', gridTemplateColumns: filterEquipe==='all'?'1fr 1fr':'1fr', gap: 16, marginBottom: 24 }}>
         {equipes.map(eq => {
           const ranking = getRanking(eq)
           const stats = statsParEquipe[eq] || {}
@@ -433,7 +494,7 @@ export default function FluxRDV({ conseilleres }) {
             </div>
           )
         })}
-      </div>
+      </div>}
 
       {/* Comparaison equipes */}
       <SectionTitle>Comparaison inter-équipes</SectionTitle>
