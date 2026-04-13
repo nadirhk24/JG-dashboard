@@ -180,7 +180,7 @@ export default function AnalyseCV({ conseilleres, saisies }) {
 
   return (
     <div>
-      <PageHeader title="Analyse CV" subtitle="Coefficient de variation & maîtrise des procédés" />
+      <PageHeader title="Analyse de la capabilité" subtitle="Coefficient de variation & maîtrise des procédés" />
 
       <div style={{ display: 'flex', gap: 20, marginBottom: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
