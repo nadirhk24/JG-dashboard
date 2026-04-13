@@ -61,9 +61,10 @@ function getRankColor(rank, total) {
   return '#E05C5C'
 }
 
-function getStars(rank, total) {
-  const s = Math.max(0, Math.min(5, total) - rank)
-  return '★'.repeat(s) + '☆'.repeat(Math.max(0, 5 - s))
+function getStarBadge(rank, total, maxStars=3) {
+  const stars = maxStars - Math.floor((rank / Math.max(total-1,1)) * maxStars)
+  const clamped = Math.max(1, Math.min(maxStars, stars))
+  return { star: '★', num: clamped, color: rank === 0 ? '#C9A84C' : rank < total*0.33 ? '#4CAF7D' : rank < total*0.66 ? '#C9A84C' : '#8A8A7A' }
 }
 
 export default function FluxRDV({ conseilleres }) {
@@ -78,6 +79,7 @@ export default function FluxRDV({ conseilleres }) {
   const [selectedCommercial, setSelectedCommercial] = useState(null)
   const [detailMode, setDetailMode] = useState('%')
   const [showSaisie, setShowSaisie] = useState(false)
+  const [showHistorique, setShowHistorique] = useState(false)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState(null)
   const [saisieConseillere, setSaisieConseillere] = useState('')
@@ -390,9 +392,26 @@ export default function FluxRDV({ conseilleres }) {
               </div>
             </div>
           ))}
+          <div style={{ marginTop: 20, padding: 16, background: 'rgba(201,168,76,0.05)', borderRadius: 10, border: '1px solid rgba(201,168,76,0.15)' }}>
+            <div style={{ fontSize: 13, fontWeight: 500, color: '#C9A84C', marginBottom: 12 }}>Visites non reconnues</div>
+            <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 12 }}>Visites récupérées sans commercial identifié — saisir par région</div>
+            <div style={{ display: 'flex', gap: 20 }}>
+              {Object.keys(EQUIPES).map(eq => (
+                <div key={eq}>
+                  <label style={{ fontSize: 11, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5, display: 'block' }}>{EQUIPES[eq].label}</label>
+                  <input type="number" min="0" step="0.5"
+                    value={saisieForm[`__non_reconnue_${eq}`]?.visites || ''}
+                    onChange={e => setSaisieForm(p => ({ ...p, [`__non_reconnue_${eq}`]: { visites: e.target.value, rdv: 0, ventes: 0, equipe: eq, non_reconnue: true } }))}
+                    placeholder="0" style={{ width: '80px', padding: '8px 10px', border: '1.5px solid rgba(201,168,76,0.25)', borderRadius: 6, fontSize: 13, textAlign: 'center', background: '#F8F7F4', outline: 'none' }}/>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ marginTop: 16, display: 'flex', gap: 10, alignItems: 'center' }}>
           <button onClick={handleSaisie} disabled={saving} style={{ background: saving?'#E8D5A3':'#C9A84C', color:'#fff', border:'none', padding:'11px 28px', borderRadius:8, fontSize:13, fontWeight:500, cursor:saving?'wait':'pointer' }}>
             {saving?'Enregistrement...':'Enregistrer'}
           </button>
+          </div>
         </div>
       )}
 
@@ -456,7 +475,7 @@ export default function FluxRDV({ conseilleres }) {
                       <div style={{ height: '100%', width: `${pct}%`, background: rankColor, borderRadius: 4 }}></div>
                     </div>
                     <div style={{ width: 44, fontSize: 13, fontWeight: 700, color: rankColor, textAlign: 'right', flexShrink: 0 }}>{c.val}{selectedKpi?.unit}</div>
-                    <div style={{ fontSize: 11, color: '#C9A84C', letterSpacing: 1, flexShrink: 0 }}>{stars}</div>
+                    {(() => { const sb = getStarBadge(i, allRanking.length, 5); return <div style={{ fontSize: 13, color: sb.color, flexShrink: 0, minWidth: 28, textAlign: 'center' }}>{sb.star}<span style={{ fontSize: 10, fontWeight: 600 }}>{sb.num}</span></div> })()}
                   </div>
                 )
               })}
@@ -486,7 +505,6 @@ export default function FluxRDV({ conseilleres }) {
               <div>
                 {ranking.map((c, i) => {
                   const rankColor = getRankColor(i, ranking.length)
-                  const stars = getStars(i, ranking.length)
                   const pct = maxVal > 0 ? (c.val / maxVal) * 100 : 0
                   return (
                     <div key={c.id} onClick={() => setSelectedCommercial(c)}
@@ -499,7 +517,7 @@ export default function FluxRDV({ conseilleres }) {
                         <div style={{ height: '100%', width: `${pct}%`, background: rankColor, borderRadius: 4, transition: 'width 0.3s' }}></div>
                       </div>
                       <div style={{ width: 44, fontSize: 13, fontWeight: 700, color: rankColor, textAlign: 'right', flexShrink: 0 }}>{c.val}{selectedKpi?.unit}</div>
-                      <div style={{ fontSize: 11, color: EQUIPES[eq].color, letterSpacing: 1, flexShrink: 0 }}>{stars}</div>
+                      {(() => { const sb = getStarBadge(i, ranking.length, 3); return <div style={{ fontSize: 13, color: sb.color, flexShrink: 0, minWidth: 28, textAlign: 'center' }}>{sb.star}<span style={{ fontSize: 10, fontWeight: 600 }}>{sb.num}</span></div> })()}
                     </div>
                   )
                 })}
@@ -607,6 +625,50 @@ export default function FluxRDV({ conseilleres }) {
           </table>
         )}
       </div>
+
+      {/* Historique saisies */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showHistorique ? 12 : 0, marginTop: 8 }}>
+        <div onClick={() => setShowHistorique(p=>!p)} style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
+          Historique des saisies
+          <span style={{ fontSize: 12, color: '#C9A84C', fontFamily: 'DM Sans' }}>{showHistorique ? '▲ Fermer' : '▼ Ouvrir'}</span>
+        </div>
+      </div>
+      {showHistorique && (
+        <div style={{ background: '#fff', borderRadius: 14, padding: 24, border: '1px solid rgba(201,168,76,0.15)' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>{['Période','Commercial','Équipe','RDV','Visites','Ventes','Actions'].map(h => (
+                  <th key={h} style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '8px 10px', borderBottom: '1px solid rgba(201,168,76,0.15)', textTransform: 'uppercase', fontWeight: 500 }}>{h}</th>
+                ))}</tr>
+              </thead>
+              <tbody>
+                {[...fluxData].sort((a,b)=>(b.date_debut||'').localeCompare(a.date_debut||'')).slice(0,50).map(f => {
+                  const comm = commerciaux.find(c=>c.id===f.commercial_id)
+                  const periode = f.date_debut && f.date_fin && f.date_debut !== f.date_fin
+                    ? `${f.date_debut.substring(8)}/${f.date_debut.substring(5,7)} → ${f.date_fin.substring(8)}/${f.date_fin.substring(5,7)}`
+                    : (f.date_debut || f.date_fin || '—')
+                  const eq = comm ? EQUIPES[comm.equipe] : null
+                  return (
+                    <tr key={f.id} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                      <td style={{ padding: '9px 10px', fontSize: 12, fontWeight: 500, color: '#C9A84C' }}>{periode}</td>
+                      <td style={{ padding: '9px 10px', fontSize: 12, fontWeight: 500 }}>{comm?.nom || '—'}</td>
+                      <td style={{ padding: '9px 10px' }}>{eq && <span style={{ padding: '2px 8px', borderRadius: 8, fontSize: 11, background: `${eq.color}15`, color: eq.color }}>{eq.label}</span>}</td>
+                      <td style={{ padding: '9px 10px', fontSize: 12, color: '#C9A84C', fontWeight: 500 }}>{f.rdv}</td>
+                      <td style={{ padding: '9px 10px', fontSize: 12, color: '#4CAF7D' }}>{f.visites}</td>
+                      <td style={{ padding: '9px 10px', fontSize: 12, color: '#1a6b3c' }}>{f.ventes}</td>
+                      <td style={{ padding: '9px 10px' }}>
+                        <button onClick={async () => { if(!window.confirm('Supprimer ?')) return; await supabase.from('flux_rdv').delete().eq('id',f.id); loadData() }} style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(224,92,92,0.3)', color: '#E05C5C', background: 'transparent', fontSize: 11, cursor: 'pointer' }}>Suppr.</button>
+                      </td>
+                    </tr>
+                  )
+                })}
+                {fluxData.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: '32px', color: '#5A5A5A', fontSize: 13 }}>Aucune saisie</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -6,6 +6,8 @@ import DashboardMarketing from './pages/DashboardMarketing'
 import Conseilleres from './pages/Conseilleres'
 import Objectifs from './pages/Objectifs'
 import Calendrier from './pages/Calendrier'
+import Responsables from './pages/Responsables'
+import Commerciaux from './pages/Commerciaux'
 import FluxRDV from './pages/FluxRDV'
 import AnalyseCV from './pages/AnalyseCV'
 import { supabase } from './lib/supabase'
@@ -53,6 +55,8 @@ export default function App() {
               <Route path="/objectifs" element={<Objectifs conseilleres={conseilleres} />} />
               <Route path="/conseilleres" element={<Conseilleres {...sharedProps} />} />
               <Route path="/calendrier" element={<Calendrier />} />
+              <Route path="/responsables" element={<Responsables />} />
+              <Route path="/commerciaux" element={<Commerciaux />} />
               <Route path="/flux-rdv" element={<FluxRDV conseilleres={conseilleres} />} />
               <Route path="/analyse-cv" element={<AnalyseCV {...sharedProps} />} />
             </Routes>
