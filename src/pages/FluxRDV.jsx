@@ -74,6 +74,7 @@ export default function FluxRDV({ conseilleres }) {
   const [filterEquipe, setFilterEquipe] = useState('all')
   const [viewMode, setViewMode] = useState('separated')
   const [hiddenKpis, setHiddenKpis] = useState({})
+  const [compareMode, setCompareMode] = useState('bars')
   const [selectedCommercial, setSelectedCommercial] = useState(null)
   const [detailMode, setDetailMode] = useState('%')
   const [showSaisie, setShowSaisie] = useState(false)
@@ -171,11 +172,9 @@ export default function FluxRDV({ conseilleres }) {
     }))
   }, [selectedCommercial, fluxData])
 
-  // Ranking par equipe
+  // Ranking par equipe - toujours separe par equipe dans la vue separee
   function getRanking(equipe) {
-    const comms = filterEquipe === 'all'
-      ? commerciaux
-      : commerciaux.filter(c => c.equipe === equipe)
+    const comms = commerciaux.filter(c => c.equipe === equipe)
     return [...comms]
       .map(c => ({ ...c, val: getKpiVal(fluxParCommercial[c.id] || {rdv:0,visites:0,ventes:0}, kpi) }))
       .sort((a,b) => b.val - a.val)
@@ -207,7 +206,7 @@ export default function FluxRDV({ conseilleres }) {
   const inputStyle = { width: '55px', padding: '5px 6px', border: '1.5px solid rgba(201,168,76,0.25)', borderRadius: 6, fontSize: 12, textAlign: 'center', background: '#F8F7F4', outline: 'none' }
   const btnStyle = (active, color='#C9A84C') => ({ padding: '6px 14px', borderRadius: 16, border: `1.5px solid ${active?color:'rgba(201,168,76,0.2)'}`, background: active?color:'#fff', color: active?'#fff':'#5A5A5A', fontSize: 12, fontWeight: active?500:400, cursor: 'pointer', transition: 'all 0.15s' })
 
-  const equipes = filterEquipe === 'all' ? ['sale','kenitra'] : [filterEquipe]
+  const equipes = viewMode === 'separated' ? (filterEquipe === 'all' ? ['sale','kenitra'] : [filterEquipe]) : []
 
   if (loading) return <div style={{ padding: 32, color: '#5A5A5A' }}>Chargement...</div>
 
@@ -223,18 +222,32 @@ export default function FluxRDV({ conseilleres }) {
       {selectedCommercial && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={() => setSelectedCommercial(null)}>
           <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '90%', maxWidth: 900, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-              <div>
-                <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 22, fontWeight: 600, color: EQUIPES[selectedCommercial.equipe]?.color }}>{selectedCommercial.nom}</div>
-                <div style={{ fontSize: 12, color: '#5A5A5A', marginTop: 2 }}>{EQUIPES[selectedCommercial.equipe]?.label} · {EQUIPES[selectedCommercial.equipe]?.responsable}</div>
-              </div>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                {[['%','%'],['📈','graph'],['123','num']].map(([icon, mode]) => (
-                  <button key={mode} onClick={() => setDetailMode(mode)} style={{ width: 36, height: 36, borderRadius: 8, border: `1.5px solid ${detailMode===mode?'#C9A84C':'rgba(201,168,76,0.2)'}`, background: detailMode===mode?'#C9A84C':'#fff', color: detailMode===mode?'#fff':'#5A5A5A', fontSize: 13, cursor: 'pointer', fontWeight: 500 }}>{icon}</button>
-                ))}
-                <button onClick={() => setSelectedCommercial(null)} style={{ width: 36, height: 36, borderRadius: '50%', border: '1.5px solid rgba(201,168,76,0.2)', background: '#fff', color: '#5A5A5A', fontSize: 16, cursor: 'pointer' }}>✕</button>
-              </div>
-            </div>
+            {(() => {
+              const currentList = viewMode === 'all'
+                ? [...commerciaux].map(c=>({...c,val:getKpiVal(fluxParCommercial[c.id]||{rdv:0,visites:0,ventes:0},kpi)})).sort((a,b)=>b.val-a.val)
+                : [...commerciaux.filter(c=>c.equipe===selectedCommercial.equipe)].map(c=>({...c,val:getKpiVal(fluxParCommercial[c.id]||{rdv:0,visites:0,ventes:0},kpi)})).sort((a,b)=>b.val-a.val)
+              const idx = currentList.findIndex(c=>c.id===selectedCommercial.id)
+              const prev = idx > 0 ? currentList[idx-1] : null
+              const next = idx < currentList.length-1 ? currentList[idx+1] : null
+              return (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <button onClick={() => prev && setSelectedCommercial(commerciaux.find(c=>c.id===prev.id))} disabled={!prev} style={{ width: 32, height: 32, borderRadius: '50%', border: '1.5px solid rgba(201,168,76,0.2)', background: '#fff', color: prev?'#C9A84C':'#ccc', fontSize: 16, cursor: prev?'pointer':'default' }}>‹</button>
+                    <div>
+                      <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 22, fontWeight: 600, color: EQUIPES[selectedCommercial.equipe]?.color }}>{selectedCommercial.nom}</div>
+                      <div style={{ fontSize: 12, color: '#5A5A5A', marginTop: 2 }}>{EQUIPES[selectedCommercial.equipe]?.label} · Rang #{idx+1}/{currentList.length}</div>
+                    </div>
+                    <button onClick={() => next && setSelectedCommercial(commerciaux.find(c=>c.id===next.id))} disabled={!next} style={{ width: 32, height: 32, borderRadius: '50%', border: '1.5px solid rgba(201,168,76,0.2)', background: '#fff', color: next?'#C9A84C':'#ccc', fontSize: 16, cursor: next?'pointer':'default' }}>›</button>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    {[['%','%'],['📈','graph'],['123','num']].map(([icon, mode]) => (
+                      <button key={mode} onClick={() => setDetailMode(mode)} style={{ width: 36, height: 36, borderRadius: 8, border: `1.5px solid ${detailMode===mode?'#C9A84C':'rgba(201,168,76,0.2)'}`, background: detailMode===mode?'#C9A84C':'#fff', color: detailMode===mode?'#fff':'#5A5A5A', fontSize: 13, cursor: 'pointer', fontWeight: 500 }}>{icon}</button>
+                    ))}
+                    <button onClick={() => setSelectedCommercial(null)} style={{ width: 36, height: 36, borderRadius: '50%', border: '1.5px solid rgba(201,168,76,0.2)', background: '#fff', color: '#5A5A5A', fontSize: 16, cursor: 'pointer' }}>✕</button>
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* Toggle KPIs */}
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
@@ -497,31 +510,102 @@ export default function FluxRDV({ conseilleres }) {
       </div>}
 
       {/* Comparaison equipes */}
-      <SectionTitle>Comparaison inter-équipes</SectionTitle>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 24 }}>
-        {[['rdv','RDV','#C9A84C'],['visites','Visites','#4CAF7D'],['ventes','Ventes','#1a6b3c']].map(([k,l,c]) => (
-          <div key={k} style={{ background: '#fff', borderRadius: 12, padding: 20, border: '1px solid rgba(201,168,76,0.15)' }}>
-            <div style={{ fontSize: 13, fontWeight: 500, color: c, marginBottom: 14 }}>{l}</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, marginTop: 8 }}>
+        <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C' }}>Comparaison inter-équipes</div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {[['bars','Barres'],['graph','Graphe'],['pct','%'],['num','123']].map(([m,l]) => (
+            <button key={m} onClick={()=>setCompareMode(m)} style={btnStyle(compareMode===m)}>{l}</button>
+          ))}
+        </div>
+      </div>
+      <div style={{ background: '#fff', borderRadius: 14, padding: 24, border: '1px solid rgba(201,168,76,0.15)', marginBottom: 24 }}>
+        {compareMode === 'bars' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+            {[['rdv','RDV','#C9A84C'],['visites','Visites','#4CAF7D'],['ventes','Ventes','#1a6b3c']].map(([k,l,c]) => (
+              <div key={k}>
+                <div style={{ fontSize: 12, fontWeight: 500, color: c, marginBottom: 12 }}>{l}</div>
+                {Object.keys(EQUIPES).map(eq => {
+                  const stats = statsParEquipe[eq] || {}
+                  const val = stats[k] || 0
+                  const maxVal = Math.max(...Object.keys(EQUIPES).map(e => statsParEquipe[e]?.[k]||0), 1)
+                  return (
+                    <div key={eq} style={{ marginBottom: 10 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <div style={{ fontSize: 12, color: '#5A5A5A' }}>{EQUIPES[eq].label}</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: EQUIPES[eq].color }}>{val}</div>
+                      </div>
+                      <div style={{ height: 8, background: 'rgba(201,168,76,0.1)', borderRadius: 4, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${(val/maxVal)*100}%`, background: EQUIPES[eq].color, borderRadius: 4 }}></div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ))}
+          </div>
+        )}
+        {compareMode === 'graph' && (
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={Object.keys(EQUIPES).map(eq => ({ label: EQUIPES[eq].label, rdv: statsParEquipe[eq]?.rdv||0, visites: statsParEquipe[eq]?.visites||0, ventes: statsParEquipe[eq]?.ventes||0 }))}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.08)"/>
+              <XAxis dataKey="label" tick={{ fontSize: 11 }}/>
+              <YAxis tick={{ fontSize: 10 }}/>
+              <Tooltip contentStyle={{ background: '#2C2C2C', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12 }}/>
+              <Bar dataKey="rdv" fill="#C9A84C" radius={[4,4,0,0]} name="RDV"/>
+              <Bar dataKey="visites" fill="#4CAF7D" radius={[4,4,0,0]} name="Visites"/>
+              <Bar dataKey="ventes" fill="#1a6b3c" radius={[4,4,0,0]} name="Ventes"/>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+        {compareMode === 'pct' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            {Object.keys(EQUIPES).map(eq => {
+              const s = statsParEquipe[eq] || {}
+              return (
+                <div key={eq} style={{ background: '#F8F7F4', borderRadius: 10, padding: 16 }}>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: EQUIPES[eq].color, marginBottom: 12 }}>{EQUIPES[eq].label}</div>
+                  {[['Tx Présence', s.taux_presence||0, '#534AB7'],['Tx Vente', s.taux_vente||0, '#378ADD']].map(([l,v,c]) => (
+                    <div key={l} style={{ marginBottom: 8 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                        <span style={{ fontSize: 12, color: '#5A5A5A' }}>{l}</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: c }}>{v}%</span>
+                      </div>
+                      <div style={{ height: 6, background: 'rgba(201,168,76,0.1)', borderRadius: 3, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${Math.min(v,100)}%`, background: c, borderRadius: 3 }}></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            })}
+          </div>
+        )}
+        {compareMode === 'num' && (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>{['Équipe','Responsable','RDV','Visites','Ventes','Tx Présence','Tx Vente','CV RDV'].map(h => (
+                <th key={h} style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '8px', borderBottom: '1px solid rgba(201,168,76,0.15)', textTransform: 'uppercase', fontWeight: 500 }}>{h}</th>
+              ))}</tr>
+            </thead>
+            <tbody>
               {Object.keys(EQUIPES).map(eq => {
-                const stats = statsParEquipe[eq] || {}
-                const val = stats[k] || 0
-                const maxVal = Math.max(...Object.keys(EQUIPES).map(e => statsParEquipe[e]?.[k]||0), 1)
+                const s = statsParEquipe[eq] || {}
                 return (
-                  <div key={eq}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                      <div style={{ fontSize: 12, color: '#5A5A5A' }}>{EQUIPES[eq].label}</div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: EQUIPES[eq].color }}>{val}</div>
-                    </div>
-                    <div style={{ height: 8, background: 'rgba(201,168,76,0.1)', borderRadius: 4, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${(val/maxVal)*100}%`, background: EQUIPES[eq].color, borderRadius: 4 }}></div>
-                    </div>
-                  </div>
+                  <tr key={eq} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                    <td style={{ padding: '10px 8px', fontSize: 13, fontWeight: 500, color: EQUIPES[eq].color }}>{EQUIPES[eq].label}</td>
+                    <td style={{ padding: '10px 8px', fontSize: 12, color: '#5A5A5A' }}>{EQUIPES[eq].responsable}</td>
+                    <td style={{ padding: '10px 8px', fontSize: 13, fontWeight: 600, color: '#C9A84C' }}>{s.rdv||0}</td>
+                    <td style={{ padding: '10px 8px', fontSize: 13, color: '#4CAF7D' }}>{s.visites||0}</td>
+                    <td style={{ padding: '10px 8px', fontSize: 13, color: '#1a6b3c' }}>{s.ventes||0}</td>
+                    <td style={{ padding: '10px 8px', fontSize: 13, color: '#534AB7' }}>{s.taux_presence||0}%</td>
+                    <td style={{ padding: '10px 8px', fontSize: 13, color: '#378ADD' }}>{s.taux_vente||0}%</td>
+                    <td style={{ padding: '10px 8px', fontSize: 13, color: s.cv>30?'#E05C5C':'#4CAF7D' }}>{s.cv||0}%</td>
+                  </tr>
                 )
               })}
-            </div>
-          </div>
-        ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   )

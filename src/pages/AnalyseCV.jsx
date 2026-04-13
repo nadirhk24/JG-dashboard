@@ -14,6 +14,14 @@ const CC_KPIS = [
   { key: 'joignabilite', label: 'Joignabilité', color: '#2E9455', unit: '%' },
 ]
 
+const FLUX_KPIS = [
+  { key: 'flux_rdv', label: 'RDV fixés', color: '#C9A84C', unit: '' },
+  { key: 'flux_visites', label: 'Visites', color: '#4CAF7D', unit: '' },
+  { key: 'flux_ventes', label: 'Ventes', color: '#1a6b3c', unit: '' },
+  { key: 'flux_taux_presence', label: 'Tx présence', color: '#534AB7', unit: '%' },
+  { key: 'flux_taux_vente', label: 'Tx vente', color: '#378ADD', unit: '%' },
+]
+
 const MKT_KPIS = [
   { key: 'taux_rdv', label: 'Taux RDV', color: '#534AB7', unit: '%' },
   { key: 'taux_visites', label: 'Taux Visites', color: '#4CAF7D', unit: '%' },
@@ -77,19 +85,32 @@ export default function AnalyseCV({ conseilleres, saisies }) {
   const [kpiKey, setKpiKey] = useState('conversion_tel')
   const [periode, setPeriode] = useState('mois')
   const [marketingData, setMarketingData] = useState([])
+  const [fluxData, setFluxData] = useState([])
+  const [fluxCommerciaux, setFluxCommerciaux] = useState([])
+  const [fluxEquipe, setFluxEquipe] = useState('all')
 
-  useEffect(() => { loadMarketing() }, [])
+  useEffect(() => { loadMarketing(); loadFlux() }, [])
   async function loadMarketing() {
     const { data } = await supabase.from('marketing_saisies').select('*').order('date', { ascending: true })
     setMarketingData(data || [])
   }
 
+  async function loadFlux() {
+    const [{ data: flux }, { data: comms }] = await Promise.all([
+      supabase.from('flux_rdv').select('*'),
+      supabase.from('commerciaux').select('*').eq('actif', true)
+    ])
+    setFluxData(flux || [])
+    setFluxCommerciaux(comms || [])
+  }
+
   useEffect(() => {
     if (segment === 'callcenter') setKpiKey('conversion_tel')
-    else setKpiKey('taux_rdv')
+    else if (segment === 'marketing') setKpiKey('taux_rdv')
+    else setKpiKey('flux_rdv')
   }, [segment])
 
-  const kpis = segment === 'callcenter' ? CC_KPIS : MKT_KPIS
+  const kpis = segment === 'callcenter' ? CC_KPIS : segment === 'marketing' ? MKT_KPIS : FLUX_KPIS
   const selectedKpi = kpis.find(k => k.key === kpiKey) || kpis[0]
 
   const groupFn = useMemo(() => getGroupFunction(periode), [periode])
@@ -100,6 +121,33 @@ export default function AnalyseCV({ conseilleres, saisies }) {
       return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([key, items]) => {
         const agg = agregerParPeriode(items)
         return { label: formatGroupLabel(key, periode), taux: agg[kpiKey] || 0 }
+      })
+    } else if (segment === 'flux') {
+      // Aggreger RDV par commercial par periode
+      const filteredComms = fluxEquipe === 'all' ? fluxCommerciaux : fluxCommerciaux.filter(c => c.equipe === fluxEquipe)
+      const fluxByComm = {}
+      fluxData.forEach(f => {
+        const m = f.date_debut?.substring(0, 7)
+        if (!m) return
+        if (!fluxByComm[m]) fluxByComm[m] = {}
+        if (!fluxByComm[m][f.commercial_id]) fluxByComm[m][f.commercial_id] = { rdv: 0, visites: 0, ventes: 0 }
+        fluxByComm[m][f.commercial_id].rdv += parseFloat(f.rdv || 0)
+        fluxByComm[m][f.commercial_id].visites += parseFloat(f.visites || 0)
+        fluxByComm[m][f.commercial_id].ventes += parseFloat(f.ventes || 0)
+      })
+      return Object.entries(fluxByComm).sort(([a],[b]) => a.localeCompare(b)).map(([mois, commData]) => {
+        const commVals = filteredComms.map(c => {
+          const d = commData[c.id] || { rdv: 0, visites: 0, ventes: 0 }
+          if (kpiKey === 'flux_rdv') return d.rdv
+          if (kpiKey === 'flux_visites') return d.visites
+          if (kpiKey === 'flux_ventes') return d.ventes
+          if (kpiKey === 'flux_taux_presence') return d.rdv > 0 ? parseFloat(((d.visites/d.rdv)*100).toFixed(1)) : 0
+          if (kpiKey === 'flux_taux_vente') return d.visites > 0 ? parseFloat(((d.ventes/d.visites)*100).toFixed(1)) : 0
+          return 0
+        })
+        const tot = commVals.reduce((a,b)=>a+b,0)
+        const label = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][parseInt(mois.split('-')[1])-1] + ' ' + mois.split('-')[0].substring(2)
+        return { label, taux: parseFloat(tot.toFixed(1)) }
       })
     } else {
       const groups = groupFn(marketingData)
@@ -188,6 +236,7 @@ export default function AnalyseCV({ conseilleres, saisies }) {
           <div style={{ display: 'flex', gap: 8 }}>
             <button style={btnStyle(segment === 'callcenter')} onClick={() => setSegment('callcenter')}>Call Center</button>
             <button style={btnStyle(segment === 'marketing')} onClick={() => setSegment('marketing')}>Marketing</button>
+            <button style={btnStyle(segment === 'flux', '#534AB7')} onClick={() => setSegment('flux')}>Flux RDV</button>
           </div>
         </div>
         <div>
@@ -200,6 +249,16 @@ export default function AnalyseCV({ conseilleres, saisies }) {
         </div>
       </div>
 
+      {segment === 'flux' && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, fontWeight: 500 }}>Équipe</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {[['all','Toutes'],['sale','Sale'],['kenitra','Kenitra']].map(([k,l]) => (
+              <button key={k} onClick={() => setFluxEquipe(k)} style={btnStyle(fluxEquipe===k)}>{l}</button>
+            ))}
+          </div>
+        </div>
+      )}
       <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10, fontWeight: 500 }}>KPI</div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>
         {kpis.map(k => (
