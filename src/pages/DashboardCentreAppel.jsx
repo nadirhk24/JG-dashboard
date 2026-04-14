@@ -306,7 +306,18 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
 
   async function supprimerSaisie(id) {
     if (!window.confirm('Supprimer cette saisie définitivement ?')) return
+    // Recuperer la saisie avant suppression
+    const { data: saisie } = await supabase.from('saisies').select('*').eq('id', id).maybeSingle()
     await supabase.from('saisies').delete().eq('id', id)
+    // Sync: mettre indispos a 0 dans marketing si periode correspondante
+    if (saisie) {
+      const { data: mkt } = await supabase.from('marketing_saisies')
+        .select('id').eq('conseillere_id', saisie.conseillere_id)
+        .gte('date_debut', saisie.date_debut)
+        .lte('date_debut', saisie.date_fin || saisie.date_debut)
+        .maybeSingle()
+      if (mkt) await supabase.from('marketing_saisies').update({ indispos: 0 }).eq('id', mkt.id)
+    }
     reload()
   }
 
@@ -628,7 +639,18 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
         {selectedRows.size > 0 && (
           <button onClick={async () => {
             if (!window.confirm(`Supprimer ${selectedRows.size} saisie(s) ?`)) return
+            // Recuperer les saisies avant suppression pour sync marketing
+            const { data: saisiesASuppr } = await supabase.from('saisies').select('*').in('id', [...selectedRows])
             await supabase.from('saisies').delete().in('id', [...selectedRows])
+            // Sync indispos vers marketing
+            for (const s of (saisiesASuppr || [])) {
+              const { data: mkt } = await supabase.from('marketing_saisies')
+                .select('id').eq('conseillere_id', s.conseillere_id)
+                .gte('date_debut', s.date_debut)
+                .lte('date_debut', s.date_fin || s.date_debut)
+                .maybeSingle()
+              if (mkt) await supabase.from('marketing_saisies').update({ indispos: 0 }).eq('id', mkt.id)
+            }
             setSelectedRows(new Set())
             reload()
           }} style={{ padding: '7px 16px', borderRadius: 8, background: '#E05C5C', color: '#fff', border: 'none', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
