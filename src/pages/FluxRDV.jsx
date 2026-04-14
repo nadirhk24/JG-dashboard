@@ -231,16 +231,34 @@ export default function FluxRDV({ conseilleres }) {
     const dd = saisieDebut || `${saisieMois}-01`
     const df = saisieFin || `${saisieMois}-${String(lastDay).padStart(2,'0')}`
     await supabase.from('flux_rdv').delete().eq('conseillere_id', saisieConseillere).gte('date_debut', dd).lte('date_fin', df)
-    const rows = entries.map(([cid, v]) => ({
-      conseillere_id: saisieConseillere, commercial_id: cid,
-      date_debut: dd, date_fin: df, type_saisie: 'periode',
-      rdv: parseFloat(v.rdv)||0, visites: parseFloat(v.visites)||0, ventes: parseFloat(v.ventes)||0,
-    }))
-    const { error } = await supabase.from('flux_rdv').insert(rows)
+    const rows = entries
+      .filter(([cid, v]) => !cid.startsWith('__non_reconnue_'))
+      .map(([cid, v]) => ({
+        conseillere_id: saisieConseillere, commercial_id: cid,
+        date_debut: dd, date_fin: df, type_saisie: 'periode',
+        rdv: parseFloat(v.rdv)||0, visites: parseFloat(v.visites)||0, ventes: parseFloat(v.ventes)||0,
+      }))
+
+    // Lignes non reconnues : chercher le commercial fictif correspondant
+    const nonReconnuRows = []
+    for (const [cid, v] of entries.filter(([cid]) => cid.startsWith('__non_reconnue_'))) {
+      const equipe = cid.replace('__non_reconnue_', '')
+      const commNom = equipe === 'sale' ? 'Non reconnu Sale' : 'Non reconnu Kenitra'
+      const commFictif = commerciaux.find(c => c.nom === commNom)
+      if (commFictif && (parseFloat(v.visites)||0) > 0) {
+        nonReconnuRows.push({
+          conseillere_id: saisieConseillere, commercial_id: commFictif.id,
+          date_debut: dd, date_fin: df, type_saisie: 'non_reconnue',
+          rdv: 0, visites: parseFloat(v.visites)||0, ventes: 0,
+        })
+      }
+    }
+    const allRows = [...rows, ...nonReconnuRows]
+    const { error } = await supabase.from('flux_rdv').insert(allRows)
     
     if (!error) {
       // Sync totaux vers saisies CC par conseillere - creer si n'existe pas
-      const conseilleresIds = [...new Set(rows.map(r => r.conseillere_id))]
+      const conseilleresIds = [...new Set(allRows.map(r => r.conseillere_id))]
       for (const consId of conseilleresIds) {
         const { data: allFlux } = await supabase.from('flux_rdv')
           .select('rdv, visites, ventes')
@@ -297,7 +315,7 @@ export default function FluxRDV({ conseilleres }) {
 
     setSaving(false)
     if (error) setMsg({ type: 'error', text: error.message })
-    else { setMsg({ type: 'success', text: `${rows.length} saisie(s) enregistrée(s) et Call Center mis à jour !` }); loadData(); setSaisieForm({}); setTimeout(() => setMsg(null), 3000) }
+    else { setMsg({ type: 'success', text: `${allRows.length} saisie(s) enregistrée(s) et Call Center mis à jour !` }); loadData(); setSaisieForm({}); setTimeout(() => setMsg(null), 3000) }
   }
 
   const selectedKpi = KPIS.find(k => k.key === kpi)
