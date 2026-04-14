@@ -222,8 +222,23 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
     }
 
     // Construire le payload - seulement les champs renseignes
-    // Si mise a jour : fusionner avec les anciennes valeurs
     const existingData = oldData && oldData.length > 0 ? oldData[0] : null
+
+    // Recuperer RDV/Visites/Ventes depuis flux_rdv pour cette conseillere et cette periode
+    const { data: fluxData } = await supabase.from('flux_rdv')
+      .select('rdv, visites, ventes')
+      .eq('conseillere_id', form.conseillere_id)
+      .gte('date_debut', dateDebut)
+      .lte('date_fin', dateFin)
+    
+    const fluxRDV = (fluxData || []).reduce((acc, f) => ({
+      rdv: acc.rdv + parseFloat(f.rdv || 0),
+      visites: acc.visites + parseFloat(f.visites || 0),
+      ventes: acc.ventes + parseFloat(f.ventes || 0),
+    }), { rdv: 0, visites: 0, ventes: 0 })
+
+    const indisposVal = form.indispos !== '' ? base('indispos') : (existingData?.indispos ?? 0)
+    const leadsBrutsVal = form.leads_bruts !== '' ? base('leads_bruts') : (existingData?.leads_bruts ?? 0)
     
     const payload = {
       conseillere_id: form.conseillere_id,
@@ -231,17 +246,28 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
       date_debut: dateDebut,
       date_fin: dateFin,
       type_saisie: saisieMode,
-      // Pour chaque champ : utiliser la nouvelle valeur si renseignee, sinon garder l'ancienne
-      leads_bruts: form.leads_bruts !== '' ? base('leads_bruts') : (existingData?.leads_bruts ?? 0),
-      indispos: form.indispos !== '' ? base('indispos') : (existingData?.indispos ?? 0),
-      leads_nets: (form.leads_bruts !== '' || form.indispos !== '') ? leadsNetsForm : (existingData?.leads_nets ?? 0),
+      leads_bruts: leadsBrutsVal,
+      indispos: indisposVal,
+      leads_nets: Math.max(0, leadsBrutsVal - indisposVal),
       echanges: form.echanges !== '' ? base('echanges') : (existingData?.echanges ?? 0),
-      rdv: form.rdv !== '' ? base('rdv') : (existingData?.rdv ?? 0),
-      visites: form.visites !== '' ? base('visites') : (existingData?.visites ?? 0),
-      ventes: form.ventes !== '' ? base('ventes') : (existingData?.ventes ?? 0),
+      rdv: fluxRDV.rdv > 0 ? fluxRDV.rdv : (existingData?.rdv ?? 0),
+      visites: fluxRDV.visites > 0 ? fluxRDV.visites : (existingData?.visites ?? 0),
+      ventes: fluxRDV.ventes > 0 ? fluxRDV.ventes : (existingData?.ventes ?? 0),
     }
 
     const { error } = await supabase.from('saisies').insert(payload)
+    
+    // Sync indispos vers marketing_saisies
+    if (!error && indisposVal > 0) {
+      const { data: mktExist } = await supabase.from('marketing_saisies')
+        .select('id, indispos')
+        .gte('date_debut', dateDebut)
+        .lte('date_fin', dateFin)
+        .maybeSingle()
+      if (mktExist) {
+        await supabase.from('marketing_saisies').update({ indispos: indisposVal }).eq('id', mktExist.id)
+      }
+    }
     
     // Sync automatique: leads bruts CC → injections Marketing
     if (!error && payload.leads_bruts > 0) {
@@ -355,10 +381,11 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
               <div><label style={labelStyle}>Indispos</label><input type="number" min="0" value={form.indispos} onChange={e=>setForm(p=>({...p,indispos:e.target.value}))} placeholder="ex: 20" style={inputStyle}/></div>
               <div><label style={labelStyle}>Leads Nets (auto)</label><input type="number" value={saisieMode==='jour'?leadsNetsForm:'—'} readOnly style={{ ...inputStyle, background: '#F7F0DC', borderColor: '#C9A84C', color: '#8a6a1a', fontWeight: 500 }}/></div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 20 }}>
-              {[['echanges','Échanges'],['rdv','RDV fixés'],['visites','Visites'],['ventes','Ventes']].map(([k,l]) => (
-                <div key={k}><label style={labelStyle}>{l}</label><input type="number" min="0" step="0.5" value={form[k]} onChange={e=>setForm(p=>({...p,[k]:e.target.value}))} placeholder="0" style={inputStyle}/></div>
-              ))}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(1, 1fr)', gap: 14, marginBottom: 14 }}>
+              <div><label style={labelStyle}>Échanges</label><input type="number" min="0" step="0.5" value={form.echanges} onChange={e=>setForm(p=>({...p,echanges:e.target.value}))} placeholder="0" style={inputStyle}/></div>
+            </div>
+            <div style={{ padding: '10px 14px', background: 'rgba(83,74,183,0.05)', borderRadius: 8, marginBottom: 20, fontSize: 12, color: '#534AB7', border: '1px solid rgba(83,74,183,0.15)' }}>
+              ℹ️ RDV, Visites et Ventes sont automatiquement calculés depuis le <strong>Flux RDV</strong>
             </div>
             <button type="submit" disabled={saving} style={{ background: saving?'#E8D5A3':'#C9A84C', color:'#fff', border:'none', padding:'11px 28px', borderRadius:8, fontSize:13, fontWeight:500, cursor:saving?'wait':'pointer' }}>
               {saving?'Enregistrement...':'Enregistrer'}

@@ -205,9 +205,39 @@ export default function FluxRDV({ conseilleres }) {
       rdv: parseFloat(v.rdv)||0, visites: parseFloat(v.visites)||0, ventes: parseFloat(v.ventes)||0,
     }))
     const { error } = await supabase.from('flux_rdv').insert(rows)
+    
+    if (!error) {
+      // Sync totaux vers saisies CC par conseillere
+      const conseilleresIds = [...new Set(rows.map(r => r.conseillere_id))]
+      for (const consId of conseilleresIds) {
+        const { data: allFlux } = await supabase.from('flux_rdv')
+          .select('rdv, visites, ventes')
+          .eq('conseillere_id', consId)
+          .gte('date_debut', dd)
+          .lte('date_fin', df)
+        
+        const totaux = (allFlux || []).reduce((acc, f) => ({
+          rdv: acc.rdv + parseFloat(f.rdv || 0),
+          visites: acc.visites + parseFloat(f.visites || 0),
+          ventes: acc.ventes + parseFloat(f.ventes || 0),
+        }), { rdv: 0, visites: 0, ventes: 0 })
+        
+        // Mettre a jour ou inserer dans saisies
+        const { data: existSaisie } = await supabase.from('saisies')
+          .select('id')
+          .eq('conseillere_id', consId)
+          .eq('date_debut', dd)
+          .maybeSingle()
+        
+        if (existSaisie) {
+          await supabase.from('saisies').update({ rdv: Math.round(totaux.rdv), visites: Math.round(totaux.visites), ventes: totaux.ventes }).eq('id', existSaisie.id)
+        }
+      }
+    }
+
     setSaving(false)
     if (error) setMsg({ type: 'error', text: error.message })
-    else { setMsg({ type: 'success', text: `${rows.length} saisie(s) enregistrée(s) !` }); loadData(); setSaisieForm({}); setTimeout(() => setMsg(null), 3000) }
+    else { setMsg({ type: 'success', text: `${rows.length} saisie(s) enregistrée(s) et Call Center mis à jour !` }); loadData(); setSaisieForm({}); setTimeout(() => setMsg(null), 3000) }
   }
 
   const selectedKpi = KPIS.find(k => k.key === kpi)

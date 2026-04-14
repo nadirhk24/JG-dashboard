@@ -460,7 +460,7 @@ export default function DashboardMarketing() {
               : <><div><label style={labelStyle}>Date début</label><input type="date" value={form.date_debut} onChange={e=>setForm(p=>({...p,date_debut:e.target.value}))} style={inputStyle}/></div><div><label style={labelStyle}>Date fin</label><input type="date" value={form.date_fin} onChange={e=>setForm(p=>({...p,date_fin:e.target.value}))} style={inputStyle}/></div></>}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 20 }}>
-              {[{key:'injections',label:'Injections',color:'#C9A84C'},{key:'non_exploitables',label:'Non exploitables',color:'#8A8A7A'},{key:'indispos',label:'Indispos',color:'#E05C5C'},{key:'suivis',label:'Suivis',color:'#C9A84C'},{key:'rdv',label:'RDV',color:'#534AB7'},{key:'visites',label:'Visites',color:'#4CAF7D'},{key:'ventes',label:'Ventes',color:'#1a6b3c'}].map(f => (
+              {[{key:'injections',label:'Injections',color:'#C9A84C'},{key:'non_exploitables',label:'Non exploitables',color:'#8A8A7A'},{key:'suivis',label:'Suivis',color:'#C9A84C'},{key:'rdv',label:'RDV',color:'#534AB7'},{key:'visites',label:'Visites',color:'#4CAF7D'},{key:'ventes',label:'Ventes',color:'#1a6b3c'}].map(f => (
                 <div key={f.key}>
                   <label style={{...labelStyle,color:f.color}}>{f.label}<InfoBulle text={BULLES[f.key]}/></label>
                   <input type="number" min="0" value={form[f.key]} onChange={e=>setForm(p=>({...p,[f.key]:e.target.value}))} placeholder="0" style={{...inputStyle,borderColor:`${f.color}50`}}/>
