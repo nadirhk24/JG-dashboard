@@ -45,8 +45,16 @@ function calcCV(vals) {
   return parseFloat(((Math.sqrt(variance) / moy) * 100).toFixed(1))
 }
 
+function getRdvTotal(d) {
+  return (d.rdv || 0) + (d.visites || 0)
+}
+
 function getKpiVal(d, kpi) {
-  if (kpi === 'taux_presence') return d.rdv > 0 ? parseFloat(((d.visites / d.rdv) * 100).toFixed(1)) : 0
+  if (kpi === 'rdv') return Math.round(getRdvTotal(d))
+  if (kpi === 'taux_presence') {
+    const rdvTotal = getRdvTotal(d)
+    return rdvTotal > 0 ? parseFloat(((d.visites / rdvTotal) * 100).toFixed(1)) : 0
+  }
   if (kpi === 'taux_vente') return d.visites > 0 ? parseFloat(((d.ventes / d.visites) * 100).toFixed(1)) : 0
   return parseFloat((d[kpi] || 0).toFixed(1))
 }
@@ -153,8 +161,9 @@ export default function FluxRDV({ conseilleres }) {
         return { rdv: acc.rdv + d.rdv, visites: acc.visites + d.visites, ventes: acc.ventes + d.ventes }
       }, { rdv: 0, visites: 0, ventes: 0 })
       const cv = calcCV(comms.map(c => (fluxParCommercial[c.id] || {}).rdv || 0))
-      res[eq] = { ...tot, cv,
-        taux_presence: tot.rdv > 0 ? parseFloat(((tot.visites/tot.rdv)*100).toFixed(1)) : 0,
+      const rdvTotal = (tot.rdv || 0) + (tot.visites || 0)
+      res[eq] = { ...tot, rdv: rdvTotal, cv,
+        taux_presence: rdvTotal > 0 ? parseFloat(((tot.visites/rdvTotal)*100).toFixed(1)) : 0,
         taux_vente: tot.visites > 0 ? parseFloat(((tot.ventes/tot.visites)*100).toFixed(1)) : 0,
       }
     })

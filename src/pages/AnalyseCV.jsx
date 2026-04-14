@@ -123,31 +123,49 @@ export default function AnalyseCV({ conseilleres, saisies }) {
         return { label: formatGroupLabel(key, periode), taux: agg[kpiKey] || 0 }
       })
     } else if (segment === 'flux') {
-      // Aggreger RDV par commercial par periode
-      const filteredComms = fluxEquipe === 'all' ? fluxCommerciaux : fluxCommerciaux.filter(c => c.equipe === fluxEquipe)
-      const fluxByComm = {}
+      // CV inter-commerciaux par mois
+      const filteredComms = fluxEquipe === 'all' 
+        ? fluxCommerciaux.filter(c => !c.nom.includes('Non reconnu'))
+        : fluxCommerciaux.filter(c => c.equipe === fluxEquipe && !c.nom.includes('Non reconnu'))
+      
+      // Grouper flux par mois
+      const fluxByMois = {}
       fluxData.forEach(f => {
         const m = f.date_debut?.substring(0, 7)
-        if (!m) return
-        if (!fluxByComm[m]) fluxByComm[m] = {}
-        if (!fluxByComm[m][f.commercial_id]) fluxByComm[m][f.commercial_id] = { rdv: 0, visites: 0, ventes: 0 }
-        fluxByComm[m][f.commercial_id].rdv += parseFloat(f.rdv || 0)
-        fluxByComm[m][f.commercial_id].visites += parseFloat(f.visites || 0)
-        fluxByComm[m][f.commercial_id].ventes += parseFloat(f.ventes || 0)
+        if (!m || !f.commercial_id) return
+        if (!fluxByMois[m]) fluxByMois[m] = {}
+        if (!fluxByMois[m][f.commercial_id]) fluxByMois[m][f.commercial_id] = { rdv: 0, visites: 0, ventes: 0 }
+        fluxByMois[m][f.commercial_id].rdv += parseFloat(f.rdv || 0)
+        fluxByMois[m][f.commercial_id].visites += parseFloat(f.visites || 0)
+        fluxByMois[m][f.commercial_id].ventes += parseFloat(f.ventes || 0)
       })
-      return Object.entries(fluxByComm).sort(([a],[b]) => a.localeCompare(b)).map(([mois, commData]) => {
-        const commVals = filteredComms.map(c => {
+
+      // Pour chaque mois, calculer le taux de chaque commercial → CV inter-commerciaux
+      return Object.entries(fluxByMois).sort(([a],[b]) => a.localeCompare(b)).map(([mois, commData]) => {
+        const tauxParComm = filteredComms.map(c => {
           const d = commData[c.id] || { rdv: 0, visites: 0, ventes: 0 }
-          if (kpiKey === 'flux_rdv') return d.rdv
-          if (kpiKey === 'flux_visites') return d.visites
-          if (kpiKey === 'flux_ventes') return d.ventes
-          if (kpiKey === 'flux_taux_presence') return d.rdv > 0 ? parseFloat(((d.visites/d.rdv)*100).toFixed(1)) : 0
+          const rdvTotal = (d.rdv || 0) + (d.visites || 0)
+          if (kpiKey === 'flux_rdv') return rdvTotal
+          if (kpiKey === 'flux_visites') return d.visites || 0
+          if (kpiKey === 'flux_ventes') return d.ventes || 0
+          if (kpiKey === 'flux_taux_presence') return rdvTotal > 0 ? parseFloat(((d.visites/rdvTotal)*100).toFixed(1)) : 0
           if (kpiKey === 'flux_taux_vente') return d.visites > 0 ? parseFloat(((d.ventes/d.visites)*100).toFixed(1)) : 0
           return 0
-        })
-        const tot = commVals.reduce((a,b)=>a+b,0)
+        }).filter(v => v > 0)
+
+        // CV inter-commerciaux pour ce mois
+        const cvMois = tauxParComm.length >= 2 ? (() => {
+          const moy = tauxParComm.reduce((a,b)=>a+b,0) / tauxParComm.length
+          if (moy === 0) return 0
+          const ecart = Math.sqrt(tauxParComm.reduce((s,v)=>s+Math.pow(v-moy,2),0) / tauxParComm.length)
+          return parseFloat(((ecart/moy)*100).toFixed(1))
+        })() : 0
+
         const label = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][parseInt(mois.split('-')[1])-1] + ' ' + mois.split('-')[0].substring(2)
-        return { label, taux: parseFloat(tot.toFixed(1)) }
+        // Pour les taux: afficher le CV inter-commerciaux de ce mois
+        // Pour les absolus: afficher la moyenne par commercial
+        const moyVal = tauxParComm.length > 0 ? parseFloat((tauxParComm.reduce((a,b)=>a+b,0) / tauxParComm.length).toFixed(1)) : 0
+        return { label, taux: ['flux_taux_presence','flux_taux_vente'].includes(kpiKey) ? cvMois : moyVal, cv_intercomm: cvMois, moy: moyVal }
       })
     } else {
       const groups = groupFn(marketingData)
