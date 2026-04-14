@@ -134,49 +134,10 @@ export default function AnalyseCV({ conseilleres, saisies }) {
 
   const chartData = useMemo(() => {
     if (segment === 'callcenter') {
-      // CV inter-conseilleres par mois
-      const byMois = {}
-      saisies.forEach(s => {
-        const m = s.date_debut?.substring(0,7) || s.date?.substring(0,7)
-        if (!m) return
-        if (!byMois[m]) byMois[m] = {}
-        if (!byMois[m][s.conseillere_id]) byMois[m][s.conseillere_id] = { leads_bruts:0, leads_nets:0, echanges:0, rdv:0, visites:0, ventes:0, indispos:0 }
-        const d = byMois[m][s.conseillere_id]
-        d.leads_bruts += parseFloat(s.leads_bruts||0)
-        d.leads_nets += parseFloat(s.leads_nets||0)
-        d.echanges += parseFloat(s.echanges||0)
-        d.rdv += parseFloat(s.rdv||0)
-        d.visites += parseFloat(s.visites||0)
-        d.ventes += parseFloat(s.ventes||0)
-        d.indispos += parseFloat(s.indispos||0)
-      })
-
-      function getCCVal(d, key) {
-        if (key === 'conversion_tel') return d.echanges > 0 ? parseFloat(((d.rdv/d.echanges)*100).toFixed(1)) : 0
-        if (key === 'taux_presence') return d.rdv > 0 ? parseFloat(((d.visites/d.rdv)*100).toFixed(1)) : 0
-        if (key === 'efficacite_comm') return d.visites > 0 ? parseFloat(((d.ventes/d.visites)*100).toFixed(1)) : 0
-        if (key === 'productivite') return d.leads_nets > 0 ? parseFloat(((d.echanges/d.leads_nets)*100).toFixed(1)) : 0
-        if (key === 'joignabilite') return d.leads_bruts > 0 ? parseFloat((((d.leads_bruts-d.indispos)/d.leads_bruts)*100).toFixed(1)) : 0
-        return 0
-      }
-
-      return Object.entries(byMois).sort(([a],[b]) => a.localeCompare(b)).map(([mois, consData]) => {
-        const valsParCons = Object.values(consData)
-          .map(d => getCCVal(d, kpiKey))
-          .filter(v => v > 0)
-
-        const moy = valsParCons.length > 0
-          ? parseFloat((valsParCons.reduce((a,b)=>a+b,0) / valsParCons.length).toFixed(1))
-          : 0
-
-        const cvMois = valsParCons.length >= 2 ? (() => {
-          if (moy === 0) return 0
-          const ecart = Math.sqrt(valsParCons.reduce((s,v)=>s+Math.pow(v-moy,2),0) / valsParCons.length)
-          return parseFloat(((ecart/moy)*100).toFixed(1))
-        })() : 0
-
-        const label = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][parseInt(mois.split('-')[1])-1] + ' ' + mois.split('-')[0].substring(2)
-        return { label, taux: cvMois, moy, cv_intercomm: cvMois }
+      const groups = groupFn(saisies)
+      return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([key, items]) => {
+        const agg = agregerParPeriode(items)
+        return { label: formatGroupLabel(key, periode), taux: agg[kpiKey] || 0, cv_intercomm: agg[kpiKey] || 0, moy: agg[kpiKey] || 0 }
       })
     } else if (segment === 'flux') {
       const filteredComms = fluxEquipe === 'all'
@@ -271,16 +232,17 @@ export default function AnalyseCV({ conseilleres, saisies }) {
     return result
   }, [chartData])
 
-  const cvGlobal = useMemo(() => calcCV(chartData.map(r => ['flux','callcenter'].includes(segment) ? (r.cv_intercomm || 0) : r.taux)), [chartData, segment])
+  const cvGlobal = useMemo(() => calcCV(chartData.map(r => r.taux)), [chartData])
 
   // Statistiques pour la courbe en cloche
   const stats = useMemo(() => {
-    const vals = chartData.map(r => ['flux','callcenter'].includes(segment) ? (r.cv_intercomm || 0) : r.taux).filter(v => v > 0)
+    const vals = chartData.map(r => r.taux).filter(v => v > 0)
     const moy = calcMoyenne(vals)
     const ecart = calcEcartType(vals)
     const ucl = parseFloat((moy + 2 * ecart).toFixed(2))
     const lcl = parseFloat(Math.max(0, moy - 2 * ecart).toFixed(2))
-    return { moy: parseFloat(moy.toFixed(2)), ecart: parseFloat(ecart.toFixed(2)), ucl, lcl }
+    const cv = vals.length >= 2 ? parseFloat(((ecart/moy)*100).toFixed(1)) : 0
+    return { moy: parseFloat(moy.toFixed(2)), ecart: parseFloat(ecart.toFixed(2)), ucl, lcl, cv }
   }, [chartData])
 
   const bellCurveData = useMemo(() => generateBellCurve(stats.moy, stats.ecart), [stats])
@@ -478,7 +440,7 @@ export default function AnalyseCV({ conseilleres, saisies }) {
                   <InfoBulle text="Évolution du coefficient de variation mois par mois. Si la courbe descend → le processus se stabilise ✅. Lignes de référence : 15% (maîtrisé) et 30% (variable)."/>
                   <span style={{ marginLeft: 'auto', fontSize: 11, color: '#C9A84C' }}>{expandedChart === 'cv' ? '▲' : '▼'}</span>
                 </div>
-                <div style={{ fontSize: 10, color: '#5A5A5A', marginBottom: 8 }}>CV Global: <strong>{stats.cv}%</strong></div>
+                <div style={{ fontSize: 10, color: '#5A5A5A', marginBottom: 8 }}>CV Global: <strong style={{ color: cvGlobal < 15 ? '#1a6b3c' : cvGlobal < 30 ? '#C9A84C' : '#E07B30' }}>{cvGlobal}%</strong></div>
                 <div style={{ fontSize: 11, color: maitrise.color, marginBottom: 8, fontWeight: 500 }}>{maitrise.dot} {maitrise.label}</div>
                 <ResponsiveContainer width="100%" height={expandedChart === 'cv' ? 300 : 180}>
                   <LineChart data={chartData} margin={{ top: 10, right: 40, bottom: 0, left: 0 }}>
@@ -488,10 +450,10 @@ export default function AnalyseCV({ conseilleres, saisies }) {
                     <Tooltip contentStyle={tooltipStyle} formatter={(v, name) => [`${v}%`, name]}/>
                     <ReferenceLine y={15} stroke="#4CAF7D" strokeDasharray="4 4" label={{ value: '15%', fill: '#4CAF7D', fontSize: 9, position: 'right' }}/>
                     <ReferenceLine y={30} stroke="#E07B30" strokeDasharray="4 4" label={{ value: '30%', fill: '#E07B30', fontSize: 9, position: 'right' }}/>
-                    {segment === 'flux' || segment === 'callcenter' ? (
+                    {segment === 'flux' ? (
                       <>
                         <Line type="monotone" dataKey="cv_intercomm" stroke={selectedKpi?.color || '#C9A84C'} strokeWidth={2.5}
-                          dot={{ r: 4, fill: selectedKpi?.color || '#C9A84C', stroke: '#fff', strokeWidth: 2 }} name="CV"/>
+                          dot={{ r: 4, fill: selectedKpi?.color || '#C9A84C', stroke: '#fff', strokeWidth: 2 }} name="CV inter-commerciaux"/>
                         <Line type="monotone" dataKey="moy" stroke="#8A8A7A" strokeWidth={1.5} strokeDasharray="4 4" dot={{ r: 3 }} name="Moyenne"/>
                       </>
                     ) : (
@@ -514,8 +476,8 @@ export default function AnalyseCV({ conseilleres, saisies }) {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
-              {['flux','callcenter'].includes(segment)
-                ? ['Période', `Moy. ${selectedKpi.label}`, segment === 'flux' ? 'CV inter-commerciaux' : 'CV inter-conseillères', 'Statut'].map(h => (
+              {segment === 'flux'
+                ? ['Période', `Moy. ${selectedKpi.label}`, 'CV inter-commerciaux', 'Statut'].map(h => (
                     <th key={h} style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '8px 10px', borderBottom: '1px solid rgba(201,168,76,0.15)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 500 }}>{h}</th>
                   ))
                 : ['Période', selectedKpi.label, 'CV cumulé', 'Statut'].map(h => (
@@ -526,14 +488,14 @@ export default function AnalyseCV({ conseilleres, saisies }) {
           </thead>
           <tbody>
             {chartData.map((row, i) => {
-              const cvVal = ['flux','callcenter'].includes(segment) ? (row.cv_intercomm || 0) : (cvData.find(c => c.label === row.label)?.cv || 0)
+              const cvVal = segment === 'flux' ? (row.cv_intercomm || 0) : (cvData.find(c => c.label === row.label)?.cv || 0)
               const statut = cvVal === 0 ? { label: '—', color: '#8A8A7A' } :
                 cvVal < 15 ? { label: '✅ Maîtrisé', color: '#1a6b3c' } :
                 cvVal < 30 ? { label: '🟡 Modéré', color: '#C9A84C' } :
                 cvVal < 50 ? { label: '🟠 Variable', color: '#E07B30' } :
                 { label: '🔴 Hors contrôle', color: '#E05C5C' }
               const horsLimite = !selectedKpi?.isAbsolute && (row.taux > stats.ucl || (stats.lcl > 0 && row.taux < stats.lcl))
-              const displayVal = ['flux','callcenter'].includes(segment) ? row.moy : row.taux
+              const displayVal = segment === 'flux' ? row.moy : row.taux
               const displayUnit = selectedKpi?.isAbsolute ? '' : '%'
               return (
                 <tr key={i} onMouseEnter={e => e.currentTarget.style.background = '#F7F0DC'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
