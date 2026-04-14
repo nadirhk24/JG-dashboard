@@ -746,7 +746,34 @@ export default function FluxRDV({ conseilleres }) {
                       <td style={{ padding: '9px 10px', fontSize: 12, color: '#4CAF7D' }}>{f.visites}</td>
                       <td style={{ padding: '9px 10px', fontSize: 12, color: '#1a6b3c' }}>{f.ventes}</td>
                       <td style={{ padding: '9px 10px' }}>
-                        <button onClick={async () => { if(!window.confirm('Supprimer ?')) return; await supabase.from('flux_rdv').delete().eq('id',f.id); loadData() }} style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(224,92,92,0.3)', color: '#E05C5C', background: 'transparent', fontSize: 11, cursor: 'pointer' }}>Suppr.</button>
+                        <button onClick={async () => {
+  if(!window.confirm('Supprimer ?')) return
+  // Recuperer la ligne avant suppression pour savoir conseillere + periode
+  const ligne = fluxData.find(x => x.id === f.id)
+  await supabase.from('flux_rdv').delete().eq('id', f.id)
+  // Recalculer et sync vers CC
+  if (ligne) {
+    const { data: remaining } = await supabase.from('flux_rdv')
+      .select('rdv, visites, ventes')
+      .eq('conseillere_id', ligne.conseillere_id)
+      .eq('date_debut', ligne.date_debut)
+    const totBruts = (remaining || []).reduce((acc, x) => ({
+      rdv: acc.rdv + parseFloat(x.rdv||0),
+      visites: acc.visites + parseFloat(x.visites||0),
+      ventes: acc.ventes + parseFloat(x.ventes||0),
+    }), { rdv:0, visites:0, ventes:0 })
+    const t = calcTotaux(totBruts)
+    const { data: existSaisie } = await supabase.from('saisies')
+      .select('id').eq('conseillere_id', ligne.conseillere_id)
+      .eq('date_debut', ligne.date_debut).maybeSingle()
+    if (existSaisie) {
+      await supabase.from('saisies').update({
+        rdv: Math.round(t.rdv), visites: Math.round(t.visites), ventes: Math.round(t.ventes)
+      }).eq('id', existSaisie.id)
+    }
+  }
+  loadData()
+}} style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(224,92,92,0.3)', color: '#E05C5C', background: 'transparent', fontSize: 11, cursor: 'pointer' }}>Suppr.</button>
                       </td>
                     </tr>
                   )
