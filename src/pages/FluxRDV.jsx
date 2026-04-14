@@ -487,21 +487,24 @@ export default function FluxRDV({ conseilleres }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {commerciaux.filter(c=>c.equipe==='sale').map(c => (
-                    <tr key={c.id} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                      <td style={{ padding: '5px 8px', fontSize: 12, fontWeight: 500 }}>{c.nom}</td>
-                      {['rdv','visites','ventes'].map(f => (
-                        <td key={f} style={{ padding: '4px 6px', textAlign: 'center' }}>
-                          <input type="number" min="0" step="0.5" value={saisieForm[c.id]?.[f]||''} onChange={e=>setSaisieForm(p=>({...p,[c.id]:{...(p[c.id]||{}),[f]:e.target.value}}))} placeholder="0" style={inputStyle}/>
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
+                  {[...commerciaux.filter(c=>c.equipe==='sale' && !c.nom.includes('Non reconnu')), ...commerciaux.filter(c=>c.equipe==='sale' && c.nom.includes('Non reconnu'))].map(c => {
+                    const isNonReconnu = c.nom.includes('Non reconnu')
+                    return (
+                      <tr key={c.id} onMouseEnter={e=>e.currentTarget.style.background=isNonReconnu?'#F0F0F0':'#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background=isNonReconnu?'rgba(0,0,0,0.02)':'transparent'} style={{ background: isNonReconnu?'rgba(0,0,0,0.02)':'transparent', borderTop: isNonReconnu?'1px dashed rgba(201,168,76,0.2)':'none' }}>
+                        <td style={{ padding: '5px 8px', fontSize: 12, fontWeight: isNonReconnu?400:500, color: isNonReconnu?'#8A8A7A':'#2C2C2C', fontStyle: isNonReconnu?'italic':'normal' }}>{c.nom}</td>
+                        {['rdv','visites','ventes'].map(f => (
+                          <td key={f} style={{ padding: '4px 6px', textAlign: 'center' }}>
+                            <input type="number" min="0" step="0.5" value={saisieForm[c.id]?.[f]||''} onChange={e=>setSaisieForm(p=>({...p,[c.id]:{...(p[c.id]||{}),[f]:e.target.value}}))} placeholder="0" style={{ ...inputStyle, background: isNonReconnu?'#F0F0F0':'#F8F7F4', color: isNonReconnu?'#8A8A7A':'#2C2C2C' }}/>
+                          </td>
+                        ))}
+                      </tr>
+                    )
+                  })}
                   <tr style={{ background: 'rgba(201,168,76,0.05)', fontWeight: 600 }}>
                     <td style={{ padding: '7px 8px', fontSize: 12, color: EQUIPES.sale.color }}>Total</td>
                     {['rdv','visites','ventes'].map(f => (
                       <td key={f} style={{ padding: '7px 8px', fontSize: 12, textAlign: 'center' }}>
-                        {commerciaux.filter(c=>c.equipe==='sale').reduce((s,c)=>s+(parseFloat(saisieForm[c.id]?.[f])||0),0)}
+                        {commerciaux.filter(c=>c.equipe==='sale' && !c.nom.includes('Non reconnu')).reduce((s,c)=>s+(parseFloat(saisieForm[c.id]?.[f])||0),0)}
                       </td>
                     ))}
                   </tr>
@@ -540,21 +543,24 @@ export default function FluxRDV({ conseilleres }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {commerciaux.filter(c=>c.equipe==='kenitra').map(c => (
-                    <tr key={c.id} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                      <td style={{ padding: '5px 8px', fontSize: 12, fontWeight: 500 }}>{c.nom}</td>
-                      {['rdv','visites','ventes'].map(f => (
-                        <td key={f} style={{ padding: '4px 6px', textAlign: 'center' }}>
-                          <input type="number" min="0" step="0.5" value={saisieForm[c.id]?.[f]||''} onChange={e=>setSaisieForm(p=>({...p,[c.id]:{...(p[c.id]||{}),[f]:e.target.value}}))} placeholder="0" style={inputStyle}/>
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
+                  {[...commerciaux.filter(c=>c.equipe==='kenitra' && !c.nom.includes('Non reconnu')), ...commerciaux.filter(c=>c.equipe==='kenitra' && c.nom.includes('Non reconnu'))].map(c => {
+                    const isNonReconnu = c.nom.includes('Non reconnu')
+                    return (
+                      <tr key={c.id} onMouseEnter={e=>e.currentTarget.style.background=isNonReconnu?'#F0F0F0':'#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background=isNonReconnu?'rgba(0,0,0,0.02)':'transparent'} style={{ background: isNonReconnu?'rgba(0,0,0,0.02)':'transparent', borderTop: isNonReconnu?'1px dashed rgba(83,74,183,0.2)':'none' }}>
+                        <td style={{ padding: '5px 8px', fontSize: 12, fontWeight: isNonReconnu?400:500, color: isNonReconnu?'#8A8A7A':'#2C2C2C', fontStyle: isNonReconnu?'italic':'normal' }}>{c.nom}</td>
+                        {['rdv','visites','ventes'].map(f => (
+                          <td key={f} style={{ padding: '4px 6px', textAlign: 'center' }}>
+                            <input type="number" min="0" step="0.5" value={saisieForm[c.id]?.[f]||''} onChange={e=>setSaisieForm(p=>({...p,[c.id]:{...(p[c.id]||{}),[f]:e.target.value}}))} placeholder="0" style={{ ...inputStyle, background: isNonReconnu?'#F0F0F0':'#F8F7F4', color: isNonReconnu?'#8A8A7A':'#2C2C2C' }}/>
+                          </td>
+                        ))}
+                      </tr>
+                    )
+                  })}
                   <tr style={{ background: 'rgba(83,74,183,0.05)', fontWeight: 600 }}>
                     <td style={{ padding: '7px 8px', fontSize: 12, color: EQUIPES.kenitra.color }}>Total</td>
                     {['rdv','visites','ventes'].map(f => (
                       <td key={f} style={{ padding: '7px 8px', fontSize: 12, textAlign: 'center' }}>
-                        {commerciaux.filter(c=>c.equipe==='kenitra').reduce((s,c)=>s+(parseFloat(saisieForm[c.id]?.[f])||0),0)}
+                        {commerciaux.filter(c=>c.equipe==='kenitra' && !c.nom.includes('Non reconnu')).reduce((s,c)=>s+(parseFloat(saisieForm[c.id]?.[f])||0),0)}
                       </td>
                     ))}
                   </tr>
