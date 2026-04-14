@@ -54,11 +54,22 @@ function calcTotaux(d) {
   return { rdv, visites, ventes }
 }
 
+// Pour les donnees brutes de la DB (un seul commercial)
 function getKpiVal(d, kpi) {
   const t = calcTotaux(d)
   if (kpi === 'rdv') return Math.round(t.rdv)
   if (kpi === 'visites') return Math.round(t.visites)
   if (kpi === 'ventes') return Math.round(t.ventes)
+  if (kpi === 'taux_presence') return t.rdv > 0 ? parseFloat(((t.visites / t.rdv) * 100).toFixed(1)) : 0
+  if (kpi === 'taux_vente') return t.visites > 0 ? parseFloat(((t.ventes / t.visites) * 100).toFixed(1)) : 0
+  return 0
+}
+
+// Pour les totaux deja calcules (equipe, global) - pas de double calcul
+function getKpiValFromTotaux(t, kpi) {
+  if (kpi === 'rdv') return Math.round(t.rdv || 0)
+  if (kpi === 'visites') return Math.round(t.visites || 0)
+  if (kpi === 'ventes') return Math.round(t.ventes || 0)
   if (kpi === 'taux_presence') return t.rdv > 0 ? parseFloat(((t.visites / t.rdv) * 100).toFixed(1)) : 0
   if (kpi === 'taux_vente') return t.visites > 0 ? parseFloat(((t.ventes / t.visites) * 100).toFixed(1)) : 0
   return 0
@@ -551,7 +562,7 @@ export default function FluxRDV({ conseilleres }) {
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase' }}>Total {selectedKpi?.label}</div>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: EQUIPES[eq].color }}>{getKpiVal(stats, kpi)}{selectedKpi?.unit}</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: EQUIPES[eq].color }}>{getKpiValFromTotaux(stats, kpi)}{selectedKpi?.unit}</div>
                 </div>
               </div>
               <div>
