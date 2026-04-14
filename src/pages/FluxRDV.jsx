@@ -45,17 +45,23 @@ function calcCV(vals) {
   return parseFloat(((Math.sqrt(variance) / moy) * 100).toFixed(1))
 }
 
+function getVisitesTotal(d) {
+  // 1 vente = 1 visite supplementaire
+  return (d.visites || 0) + (d.ventes || 0)
+}
+
 function getRdvTotal(d) {
-  return (d.rdv || 0) + (d.visites || 0)
+  // 1 visite = 1 rdv supplementaire (visites inclut deja les ventes)
+  return (d.rdv || 0) + getVisitesTotal(d)
 }
 
 function getKpiVal(d, kpi) {
-  if (kpi === 'rdv') return Math.round(getRdvTotal(d))
-  if (kpi === 'taux_presence') {
-    const rdvTotal = getRdvTotal(d)
-    return rdvTotal > 0 ? parseFloat(((d.visites / rdvTotal) * 100).toFixed(1)) : 0
-  }
-  if (kpi === 'taux_vente') return d.visites > 0 ? parseFloat(((d.ventes / d.visites) * 100).toFixed(1)) : 0
+  const visTotal = getVisitesTotal(d)
+  const rdvTotal = getRdvTotal(d)
+  if (kpi === 'rdv') return Math.round(rdvTotal)
+  if (kpi === 'visites') return Math.round(visTotal)
+  if (kpi === 'taux_presence') return rdvTotal > 0 ? parseFloat(((visTotal / rdvTotal) * 100).toFixed(1)) : 0
+  if (kpi === 'taux_vente') return visTotal > 0 ? parseFloat(((d.ventes / visTotal) * 100).toFixed(1)) : 0
   return parseFloat((d[kpi] || 0).toFixed(1))
 }
 
@@ -161,10 +167,11 @@ export default function FluxRDV({ conseilleres }) {
         return { rdv: acc.rdv + d.rdv, visites: acc.visites + d.visites, ventes: acc.ventes + d.ventes }
       }, { rdv: 0, visites: 0, ventes: 0 })
       const cv = calcCV(comms.map(c => (fluxParCommercial[c.id] || {}).rdv || 0))
-      const rdvTotal = (tot.rdv || 0) + (tot.visites || 0)
-      res[eq] = { ...tot, rdv: rdvTotal, cv,
-        taux_presence: rdvTotal > 0 ? parseFloat(((tot.visites/rdvTotal)*100).toFixed(1)) : 0,
-        taux_vente: tot.visites > 0 ? parseFloat(((tot.ventes/tot.visites)*100).toFixed(1)) : 0,
+      const visTotal = (tot.visites || 0) + (tot.ventes || 0)
+      const rdvTotal = (tot.rdv || 0) + visTotal
+      res[eq] = { ...tot, rdv: rdvTotal, visites: visTotal, cv,
+        taux_presence: rdvTotal > 0 ? parseFloat(((visTotal/rdvTotal)*100).toFixed(1)) : 0,
+        taux_vente: visTotal > 0 ? parseFloat(((tot.ventes/visTotal)*100).toFixed(1)) : 0,
       }
     })
     return res
