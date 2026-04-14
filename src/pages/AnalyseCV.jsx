@@ -443,7 +443,7 @@ export default function AnalyseCV({ conseilleres, saisies }) {
                 <div style={{ fontSize: 10, color: '#5A5A5A', marginBottom: 8 }}>CV Global: <strong style={{ color: cvGlobal < 15 ? '#1a6b3c' : cvGlobal < 30 ? '#C9A84C' : '#E07B30' }}>{cvGlobal}%</strong></div>
                 <div style={{ fontSize: 11, color: maitrise.color, marginBottom: 8, fontWeight: 500 }}>{maitrise.dot} {maitrise.label}</div>
                 <ResponsiveContainer width="100%" height={expandedChart === 'cv' ? 300 : 180}>
-                  <LineChart data={chartData} margin={{ top: 10, right: 40, bottom: 0, left: 0 }}>
+                  <LineChart data={chartData.map((d,i) => ({ ...d, cvCumul: cvData[i]?.cv || 0 }))} margin={{ top: 10, right: 40, bottom: 0, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.08)"/>
                     <XAxis dataKey="label" tick={{ fontSize: 10 }}/>
                     <YAxis tick={{ fontSize: 9 }} tickFormatter={v => `${v}%`}/>
@@ -457,7 +457,7 @@ export default function AnalyseCV({ conseilleres, saisies }) {
                         <Line type="monotone" dataKey="moy" stroke="#8A8A7A" strokeWidth={1.5} strokeDasharray="4 4" dot={{ r: 3 }} name="Moyenne"/>
                       </>
                     ) : (
-                      <Line type="monotone" dataKey="cv" stroke={selectedKpi?.color || '#C9A84C'} strokeWidth={2.5}
+                      <Line type="monotone" dataKey="cvCumul" stroke={selectedKpi?.color || '#C9A84C'} strokeWidth={2.5}
                         dot={{ r: 4, fill: selectedKpi?.color || '#C9A84C', stroke: '#fff', strokeWidth: 2 }} name="CV"/>
                     )}
                   </LineChart>
