@@ -15,11 +15,11 @@ const CC_KPIS = [
 ]
 
 const FLUX_KPIS = [
-  { key: 'flux_rdv', label: 'RDV fixés', color: '#C9A84C', unit: '' },
-  { key: 'flux_visites', label: 'Visites', color: '#4CAF7D', unit: '' },
-  { key: 'flux_ventes', label: 'Ventes', color: '#1a6b3c', unit: '' },
-  { key: 'flux_taux_presence', label: 'Tx présence', color: '#534AB7', unit: '%' },
-  { key: 'flux_taux_vente', label: 'Tx vente', color: '#378ADD', unit: '%' },
+  { key: 'flux_rdv', label: 'RDV fixés', color: '#C9A84C', unit: '', isAbsolute: true },
+  { key: 'flux_visites', label: 'Visites', color: '#4CAF7D', unit: '', isAbsolute: true },
+  { key: 'flux_ventes', label: 'Ventes', color: '#1a6b3c', unit: '', isAbsolute: true },
+  { key: 'flux_taux_presence', label: 'Tx présence', color: '#534AB7', unit: '%', isAbsolute: false },
+  { key: 'flux_taux_vente', label: 'Tx vente', color: '#378ADD', unit: '%', isAbsolute: false },
 ]
 
 const MKT_KPIS = [
@@ -280,12 +280,12 @@ export default function AnalyseCV({ conseilleres, saisies }) {
         <div style={{ width: 1, height: 40, background: 'rgba(201,168,76,0.2)' }}></div>
         <div>
           <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Moyenne</div>
-          <div style={{ fontSize: 20, fontWeight: 600, color: '#2C2C2C' }}>{stats.moy}%</div>
+          <div style={{ fontSize: 20, fontWeight: 600, color: '#2C2C2C' }}>{stats.moy}{selectedKpi?.isAbsolute ? '' : '%'}</div>
         </div>
         <div style={{ width: 1, height: 40, background: 'rgba(201,168,76,0.2)' }}></div>
         <div>
           <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>UCL / LCL</div>
-          <div style={{ fontSize: 14, fontWeight: 500, color: '#2C2C2C' }}>{stats.ucl}% / {stats.lcl}%</div>
+          <div style={{ fontSize: 14, fontWeight: 500, color: '#2C2C2C' }}>{stats.ucl}{selectedKpi?.isAbsolute ? '' : '%'} / {stats.lcl}{selectedKpi?.isAbsolute ? '' : '%'}</div>
         </div>
         <div style={{ width: 1, height: 40, background: 'rgba(201,168,76,0.2)' }}></div>
         <div>
@@ -298,7 +298,7 @@ export default function AnalyseCV({ conseilleres, saisies }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
         <div style={cardStyle}>
           <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C', marginBottom: 4 }}>{selectedKpi.label}</div>
-          <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 16 }}>Taux par {periode} · UCL: {stats.ucl}% · LCL: {stats.lcl}%</div>
+          <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 16 }}>Valeur par {periode} · UCL: {stats.ucl}{selectedKpi?.isAbsolute?'':'%'} · LCL: {stats.lcl}{selectedKpi?.isAbsolute?'':'%'}</div>
           {chartData.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: '#5A5A5A', fontSize: 13 }}>Pas de données</div>
           ) : (
@@ -306,11 +306,11 @@ export default function AnalyseCV({ conseilleres, saisies }) {
               <BarChart data={chartData} margin={{ top: 20, right: 10, bottom: 0, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.08)" />
                 <XAxis dataKey="label" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${v}%`} domain={[0, 'auto']} />
-                <Tooltip contentStyle={tooltipStyle} formatter={v => [`${v}%`, selectedKpi.label]} />
-                {stats.ucl > 0 && <ReferenceLine y={stats.ucl} stroke="#E05C5C" strokeDasharray="4 4" label={{ value: `UCL ${stats.ucl}%`, fill: '#E05C5C', fontSize: 10, position: 'right' }} />}
-                {stats.lcl > 0 && <ReferenceLine y={stats.lcl} stroke="#4CAF7D" strokeDasharray="4 4" label={{ value: `LCL ${stats.lcl}%`, fill: '#4CAF7D', fontSize: 10, position: 'right' }} />}
-                {stats.moy > 0 && <ReferenceLine y={stats.moy} stroke="#C9A84C" strokeDasharray="2 2" label={{ value: `Moy ${stats.moy}%`, fill: '#C9A84C', fontSize: 10, position: 'right' }} />}
+                <YAxis tick={{ fontSize: 10 }} tickFormatter={v => selectedKpi?.isAbsolute ? v : `${v}%`} domain={[0, 'auto']} />
+                <Tooltip contentStyle={tooltipStyle} formatter={v => [selectedKpi?.isAbsolute ? v : `${v}%`, selectedKpi.label]} />
+                {stats.ucl > 0 && <ReferenceLine y={stats.ucl} stroke="#E05C5C" strokeDasharray="4 4" label={{ value: `UCL ${stats.ucl}${selectedKpi?.isAbsolute?'':'%'}`, fill: '#E05C5C', fontSize: 10, position: 'right' }} />}
+                {stats.lcl > 0 && <ReferenceLine y={stats.lcl} stroke="#4CAF7D" strokeDasharray="4 4" label={{ value: `LCL ${stats.lcl}${selectedKpi?.isAbsolute?'':'%'}`, fill: '#4CAF7D', fontSize: 10, position: 'right' }} />}
+                {stats.moy > 0 && <ReferenceLine y={stats.moy} stroke="#C9A84C" strokeDasharray="2 2" label={{ value: `Moy ${stats.moy}${selectedKpi?.isAbsolute?'':'%'}`, fill: '#C9A84C', fontSize: 10, position: 'right' }} />}
                 <Bar dataKey="taux" fill={selectedKpi.color} radius={[4, 4, 0, 0]} name={selectedKpi.label}>
                   <LabelList dataKey="taux" content={<CustomBarLabel />} />
                 </Bar>
@@ -350,7 +350,7 @@ export default function AnalyseCV({ conseilleres, saisies }) {
         <div style={cardStyle}>
           <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C', marginBottom: 4 }}>Distribution — Loi normale</div>
           <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 4 }}>
-            Moyenne: <strong>{stats.moy}%</strong> · Écart-type: <strong>{stats.ecart}%</strong> · UCL: <strong style={{ color: '#E05C5C' }}>{stats.ucl}%</strong> · LCL: <strong style={{ color: '#4CAF7D' }}>{stats.lcl}%</strong>
+            Moyenne: <strong>{stats.moy}{selectedKpi?.isAbsolute?'':'%'}</strong> · Écart-type: <strong>{stats.ecart}{selectedKpi?.isAbsolute?'':'%'}</strong> · UCL: <strong style={{ color: '#E05C5C' }}>{stats.ucl}{selectedKpi?.isAbsolute?'':'%'}</strong> · LCL: <strong style={{ color: '#4CAF7D' }}>{stats.lcl}{selectedKpi?.isAbsolute?'':'%'}</strong>
           </div>
           <div style={{ fontSize: 11, color: maitrise.color, marginBottom: 16, fontWeight: 500 }}>{maitrise.dot} {maitrise.label}</div>
           <ResponsiveContainer width="100%" height={220}>
@@ -398,7 +398,7 @@ export default function AnalyseCV({ conseilleres, saisies }) {
                 <tr key={i} onMouseEnter={e => e.currentTarget.style.background = '#F7F0DC'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                   <td style={{ padding: '9px 10px', fontSize: 12, fontWeight: 500, color: '#C9A84C', borderBottom: '1px solid rgba(201,168,76,0.06)' }}>{row.label}</td>
                   <td style={{ padding: '9px 10px', fontSize: 12, fontWeight: 500, color: horsLimite ? '#E05C5C' : selectedKpi.color, borderBottom: '1px solid rgba(201,168,76,0.06)' }}>
-                    {row.taux}% {horsLimite && <span style={{ fontSize: 10, marginLeft: 4 }}>⚠️ hors limites</span>}
+                    {row.taux}{selectedKpi?.isAbsolute?'':'%'} {horsLimite && <span style={{ fontSize: 10, marginLeft: 4 }}>⚠️ hors limites</span>}
                   </td>
                   <td style={{ padding: '9px 10px', fontSize: 12, color: statut.color, borderBottom: '1px solid rgba(201,168,76,0.06)' }}>{cvVal > 0 ? `${cvVal}%` : '—'}</td>
                   <td style={{ padding: '9px 10px', fontSize: 12, color: statut.color, borderBottom: '1px solid rgba(201,168,76,0.06)' }}>{statut.label}</td>

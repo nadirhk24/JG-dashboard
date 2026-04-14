@@ -61,10 +61,17 @@ function getRankColor(rank, total) {
   return '#E05C5C'
 }
 
-function getStarBadge(rank, total, maxStars=3) {
-  const stars = maxStars - Math.floor((rank / Math.max(total-1,1)) * maxStars)
-  const clamped = Math.max(1, Math.min(maxStars, stars))
-  return { star: '★', num: clamped, color: rank === 0 ? '#C9A84C' : rank < total*0.33 ? '#4CAF7D' : rank < total*0.66 ? '#C9A84C' : '#8A8A7A' }
+function StarRank({ rank, total, maxDisplay=5 }) {
+  // rank est 0-indexed, on affiche 1-indexed
+  const displayRank = rank + 1
+  if (displayRank > maxDisplay) return <div style={{ width: 28, textAlign: 'center', fontSize: 11, color: '#8A8A7A' }}>{displayRank}</div>
+  const color = rank === 0 ? '#C9A84C' : rank === 1 ? '#B8B8B8' : rank === 2 ? '#CD7F32' : rank < total*0.5 ? '#4CAF7D' : '#8A8A7A'
+  return (
+    <div style={{ position: 'relative', width: 28, height: 28, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ fontSize: 26, color, lineHeight: 1 }}>★</span>
+      <span style={{ position: 'absolute', fontSize: 9, fontWeight: 700, color: '#fff', letterSpacing: 0 }}>{displayRank}</span>
+    </div>
+  )
 }
 
 export default function FluxRDV({ conseilleres }) {
@@ -475,7 +482,7 @@ export default function FluxRDV({ conseilleres }) {
                       <div style={{ height: '100%', width: `${pct}%`, background: rankColor, borderRadius: 4 }}></div>
                     </div>
                     <div style={{ width: 44, fontSize: 13, fontWeight: 700, color: rankColor, textAlign: 'right', flexShrink: 0 }}>{c.val}{selectedKpi?.unit}</div>
-                    {(() => { const sb = getStarBadge(i, allRanking.length, 5); return <div style={{ fontSize: 13, color: sb.color, flexShrink: 0, minWidth: 28, textAlign: 'center' }}>{sb.star}<span style={{ fontSize: 10, fontWeight: 600 }}>{sb.num}</span></div> })()}
+                    <StarRank rank={i} total={allRanking.length} maxDisplay={allRanking.length} />
                   </div>
                 )
               })}
@@ -517,7 +524,7 @@ export default function FluxRDV({ conseilleres }) {
                         <div style={{ height: '100%', width: `${pct}%`, background: rankColor, borderRadius: 4, transition: 'width 0.3s' }}></div>
                       </div>
                       <div style={{ width: 44, fontSize: 13, fontWeight: 700, color: rankColor, textAlign: 'right', flexShrink: 0 }}>{c.val}{selectedKpi?.unit}</div>
-                      {(() => { const sb = getStarBadge(i, ranking.length, 3); return <div style={{ fontSize: 13, color: sb.color, flexShrink: 0, minWidth: 28, textAlign: 'center' }}>{sb.star}<span style={{ fontSize: 10, fontWeight: 600 }}>{sb.num}</span></div> })()}
+                      <StarRank rank={i} total={ranking.length} maxDisplay={ranking.length} />
                     </div>
                   )
                 })}
