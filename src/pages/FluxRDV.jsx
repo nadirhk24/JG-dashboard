@@ -319,6 +319,7 @@ function VueJour({ selectedJour, conseilleres, commerciaux }) {
 export default function FluxRDV({ conseilleres }) {
   const [commerciaux, setCommerciaux] = useState([])
   const [fluxData, setFluxData] = useState([])
+  const [calendarRdv, setCalendarRdv] = useState([])
   const [loading, setLoading] = useState(true)
   const [kpi, setKpi] = useState('rdv')
   const [filterEquipe, setFilterEquipe] = useState('all')
@@ -350,12 +351,14 @@ export default function FluxRDV({ conseilleres }) {
 
   async function loadData() {
     setLoading(true)
-    const [{ data: comms }, { data: flux }] = await Promise.all([
+    const [{ data: comms }, { data: flux }, { data: calRdv }] = await Promise.all([
       supabase.from('commerciaux').select('*').eq('actif', true).order('equipe').order('nom'),
-      supabase.from('flux_rdv').select('*')
+      supabase.from('flux_rdv').select('*'),
+      supabase.from('calendar_rdv').select('*')
     ])
     setCommerciaux(comms || [])
     setFluxData(flux || [])
+    setCalendarRdv(calRdv || [])
     setLoading(false)
   }
 
@@ -378,16 +381,50 @@ export default function FluxRDV({ conseilleres }) {
     })
   }, [fluxData, selectedPeriod])
 
+  // Filtrer calendar_rdv selon la période sélectionnée
+  const calendarFiltres = useMemo(() => {
+    return calendarRdv.filter(r => {
+      const d = r.date_creation // format YYYY-MM-DD
+      if (!d) return false
+      if (selectedPeriod.startsWith('year-')) {
+        const y = selectedPeriod.split('-')[1]
+        return d.startsWith(y)
+      }
+      if (selectedPeriod.startsWith('quarter-')) {
+        const [, y, q] = selectedPeriod.split('-')
+        const qNum = parseInt(q.replace('Q', ''))
+        const startM = (qNum - 1) * 3 + 1
+        const endM = qNum * 3
+        const mois = parseInt(d.substring(5, 7))
+        return d.startsWith(y) && mois >= startM && mois <= endM
+      }
+      return d.substring(0, 7) === selectedPeriod
+    })
+  }, [calendarRdv, selectedPeriod])
+
   const fluxParCommercial = useMemo(() => {
     const agg = {}
+
+    // RDV depuis calendar_rdv (par nom commercial → trouver l'id)
+    calendarFiltres.forEach(r => {
+      const comm = commerciaux.find(c =>
+        c.nom.toLowerCase().trim() === r.commercial.toLowerCase().trim()
+      )
+      if (!comm) return
+      if (!agg[comm.id]) agg[comm.id] = { rdv: 0, visites: 0, ventes: 0 }
+      agg[comm.id].rdv += 1
+    })
+
+    // Visites et Ventes depuis flux_rdv (saisie manuelle)
     fluxFiltres.forEach(f => {
       if (!agg[f.commercial_id]) agg[f.commercial_id] = { rdv: 0, visites: 0, ventes: 0 }
-      agg[f.commercial_id].rdv += parseFloat(f.rdv || 0)
+      // Ne pas additionner les RDV de flux_rdv si calendar_rdv a des données pour cette période
       agg[f.commercial_id].visites += parseFloat(f.visites || 0)
       agg[f.commercial_id].ventes += parseFloat(f.ventes || 0)
     })
+
     return agg
-  }, [fluxFiltres])
+  }, [fluxFiltres, calendarFiltres, commerciaux])
 
   const statsParEquipe = useMemo(() => {
     const res = {}
@@ -407,24 +444,37 @@ export default function FluxRDV({ conseilleres }) {
   const historique = useMemo(() => {
     if (!selectedCommercial) return []
     const byMois = {}
+
+    // RDV depuis calendar_rdv
+    calendarRdv.filter(r =>
+      r.commercial.toLowerCase().trim() === selectedCommercial.nom.toLowerCase().trim()
+    ).forEach(r => {
+      const m = r.date_creation?.substring(0, 7)
+      if (!m) return
+      if (!byMois[m]) byMois[m] = { rdv: 0, visites: 0, ventes: 0 }
+      byMois[m].rdv += 1
+    })
+
+    // Visites + Ventes depuis flux_rdv
     fluxData.filter(f => f.commercial_id === selectedCommercial.id).forEach(f => {
       const m = f.date_debut?.substring(0, 7)
       if (!m) return
       if (!byMois[m]) byMois[m] = { rdv: 0, visites: 0, ventes: 0 }
-      byMois[m].rdv += parseFloat(f.rdv || 0)
       byMois[m].visites += parseFloat(f.visites || 0)
       byMois[m].ventes += parseFloat(f.ventes || 0)
     })
+
     return Object.entries(byMois).sort(([a], [b]) => a.localeCompare(b)).map(([m, d]) => {
-      const ht = calcTotaux(d)
       return {
         label: MOIS_LABELS[parseInt(m.split('-')[1]) - 1]?.substring(0, 3) + ' ' + m.split('-')[0].substring(2),
-        rdv: Math.round(ht.rdv), visites: Math.round(ht.visites), ventes: Math.round(ht.ventes),
-        taux_presence: ht.rdv > 0 ? parseFloat(((ht.visites / ht.rdv) * 100).toFixed(1)) : 0,
-        taux_vente: ht.visites > 0 ? parseFloat(((ht.ventes / ht.visites) * 100).toFixed(1)) : 0,
+        rdv: Math.round(d.rdv),
+        visites: Math.round(d.visites),
+        ventes: Math.round(d.ventes),
+        taux_presence: d.rdv > 0 ? parseFloat(((d.visites / d.rdv) * 100).toFixed(1)) : 0,
+        taux_vente: d.visites > 0 ? parseFloat(((d.ventes / d.visites) * 100).toFixed(1)) : 0,
       }
     })
-  }, [selectedCommercial, fluxData])
+  }, [selectedCommercial, fluxData, calendarRdv])
 
   function getRanking(equipe) {
     const comms = commerciaux.filter(c => c.equipe === equipe && !c.nom.includes('Non reconnu'))
@@ -608,7 +658,10 @@ export default function FluxRDV({ conseilleres }) {
         <div style={{ background: '#fff', borderRadius: 14, padding: 24, border: '1.5px solid #C9A84C', marginBottom: 24 }}>
           {msg && <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 14, fontSize: 12, fontWeight: 500, background: msg.type === 'success' ? 'rgba(76,175,125,0.1)' : 'rgba(224,92,92,0.1)', color: msg.type === 'success' ? '#2d7a54' : '#a03030' }}>{msg.text}</div>}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+            <div style={{ padding: '10px 14px', background: 'rgba(224,123,48,0.06)', borderRadius: 8, marginBottom: 16, fontSize: 12, color: '#E07B30', border: '1px solid rgba(224,123,48,0.2)' }}>
+            📅 Les <strong>RDV sont automatiquement calculés</strong> depuis Google Calendar — saisis uniquement les <strong>Visites</strong> et <strong>Ventes</strong>
+          </div>
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
               <div>
                 <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 5, textTransform: 'uppercase' }}>Conseillère</div>
                 <select value={saisieConseillere} onChange={e => setSaisieConseillere(e.target.value)} style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid rgba(201,168,76,0.25)', background: '#F8F7F4', fontSize: 13, outline: 'none', minWidth: 180 }}>
@@ -646,7 +699,7 @@ export default function FluxRDV({ conseilleres }) {
                   <thead>
                     <tr>
                       <th style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '6px 8px', borderBottom: '1px solid rgba(201,168,76,0.15)' }}>Commercial</th>
-                      {['RDV', 'Visites', 'Ventes'].map(h => <th key={h} style={{ fontSize: 10, textAlign: 'center', padding: '6px 8px', borderBottom: '1px solid rgba(201,168,76,0.15)', color: h === 'RDV' ? '#C9A84C' : h === 'Visites' ? '#4CAF7D' : '#1a6b3c' }}>{h}</th>)}
+                      {['Visites', 'Ventes'].map(h => <th key={h} style={{ fontSize: 10, textAlign: 'center', padding: '6px 8px', borderBottom: '1px solid rgba(201,168,76,0.15)', color: h === 'Visites' ? '#4CAF7D' : '#1a6b3c' }}>{h}</th>)}
                     </tr>
                   </thead>
                   <tbody>
@@ -655,7 +708,7 @@ export default function FluxRDV({ conseilleres }) {
                       return (
                         <tr key={c.id} onMouseEnter={e => e.currentTarget.style.background = isNR ? '#F0F0F0' : '#F7F0DC'} onMouseLeave={e => e.currentTarget.style.background = isNR ? 'rgba(0,0,0,0.02)' : 'transparent'} style={{ background: isNR ? 'rgba(0,0,0,0.02)' : 'transparent' }}>
                           <td style={{ padding: '5px 8px', fontSize: 12, fontWeight: isNR ? 400 : 500, color: isNR ? '#8A8A7A' : '#2C2C2C', fontStyle: isNR ? 'italic' : 'normal' }}>{c.nom}</td>
-                          {['rdv', 'visites', 'ventes'].map(f => (
+                          {['visites', 'ventes'].map(f => (
                             <td key={f} style={{ padding: '4px 6px', textAlign: 'center' }}>
                               <input type="number" min="0" step="0.5" value={saisieForm[c.id]?.[f] || ''} onChange={e => setSaisieForm(p => ({ ...p, [c.id]: { ...(p[c.id] || {}), [f]: e.target.value } }))} placeholder="0" style={{ ...inputStyle, background: isNR ? '#F0F0F0' : '#F8F7F4', color: isNR ? '#8A8A7A' : '#2C2C2C' }} />
                             </td>
