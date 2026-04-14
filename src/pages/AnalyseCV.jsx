@@ -6,6 +6,22 @@ import { supabase } from '../lib/supabase'
 import { filtrerParSelection, getGroupFunction, formatGroupLabel } from '../lib/dates'
 import { agregerParPeriode } from '../lib/kpi'
 
+function InfoBulle({ text }) {
+  const [show, setShow] = React.useState(false)
+  return (
+    <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', marginLeft: 6 }}>
+      <span onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}
+        style={{ width: 16, height: 16, borderRadius: '50%', background: 'rgba(201,168,76,0.15)', border: '1px solid rgba(201,168,76,0.3)', color: '#C9A84C', fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'help', flexShrink: 0 }}>i</span>
+      {show && (
+        <span style={{ position: 'absolute', bottom: '120%', left: '50%', transform: 'translateX(-50%)', background: '#2C2C2C', color: '#fff', fontSize: 11, padding: '8px 12px', borderRadius: 8, whiteSpace: 'normal', width: 220, zIndex: 999, lineHeight: 1.5, boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+          {text}
+          <span style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', borderWidth: 5, borderStyle: 'solid', borderColor: '#2C2C2C transparent transparent transparent' }}></span>
+        </span>
+      )}
+    </span>
+  )
+}
+
 const CC_KPIS = [
   { key: 'conversion_tel', label: 'Conv. Téléphonique', color: '#C9A84C', unit: '%' },
   { key: 'taux_presence', label: 'Taux de Présence', color: '#4CAF7D', unit: '%' },
@@ -327,7 +343,10 @@ export default function AnalyseCV({ conseilleres, saisies }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
         <div style={cardStyle}>
           <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C', marginBottom: 4 }}>{selectedKpi.label}</div>
-          <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 16 }}>Valeur par {periode} · UCL: {stats.ucl}{selectedKpi?.isAbsolute?'':'%'} · LCL: {stats.lcl}{selectedKpi?.isAbsolute?'':'%'}</div>
+          <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 16, display: 'flex', alignItems: 'center' }}>
+            {segment === 'flux' ? `CV inter-commerciaux par mois · UCL: ${stats.ucl}% · LCL: ${stats.lcl}%` : `Valeur par ${periode} · UCL: ${stats.ucl}${selectedKpi?.isAbsolute?'':'%'} · LCL: ${stats.lcl}${selectedKpi?.isAbsolute?'':'%'}`}
+            <InfoBulle text={segment === 'flux' ? `Chaque barre = CV inter-commerciaux de ce mois pour ${selectedKpi?.label}. Les lignes UCL/LCL délimitent la zone normale. Une barre hors limites signale une anomalie.` : `Chaque barre représente la valeur du KPI pour la période. Les lignes UCL/LCL délimitent la zone de variation normale.`}/>
+          </div>
           {chartData.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: '#5A5A5A', fontSize: 13 }}>Pas de données</div>
           ) : (
@@ -380,7 +399,10 @@ export default function AnalyseCV({ conseilleres, saisies }) {
         <div style={cardStyle}>
           {segment === 'flux' && chartData.length > 0 && (
             <div style={{ background: '#fff', borderRadius: 12, padding: 20, border: '1px solid rgba(201,168,76,0.15)', marginBottom: 24 }}>
-              <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C', marginBottom: 4 }}>Évolution du CV inter-commerciaux</div>
+              <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C', marginBottom: 4, display: 'flex', alignItems: 'center' }}>
+                Évolution du CV inter-commerciaux
+                <InfoBulle text="Courbe du CV calculé sur les valeurs individuelles de chaque commercial par mois. Si la courbe descend → l'équipe s'homogénéise ✅. Lignes de référence : 15% (maîtrisé) et 30% (variable)."/>
+              </div>
               <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 12 }}>CV mensuel · {selectedKpi?.label} · Moyenne par commercial en pointillés</div>
               <ResponsiveContainer width="100%" height={220}>
                 <LineChart data={chartData} margin={{ top: 10, right: 40, bottom: 0, left: 0 }}>
@@ -399,7 +421,10 @@ export default function AnalyseCV({ conseilleres, saisies }) {
               </ResponsiveContainer>
             </div>
           )}
-          <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C', marginBottom: 4 }}>Distribution — Loi normale</div>
+          <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C', marginBottom: 4, display: 'flex', alignItems: 'center' }}>
+            Distribution — Loi normale
+            <InfoBulle text="Représentation de la distribution des valeurs selon une loi normale. La zone verte (entre LCL et UCL) représente 95% des valeurs attendues. Les points en dehors signalent des valeurs inhabituelles."/>
+          </div>
           <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 4 }}>
             Moyenne: <strong>{stats.moy}{selectedKpi?.isAbsolute?'':'%'}</strong> · Écart-type: <strong>{stats.ecart}{selectedKpi?.isAbsolute?'':'%'}</strong> · UCL: <strong style={{ color: '#E05C5C' }}>{stats.ucl}{selectedKpi?.isAbsolute?'':'%'}</strong> · LCL: <strong style={{ color: '#4CAF7D' }}>{stats.lcl}{selectedKpi?.isAbsolute?'':'%'}</strong>
           </div>
@@ -425,7 +450,10 @@ export default function AnalyseCV({ conseilleres, saisies }) {
         </div>
       )}
 
-      <SectionTitle>Tableau détaillé</SectionTitle>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8, marginTop: 24 }}>
+        <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C' }}>Tableau détaillé</div>
+        <InfoBulle text={segment === 'flux' ? "Moy. = moyenne du KPI par commercial ce mois. CV inter-commerciaux = dispersion entre les commerciaux. Plus le CV est élevé, plus les performances sont hétérogènes." : "Valeur du KPI par période avec le CV cumulé (calculé sur toutes les périodes jusqu'à celle-ci) et le statut de maîtrise correspondant."}/>
+      </div>
       <div style={{ ...cardStyle, marginTop: 8 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
