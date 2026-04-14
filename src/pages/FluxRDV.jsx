@@ -258,7 +258,10 @@ export default function FluxRDV({ conseilleres }) {
         const { data: existSaisie } = await supabase.from('saisies')
           .select('id, leads_bruts, indispos, echanges')
           .eq('conseillere_id', consId)
-          .eq('date_debut', dd)
+          .gte('date_debut', dd)
+          .lte('date_debut', df)
+          .order('date_debut', { ascending: false })
+          .limit(1)
           .maybeSingle()
         
         if (existSaisie) {
@@ -765,7 +768,11 @@ export default function FluxRDV({ conseilleres }) {
     const t = calcTotaux(totBruts)
     const { data: existSaisie } = await supabase.from('saisies')
       .select('id').eq('conseillere_id', ligne.conseillere_id)
-      .eq('date_debut', ligne.date_debut).maybeSingle()
+      .gte('date_debut', ligne.date_debut)
+      .lte('date_debut', ligne.date_fin || ligne.date_debut)
+      .order('date_debut', { ascending: false })
+      .limit(1)
+      .maybeSingle()
     if (existSaisie) {
       await supabase.from('saisies').update({
         rdv: Math.round(t.rdv), visites: Math.round(t.visites), ventes: Math.round(t.ventes)
