@@ -115,6 +115,8 @@ export default function FluxRDV({ conseilleres }) {
   const [msg, setMsg] = useState(null)
   const [saisieConseillere, setSaisieConseillere] = useState('')
   const [saisieMois, setSaisieMois] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`)
+  const [saisieDebut, setSaisieDebut] = useState('')
+  const [saisieFin, setSaisieFin] = useState('')
   const [saisieForm, setSaisieForm] = useState({})
 
   const moisOptions = useMemo(() => getMoisOptions(), [])
@@ -225,7 +227,9 @@ export default function FluxRDV({ conseilleres }) {
     const year = parseInt(saisieMois.split('-')[0])
     const month = parseInt(saisieMois.split('-')[1])
     const lastDay = new Date(year, month, 0).getDate()
-    const dd = `${saisieMois}-01`, df = `${saisieMois}-${String(lastDay).padStart(2,'0')}`
+    // Utiliser les dates personnalisées si renseignées, sinon le mois complet
+    const dd = saisieDebut || `${saisieMois}-01`
+    const df = saisieFin || `${saisieMois}-${String(lastDay).padStart(2,'0')}`
     await supabase.from('flux_rdv').delete().eq('conseillere_id', saisieConseillere).gte('date_debut', dd).lte('date_fin', df)
     const rows = entries.map(([cid, v]) => ({
       conseillere_id: saisieConseillere, commercial_id: cid,
@@ -430,79 +434,133 @@ export default function FluxRDV({ conseilleres }) {
       {showSaisie && (
         <div style={{ background: '#fff', borderRadius: 14, padding: 24, border: '1.5px solid #C9A84C', marginBottom: 24 }}>
           {msg && <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 14, fontSize: 12, fontWeight: 500, background: msg.type==='success'?'rgba(76,175,125,0.1)':'rgba(224,92,92,0.1)', color: msg.type==='success'?'#2d7a54':'#a03030' }}>{msg.text}</div>}
-          <div style={{ display: 'flex', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
-            <div>
-              <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 5, textTransform: 'uppercase' }}>Conseillère</div>
-              <select value={saisieConseillere} onChange={e=>setSaisieConseillere(e.target.value)} style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid rgba(201,168,76,0.25)', background: '#F8F7F4', fontSize: 13, outline: 'none', minWidth: 200 }}>
-                <option value="">Sélectionner...</option>
-                {conseilleres.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
-              </select>
+
+          {/* Header avec conseillere, periode et boutons */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 5, textTransform: 'uppercase' }}>Conseillère</div>
+                <select value={saisieConseillere} onChange={e=>setSaisieConseillere(e.target.value)} style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid rgba(201,168,76,0.25)', background: '#F8F7F4', fontSize: 13, outline: 'none', minWidth: 180 }}>
+                  <option value="">Sélectionner...</option>
+                  {conseilleres.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
+                </select>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 5, textTransform: 'uppercase' }}>Période</div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <select value={saisieMois} onChange={e=>setSaisieMois(e.target.value)} style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid rgba(201,168,76,0.25)', background: '#F8F7F4', fontSize: 13, outline: 'none' }}>
+                    {moisOptions.filter(m=>m.type==='month').slice(0,12).map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 5, textTransform: 'uppercase' }}>Début</div>
+                <input type="date" value={saisieDebut} onChange={e=>setSaisieDebut(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1.5px solid rgba(201,168,76,0.25)', background: '#F8F7F4', fontSize: 13, outline: 'none' }}/>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 5, textTransform: 'uppercase' }}>Fin</div>
+                <input type="date" value={saisieFin} onChange={e=>setSaisieFin(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1.5px solid rgba(201,168,76,0.25)', background: '#F8F7F4', fontSize: 13, outline: 'none' }}/>
+              </div>
             </div>
-            <div>
-              <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 5, textTransform: 'uppercase' }}>Mois</div>
-              <select value={saisieMois} onChange={e=>setSaisieMois(e.target.value)} style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid rgba(201,168,76,0.25)', background: '#F8F7F4', fontSize: 13, outline: 'none' }}>
-                {moisOptions.filter(m=>m.type==='month').slice(0,12).map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
-              </select>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={handleSaisie} disabled={saving} style={{ background: saving?'#E8D5A3':'#C9A84C', color:'#fff', border:'none', padding:'9px 22px', borderRadius:8, fontSize:13, fontWeight:500, cursor:saving?'wait':'pointer' }}>
+                {saving?'Enregistrement...':'Enregistrer'}
+              </button>
+              <button onClick={() => setShowSaisie(false)} style={{ background: '#fff', color: '#5A5A5A', border: '1.5px solid rgba(201,168,76,0.25)', padding:'9px 16px', borderRadius:8, fontSize:13, cursor:'pointer' }}>✕ Fermer</button>
             </div>
           </div>
-          {Object.keys(EQUIPES).map(eq => (
-            <div key={eq} style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: EQUIPES[eq].color, marginBottom: 10 }}>
-                {EQUIPES[eq].label} — {EQUIPES[eq].responsable}
+
+          {/* 2 colonnes Sale | Kenitra */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+            {/* Colonne Sale */}
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: EQUIPES.sale.color, marginBottom: 10 }}>
+                {EQUIPES.sale.label} — {EQUIPES.sale.responsable}
               </div>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ borderCollapse: 'collapse', minWidth: 500 }}>
-                  <thead>
-                    <tr>
-                      <th style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '6px 10px', borderBottom: '1px solid rgba(201,168,76,0.15)', minWidth: 160 }}>Commercial</th>
-                      <th style={{ fontSize: 10, color: '#C9A84C', textAlign: 'center', padding: '6px 10px', borderBottom: '1px solid rgba(201,168,76,0.15)' }}>RDV</th>
-                      <th style={{ fontSize: 10, color: '#4CAF7D', textAlign: 'center', padding: '6px 10px', borderBottom: '1px solid rgba(201,168,76,0.15)' }}>Visites</th>
-                      <th style={{ fontSize: 10, color: '#1a6b3c', textAlign: 'center', padding: '6px 10px', borderBottom: '1px solid rgba(201,168,76,0.15)' }}>Ventes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {commerciaux.filter(c=>c.equipe===eq).map(c => (
-                      <tr key={c.id} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                        <td style={{ padding: '6px 10px', fontSize: 12, fontWeight: 500 }}>{c.nom}</td>
-                        {['rdv','visites','ventes'].map(f => (
-                          <td key={f} style={{ padding: '5px 10px', textAlign: 'center' }}>
-                            <input type="number" min="0" step="0.5" value={saisieForm[c.id]?.[f]||''} onChange={e=>setSaisieForm(p=>({...p,[c.id]:{...(p[c.id]||{}),[f]:e.target.value}}))} placeholder="0" style={inputStyle}/>
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                    <tr style={{ background: 'rgba(201,168,76,0.05)', fontWeight: 600 }}>
-                      <td style={{ padding: '8px 10px', fontSize: 12, color: EQUIPES[eq].color }}>Total</td>
+              <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '6px 8px', borderBottom: '1px solid rgba(201,168,76,0.15)' }}>Commercial</th>
+                    <th style={{ fontSize: 10, color: '#C9A84C', textAlign: 'center', padding: '6px 8px', borderBottom: '1px solid rgba(201,168,76,0.15)' }}>RDV</th>
+                    <th style={{ fontSize: 10, color: '#4CAF7D', textAlign: 'center', padding: '6px 8px', borderBottom: '1px solid rgba(201,168,76,0.15)' }}>Visites</th>
+                    <th style={{ fontSize: 10, color: '#1a6b3c', textAlign: 'center', padding: '6px 8px', borderBottom: '1px solid rgba(201,168,76,0.15)' }}>Ventes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {commerciaux.filter(c=>c.equipe==='sale').map(c => (
+                    <tr key={c.id} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                      <td style={{ padding: '5px 8px', fontSize: 12, fontWeight: 500 }}>{c.nom}</td>
                       {['rdv','visites','ventes'].map(f => (
-                        <td key={f} style={{ padding: '8px 10px', fontSize: 12, textAlign: 'center' }}>
-                          {commerciaux.filter(c=>c.equipe===eq).reduce((s,c)=>s+(parseFloat(saisieForm[c.id]?.[f])||0),0)}
+                        <td key={f} style={{ padding: '4px 6px', textAlign: 'center' }}>
+                          <input type="number" min="0" step="0.5" value={saisieForm[c.id]?.[f]||''} onChange={e=>setSaisieForm(p=>({...p,[c.id]:{...(p[c.id]||{}),[f]:e.target.value}}))} placeholder="0" style={inputStyle}/>
                         </td>
                       ))}
                     </tr>
-                  </tbody>
-                </table>
+                  ))}
+                  <tr style={{ background: 'rgba(201,168,76,0.05)', fontWeight: 600 }}>
+                    <td style={{ padding: '7px 8px', fontSize: 12, color: EQUIPES.sale.color }}>Total</td>
+                    {['rdv','visites','ventes'].map(f => (
+                      <td key={f} style={{ padding: '7px 8px', fontSize: 12, textAlign: 'center' }}>
+                        {commerciaux.filter(c=>c.equipe==='sale').reduce((s,c)=>s+(parseFloat(saisieForm[c.id]?.[f])||0),0)}
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+              {/* Visites non reconnues - sous Sale avec espacement */}
+              <div style={{ marginTop: 32 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#C9A84C', marginBottom: 6 }}>Visites non reconnues</div>
+                <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 10 }}>Sans commercial identifié — par région</div>
+                <div style={{ display: 'flex', gap: 20 }}>
+                  {Object.keys(EQUIPES).map(eq => (
+                    <div key={eq}>
+                      <label style={{ fontSize: 11, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5, display: 'block' }}>{EQUIPES[eq].label}</label>
+                      <input type="number" min="0" step="0.5"
+                        value={saisieForm[`__non_reconnue_${eq}`]?.visites || ''}
+                        onChange={e => setSaisieForm(p => ({ ...p, [`__non_reconnue_${eq}`]: { visites: e.target.value, rdv: 0, ventes: 0, equipe: eq, non_reconnue: true } }))}
+                        placeholder="0" style={{ width: '70px', padding: '7px 8px', border: '1.5px solid rgba(201,168,76,0.25)', borderRadius: 6, fontSize: 12, textAlign: 'center', background: '#F8F7F4', outline: 'none' }}/>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-          ))}
-          <div style={{ marginTop: 20, padding: 16, background: 'rgba(201,168,76,0.05)', borderRadius: 10, border: '1px solid rgba(201,168,76,0.15)' }}>
-            <div style={{ fontSize: 13, fontWeight: 500, color: '#C9A84C', marginBottom: 12 }}>Visites non reconnues</div>
-            <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 12 }}>Visites récupérées sans commercial identifié — saisir par région</div>
-            <div style={{ display: 'flex', gap: 20 }}>
-              {Object.keys(EQUIPES).map(eq => (
-                <div key={eq}>
-                  <label style={{ fontSize: 11, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5, display: 'block' }}>{EQUIPES[eq].label}</label>
-                  <input type="number" min="0" step="0.5"
-                    value={saisieForm[`__non_reconnue_${eq}`]?.visites || ''}
-                    onChange={e => setSaisieForm(p => ({ ...p, [`__non_reconnue_${eq}`]: { visites: e.target.value, rdv: 0, ventes: 0, equipe: eq, non_reconnue: true } }))}
-                    placeholder="0" style={{ width: '80px', padding: '8px 10px', border: '1.5px solid rgba(201,168,76,0.25)', borderRadius: 6, fontSize: 13, textAlign: 'center', background: '#F8F7F4', outline: 'none' }}/>
-                </div>
-              ))}
+
+            {/* Colonne Kenitra */}
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: EQUIPES.kenitra.color, marginBottom: 10 }}>
+                {EQUIPES.kenitra.label} — {EQUIPES.kenitra.responsable}
+              </div>
+              <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '6px 8px', borderBottom: '1px solid rgba(201,168,76,0.15)' }}>Commercial</th>
+                    <th style={{ fontSize: 10, color: '#C9A84C', textAlign: 'center', padding: '6px 8px', borderBottom: '1px solid rgba(201,168,76,0.15)' }}>RDV</th>
+                    <th style={{ fontSize: 10, color: '#4CAF7D', textAlign: 'center', padding: '6px 8px', borderBottom: '1px solid rgba(201,168,76,0.15)' }}>Visites</th>
+                    <th style={{ fontSize: 10, color: '#1a6b3c', textAlign: 'center', padding: '6px 8px', borderBottom: '1px solid rgba(201,168,76,0.15)' }}>Ventes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {commerciaux.filter(c=>c.equipe==='kenitra').map(c => (
+                    <tr key={c.id} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                      <td style={{ padding: '5px 8px', fontSize: 12, fontWeight: 500 }}>{c.nom}</td>
+                      {['rdv','visites','ventes'].map(f => (
+                        <td key={f} style={{ padding: '4px 6px', textAlign: 'center' }}>
+                          <input type="number" min="0" step="0.5" value={saisieForm[c.id]?.[f]||''} onChange={e=>setSaisieForm(p=>({...p,[c.id]:{...(p[c.id]||{}),[f]:e.target.value}}))} placeholder="0" style={inputStyle}/>
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                  <tr style={{ background: 'rgba(83,74,183,0.05)', fontWeight: 600 }}>
+                    <td style={{ padding: '7px 8px', fontSize: 12, color: EQUIPES.kenitra.color }}>Total</td>
+                    {['rdv','visites','ventes'].map(f => (
+                      <td key={f} style={{ padding: '7px 8px', fontSize: 12, textAlign: 'center' }}>
+                        {commerciaux.filter(c=>c.equipe==='kenitra').reduce((s,c)=>s+(parseFloat(saisieForm[c.id]?.[f])||0),0)}
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
             </div>
-          </div>
-          <div style={{ marginTop: 16, display: 'flex', gap: 10, alignItems: 'center' }}>
-          <button onClick={handleSaisie} disabled={saving} style={{ background: saving?'#E8D5A3':'#C9A84C', color:'#fff', border:'none', padding:'11px 28px', borderRadius:8, fontSize:13, fontWeight:500, cursor:saving?'wait':'pointer' }}>
-            {saving?'Enregistrement...':'Enregistrer'}
-          </button>
           </div>
         </div>
       )}
