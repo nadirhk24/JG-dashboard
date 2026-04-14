@@ -610,7 +610,14 @@ export default function FluxRDV({ conseilleres }) {
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase' }}>Total {selectedKpi?.label}</div>
-                <div style={{ fontSize: 22, fontWeight: 700, color: '#C9A84C' }}>{Math.round(allRanking.reduce((s,c)=>s+c.val,0))}{selectedKpi?.unit}</div>
+                {(() => {
+                    // Inclure les Non reconnu dans le total global
+                    const nonReconnuTotal = commerciaux
+                      .filter(c => c.nom.includes('Non reconnu'))
+                      .reduce((s,c) => s + getKpiVal(fluxParCommercial[c.id] || {rdv:0,visites:0,ventes:0}, kpi), 0)
+                    const rankingTotal = allRanking.reduce((s,c)=>s+c.val,0)
+                    return <div style={{ fontSize: 22, fontWeight: 700, color: '#C9A84C' }}>{Math.round(rankingTotal + nonReconnuTotal)}{selectedKpi?.unit}</div>
+                  })()}
               </div>
             </div>
             <div>
