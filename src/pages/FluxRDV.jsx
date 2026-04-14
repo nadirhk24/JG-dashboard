@@ -467,7 +467,6 @@ export default function FluxRDV({ conseilleres }) {
             <div>
               {allRanking.map((c, i) => {
                 const rankColor = getRankColor(i, allRanking.length)
-                const stars = getStars(i, allRanking.length)
                 const pct = maxVal > 0 ? (c.val / maxVal) * 100 : 0
                 const equipeColor = EQUIPES[c.equipe]?.color || '#C9A84C'
                 return (
