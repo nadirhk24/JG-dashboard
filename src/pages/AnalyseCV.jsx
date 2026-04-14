@@ -123,12 +123,11 @@ export default function AnalyseCV({ conseilleres, saisies }) {
         return { label: formatGroupLabel(key, periode), taux: agg[kpiKey] || 0 }
       })
     } else if (segment === 'flux') {
-      // CV inter-commerciaux par mois
-      const filteredComms = fluxEquipe === 'all' 
+      const filteredComms = fluxEquipe === 'all'
         ? fluxCommerciaux.filter(c => !c.nom.includes('Non reconnu'))
         : fluxCommerciaux.filter(c => c.equipe === fluxEquipe && !c.nom.includes('Non reconnu'))
-      
-      // Grouper flux par mois
+
+      // Grouper flux bruts par mois et par commercial
       const fluxByMois = {}
       fluxData.forEach(f => {
         const m = f.date_debut?.substring(0, 7)
@@ -140,32 +139,41 @@ export default function AnalyseCV({ conseilleres, saisies }) {
         fluxByMois[m][f.commercial_id].ventes += parseFloat(f.ventes || 0)
       })
 
-      // Pour chaque mois, calculer le taux de chaque commercial → CV inter-commerciaux
-      return Object.entries(fluxByMois).sort(([a],[b]) => a.localeCompare(b)).map(([mois, commData]) => {
-        const tauxParComm = filteredComms.map(c => {
-          const d = commData[c.id] || { rdv: 0, visites: 0, ventes: 0 }
-          const rdvTotal = (d.rdv || 0) + (d.visites || 0)
-          if (kpiKey === 'flux_rdv') return rdvTotal
-          if (kpiKey === 'flux_visites') return d.visites || 0
-          if (kpiKey === 'flux_ventes') return d.ventes || 0
-          if (kpiKey === 'flux_taux_presence') return rdvTotal > 0 ? parseFloat(((d.visites/rdvTotal)*100).toFixed(1)) : 0
-          if (kpiKey === 'flux_taux_vente') return d.visites > 0 ? parseFloat(((d.ventes/d.visites)*100).toFixed(1)) : 0
-          return 0
-        }).filter(v => v > 0)
+      // Fonction pour calculer la valeur d'un commercial selon le KPI
+      // Applique les regles: visites = vis+ventes, rdv = rdv+vis+ventes
+      function getCommVal(dRaw, key) {
+        const ventes = parseFloat(dRaw.ventes || 0)
+        const visSaisies = parseFloat(dRaw.visites || 0)
+        const rdvSaisis = parseFloat(dRaw.rdv || 0)
+        const visTotal = visSaisies + ventes
+        const rdvTotal = rdvSaisis + visTotal
+        if (key === 'flux_rdv') return rdvTotal
+        if (key === 'flux_visites') return visTotal
+        if (key === 'flux_ventes') return ventes
+        if (key === 'flux_taux_presence') return rdvTotal > 0 ? parseFloat(((visTotal/rdvTotal)*100).toFixed(1)) : 0
+        if (key === 'flux_taux_vente') return visTotal > 0 ? parseFloat(((ventes/visTotal)*100).toFixed(1)) : 0
+        return 0
+      }
 
-        // CV inter-commerciaux pour ce mois
-        const cvMois = tauxParComm.length >= 2 ? (() => {
-          const moy = tauxParComm.reduce((a,b)=>a+b,0) / tauxParComm.length
+      // Pour chaque mois: valeur par commercial → CV inter-commerciaux
+      return Object.entries(fluxByMois).sort(([a],[b]) => a.localeCompare(b)).map(([mois, commData]) => {
+        const valsParComm = filteredComms
+          .map(c => getCommVal(commData[c.id] || { rdv:0, visites:0, ventes:0 }, kpiKey))
+          .filter(v => v > 0)
+
+        const moy = valsParComm.length > 0
+          ? parseFloat((valsParComm.reduce((a,b)=>a+b,0) / valsParComm.length).toFixed(1))
+          : 0
+
+        const cvMois = valsParComm.length >= 2 ? (() => {
           if (moy === 0) return 0
-          const ecart = Math.sqrt(tauxParComm.reduce((s,v)=>s+Math.pow(v-moy,2),0) / tauxParComm.length)
+          const ecart = Math.sqrt(valsParComm.reduce((s,v)=>s+Math.pow(v-moy,2),0) / valsParComm.length)
           return parseFloat(((ecart/moy)*100).toFixed(1))
         })() : 0
 
         const label = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][parseInt(mois.split('-')[1])-1] + ' ' + mois.split('-')[0].substring(2)
-        // Pour les taux: afficher le CV inter-commerciaux de ce mois
-        // Pour les absolus: afficher la moyenne par commercial
-        const moyVal = tauxParComm.length > 0 ? parseFloat((tauxParComm.reduce((a,b)=>a+b,0) / tauxParComm.length).toFixed(1)) : 0
-        return { label, taux: ['flux_taux_presence','flux_taux_vente'].includes(kpiKey) ? cvMois : moyVal, cv_intercomm: cvMois, moy: moyVal }
+        // taux = CV inter-commerciaux de ce mois (pour tous les KPIs)
+        return { label, taux: cvMois, moy, cv_intercomm: cvMois }
       })
     } else {
       const groups = groupFn(marketingData)
@@ -275,6 +283,9 @@ export default function AnalyseCV({ conseilleres, saisies }) {
               <button key={k} onClick={() => setFluxEquipe(k)} style={btnStyle(fluxEquipe===k)}>{l}</button>
             ))}
           </div>
+          <div style={{ marginTop: 10, fontSize: 11, color: '#5A5A5A', padding: '8px 12px', background: 'rgba(201,168,76,0.05)', borderRadius: 8, border: '1px solid rgba(201,168,76,0.1)' }}>
+            ℹ️ Le graphe montre l'évolution du <strong>CV inter-commerciaux</strong> mois par mois — si la courbe descend, l'équipe s'homogénéise ✅
+          </div>
         </div>
       )}
       <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10, fontWeight: 500 }}>KPI</div>
@@ -329,6 +340,7 @@ export default function AnalyseCV({ conseilleres, saisies }) {
                 {stats.ucl > 0 && <ReferenceLine y={stats.ucl} stroke="#E05C5C" strokeDasharray="4 4" label={{ value: `UCL ${stats.ucl}${selectedKpi?.isAbsolute?'':'%'}`, fill: '#E05C5C', fontSize: 10, position: 'right' }} />}
                 {stats.lcl > 0 && <ReferenceLine y={stats.lcl} stroke="#4CAF7D" strokeDasharray="4 4" label={{ value: `LCL ${stats.lcl}${selectedKpi?.isAbsolute?'':'%'}`, fill: '#4CAF7D', fontSize: 10, position: 'right' }} />}
                 {stats.moy > 0 && <ReferenceLine y={stats.moy} stroke="#C9A84C" strokeDasharray="2 2" label={{ value: `Moy ${stats.moy}${selectedKpi?.isAbsolute?'':'%'}`, fill: '#C9A84C', fontSize: 10, position: 'right' }} />}
+                {segment === 'flux' && chartData.some(d => d.moy > 0) && chartData.map((d, i) => null)}
                 <Bar dataKey="taux" fill={selectedKpi.color} radius={[4, 4, 0, 0]} name={selectedKpi.label}>
                   <LabelList dataKey="taux" content={<CustomBarLabel />} />
                 </Bar>
@@ -366,6 +378,27 @@ export default function AnalyseCV({ conseilleres, saisies }) {
       {/* Courbe en cloche */}
       {bellCurveData.length > 0 && (
         <div style={cardStyle}>
+          {segment === 'flux' && chartData.length > 0 && (
+            <div style={{ background: '#fff', borderRadius: 12, padding: 20, border: '1px solid rgba(201,168,76,0.15)', marginBottom: 24 }}>
+              <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C', marginBottom: 4 }}>Évolution du CV inter-commerciaux</div>
+              <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 12 }}>CV mensuel · {selectedKpi?.label} · Moyenne par commercial en pointillés</div>
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={chartData} margin={{ top: 10, right: 40, bottom: 0, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.08)"/>
+                  <XAxis dataKey="label" tick={{ fontSize: 11 }}/>
+                  <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${v}%`}/>
+                  <Tooltip contentStyle={{ background: '#2C2C2C', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12 }}
+                    formatter={(v, name) => [name === 'CV' ? `${v}%` : v, name]}/>
+                  <ReferenceLine y={15} stroke="#4CAF7D" strokeDasharray="4 4" label={{ value: '15% maîtrisé', fill: '#4CAF7D', fontSize: 9, position: 'right' }}/>
+                  <ReferenceLine y={30} stroke="#E07B30" strokeDasharray="4 4" label={{ value: '30% variable', fill: '#E07B30', fontSize: 9, position: 'right' }}/>
+                  <Line type="monotone" dataKey="cv_intercomm" stroke={selectedKpi?.color || '#C9A84C'} strokeWidth={2.5}
+                    dot={{ r: 5, fill: selectedKpi?.color || '#C9A84C', stroke: '#fff', strokeWidth: 2 }} name="CV"/>
+                  <Line type="monotone" dataKey="moy" stroke="#8A8A7A" strokeWidth={1.5} strokeDasharray="4 4"
+                    dot={{ r: 3 }} name="Moyenne"/>
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
           <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C', marginBottom: 4 }}>Distribution — Loi normale</div>
           <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 4 }}>
             Moyenne: <strong>{stats.moy}{selectedKpi?.isAbsolute?'':'%'}</strong> · Écart-type: <strong>{stats.ecart}{selectedKpi?.isAbsolute?'':'%'}</strong> · UCL: <strong style={{ color: '#E05C5C' }}>{stats.ucl}{selectedKpi?.isAbsolute?'':'%'}</strong> · LCL: <strong style={{ color: '#4CAF7D' }}>{stats.lcl}{selectedKpi?.isAbsolute?'':'%'}</strong>
