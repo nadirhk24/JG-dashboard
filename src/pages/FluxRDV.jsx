@@ -166,6 +166,9 @@ export default function FluxRDV({ conseilleres }) {
         const d = fluxParCommercial[c.id] || { rdv: 0, visites: 0, ventes: 0 }
         return { rdv: acc.rdv + d.rdv, visites: acc.visites + d.visites, ventes: acc.ventes + d.ventes }
       }, { rdv: 0, visites: 0, ventes: 0 })
+      // Appliquer les regles: visites_total = visites + ventes, rdv_total = rdv + visites_total
+      tot.visites = tot.visites + tot.ventes
+      tot.rdv = tot.rdv + tot.visites
       const cv = calcCV(comms.map(c => (fluxParCommercial[c.id] || {}).rdv || 0))
       const visTotal = (tot.visites || 0) + (tot.ventes || 0)
       const rdvTotal = (tot.rdv || 0) + visTotal
@@ -507,7 +510,7 @@ export default function FluxRDV({ conseilleres }) {
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase' }}>Total {selectedKpi?.label}</div>
-                <div style={{ fontSize: 22, fontWeight: 700, color: '#C9A84C' }}>{allRanking.reduce((s,c)=>s+c.val,0).toFixed(1)}{selectedKpi?.unit}</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: '#C9A84C' }}>{Math.round(allRanking.reduce((s,c)=>s+c.val,0))}{selectedKpi?.unit}</div>
               </div>
             </div>
             <div>
