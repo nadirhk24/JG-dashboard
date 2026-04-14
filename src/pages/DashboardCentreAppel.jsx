@@ -246,8 +246,6 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   const [filtreConseillere, setFiltreConseillere] = useState('all')
   const [drillConseillere, setDrillConseillere] = useState(null)
   const [objectifs, setObjectifs] = useState({})
-  const [calendarRdv, setCalendarRdv] = useState([])
-  const [fluxRdvData, setFluxRdvData] = useState([])
   const [hiddenRankCols, setHiddenRankCols] = useState({})
   const [showRankCols, setShowRankCols] = useState(false)
   const [showSaisie, setShowSaisie] = useState(false)
@@ -261,16 +259,6 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   const [form, setForm] = useState({ conseillere_id: '', date: today, date_debut: '', date_fin: '', leads_bruts: '', indispos: '', echanges: '', rdv: '', visites: '', ventes: '' })
 
   useEffect(() => { loadObjectifsPeriode() }, [selected])
-  useEffect(() => { loadExternalData() }, [])
-
-  async function loadExternalData() {
-    const [{ data: calRdv }, { data: fluxRdv }] = await Promise.all([
-      supabase.from('calendar_rdv').select('*'),
-      supabase.from('flux_rdv').select('*')
-    ])
-    setCalendarRdv(calRdv || [])
-    setFluxRdvData(fluxRdv || [])
-  }
 
   async function loadObjectifsPeriode() {
     clearObjectifsCache()
@@ -278,100 +266,14 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
     setObjectifs(obj)
   }
 
-  // Filtrer calendar_rdv par période sélectionnée
-  const calendarFiltres = useMemo(() => {
-    return calendarRdv.filter(r => {
-      const d = r.date_creation
-      if (!d) return false
-      if (selected.type === 'global') return true
-      if (selected.type === 'year') return d.startsWith(selected.value)
-      if (selected.type === 'quarter') {
-        const [y, q] = selected.value.split('-Q')
-        const qNum = parseInt(q)
-        const startM = (qNum - 1) * 3 + 1
-        const endM = qNum * 3
-        const mois = parseInt(d.substring(5, 7))
-        return d.startsWith(y) && mois >= startM && mois <= endM
-      }
-      if (selected.type === 'month') return d.substring(0, 7) === selected.value
-      if (selected.type === 'day') return d === selected.value
-      return true
-    })
-  }, [calendarRdv, selected])
-
-  // Filtrer flux_rdv par période
-  const fluxFiltres = useMemo(() => {
-    return fluxRdvData.filter(f => {
-      const mD = f.date_debut?.substring(0, 7)
-      if (selected.type === 'global') return true
-      if (selected.type === 'year') return mD?.startsWith(selected.value)
-      if (selected.type === 'quarter') {
-        const [y, q] = selected.value.split('-Q')
-        const qNum = parseInt(q)
-        const startM = (qNum - 1) * 3 + 1
-        const endM = qNum * 3
-        const mois = parseInt(mD?.split('-')[1] || 0)
-        return mD?.startsWith(y) && mois >= startM && mois <= endM
-      }
-      if (selected.type === 'month') return mD === selected.value || f.date_fin?.substring(0,7) === selected.value
-      if (selected.type === 'day') return f.date_debut <= selected.value && f.date_fin >= selected.value
-      return true
-    })
-  }, [fluxRdvData, selected])
-
-  // Calculer rdv/visites/ventes par conseillere depuis calendar+flux
-  const rdvParConseillere = useMemo(() => {
-    const agg = {}
-    // RDV depuis calendar_rdv (par nom conseillere)
-    calendarFiltres.forEach(r => {
-      const cons = conseilleres.find(c =>
-        c.nom.toLowerCase().trim() === r.conseillere.toLowerCase().trim()
-      )
-      if (!cons) return
-      if (!agg[cons.id]) agg[cons.id] = { rdv: 0, visites: 0, ventes: 0 }
-      agg[cons.id].rdv += 1
-    })
-    // Visites + Ventes depuis flux_rdv (par conseillere_id)
-    fluxFiltres.forEach(f => {
-      if (!agg[f.conseillere_id]) agg[f.conseillere_id] = { rdv: 0, visites: 0, ventes: 0 }
-      agg[f.conseillere_id].visites += parseFloat(f.visites || 0)
-      agg[f.conseillere_id].ventes += parseFloat(f.ventes || 0)
-    })
-    return agg
-  }, [calendarFiltres, fluxFiltres, conseilleres])
-
   const saisiesFiltrees = useMemo(() => {
     let data = filtrerParSelection(saisies, selected)
     if (filtreConseillere !== 'all') data = data.filter(s => s.conseillere_id === filtreConseillere)
-    // Override rdv/visites/ventes avec les données calendar+flux
-    return data.map(s => ({
-      ...s,
-      rdv: rdvParConseillere[s.conseillere_id]?.rdv ?? s.rdv,
-      visites: rdvParConseillere[s.conseillere_id]?.visites ?? s.visites,
-      ventes: rdvParConseillere[s.conseillere_id]?.ventes ?? s.ventes,
-    }))
-  }, [saisies, selected, filtreConseillere, rdvParConseillere])
+    return data
+  }, [saisies, selected, filtreConseillere])
 
-  // Pour la vue Jour : construire saisies virtuelles depuis calendar_rdv si saisiesFiltrees vide
-  const saisiesEffectives = useMemo(() => {
-    if (saisiesFiltrees.length > 0) return saisiesFiltrees
-    // Pas de saisies pour ce jour → construire depuis rdvParConseillere
-    return conseilleres
-      .filter(c => rdvParConseillere[c.id])
-      .map(c => ({
-        conseillere_id: c.id,
-        date: selected.type === 'day' ? selected.value : new Date().toISOString().split('T')[0],
-        date_debut: selected.type === 'day' ? selected.value : new Date().toISOString().split('T')[0],
-        date_fin: selected.type === 'day' ? selected.value : new Date().toISOString().split('T')[0],
-        leads_bruts: 0, indispos: 0, leads_nets: 0, echanges: 0,
-        rdv: rdvParConseillere[c.id]?.rdv || 0,
-        visites: rdvParConseillere[c.id]?.visites || 0,
-        ventes: rdvParConseillere[c.id]?.ventes || 0,
-      }))
-  }, [saisiesFiltrees, conseilleres, rdvParConseillere, selected])
-
-  const kpisGlobal = useMemo(() => agregerParPeriode(saisiesEffectives), [saisiesEffectives])
-  const kpisParConseillere = useMemo(() => conseilleres.map(c => ({ ...c, ...agregerParPeriode(saisiesEffectives, c.id) })), [conseilleres, saisiesEffectives])
+  const kpisGlobal = useMemo(() => agregerParPeriode(saisiesFiltrees), [saisiesFiltrees])
+  const kpisParConseillere = useMemo(() => conseilleres.map(c => ({ ...c, ...agregerParPeriode(saisiesFiltrees, c.id) })), [conseilleres, saisiesFiltrees])
   const cvConvTel = useMemo(() => calcCV(kpisParConseillere.map(c => c.conversion_tel)), [kpisParConseillere])
   const cvPresence = useMemo(() => calcCV(kpisParConseillere.map(c => c.taux_presence)), [kpisParConseillere])
   const cvEfficacite = useMemo(() => calcCV(kpisParConseillere.map(c => c.efficacite_comm)), [kpisParConseillere])
@@ -387,7 +289,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   }, [selected])
 
   const tableData = useMemo(() => {
-    const groups = groupFn(saisiesEffectives)
+    const groups = groupFn(saisiesFiltrees)
     return Object.entries(groups).sort(([a], [b]) => b.localeCompare(a)).map(([key, items]) => {
       const agg = agregerParPeriode(items)
       const convParC = conseilleres.map(c => calcConversionTel(items.filter(s => s.conseillere_id === c.id).reduce((a, s) => a + s.rdv, 0), items.filter(s => s.conseillere_id === c.id).reduce((a, s) => a + s.echanges, 0)))
@@ -741,7 +643,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
 
       {drillConseillere && (() => {
         const c = conseilleres.find(c => c.id === drillConseillere)
-        const data = saisiesEffectives.filter(s => s.conseillere_id === drillConseillere)
+        const data = saisiesFiltrees.filter(s => s.conseillere_id === drillConseillere)
         const groups = groupFn(data)
         const items = Object.entries(groups).sort(([a], [b]) => b.localeCompare(a)).map(([key, items]) => ({ label: formatGroupLabel(key, periodeLabel), ...agregerParPeriode(items) }))
         const kpis = agregerParPeriode(data)
