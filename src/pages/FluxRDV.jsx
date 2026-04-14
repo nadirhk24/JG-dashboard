@@ -45,24 +45,23 @@ function calcCV(vals) {
   return parseFloat(((Math.sqrt(variance) / moy) * 100).toFixed(1))
 }
 
-function getVisitesTotal(d) {
-  // 1 vente = 1 visite supplementaire
-  return (d.visites || 0) + (d.ventes || 0)
-}
-
-function getRdvTotal(d) {
-  // 1 visite = 1 rdv supplementaire (visites inclut deja les ventes)
-  return (d.rdv || 0) + getVisitesTotal(d)
+function calcTotaux(d) {
+  const rdv_saisis = parseFloat(d.rdv || 0)
+  const vis_saisies = parseFloat(d.visites || 0)
+  const ventes = parseFloat(d.ventes || 0)
+  const visites = vis_saisies + ventes          // 1 vente = 1 visite
+  const rdv = rdv_saisis + vis_saisies + ventes // 1 visite = 1 rdv
+  return { rdv, visites, ventes }
 }
 
 function getKpiVal(d, kpi) {
-  const visTotal = getVisitesTotal(d)
-  const rdvTotal = getRdvTotal(d)
-  if (kpi === 'rdv') return Math.round(rdvTotal)
-  if (kpi === 'visites') return Math.round(visTotal)
-  if (kpi === 'taux_presence') return rdvTotal > 0 ? parseFloat(((visTotal / rdvTotal) * 100).toFixed(1)) : 0
-  if (kpi === 'taux_vente') return visTotal > 0 ? parseFloat(((d.ventes / visTotal) * 100).toFixed(1)) : 0
-  return parseFloat((d[kpi] || 0).toFixed(1))
+  const t = calcTotaux(d)
+  if (kpi === 'rdv') return Math.round(t.rdv)
+  if (kpi === 'visites') return Math.round(t.visites)
+  if (kpi === 'ventes') return Math.round(t.ventes)
+  if (kpi === 'taux_presence') return t.rdv > 0 ? parseFloat(((t.visites / t.rdv) * 100).toFixed(1)) : 0
+  if (kpi === 'taux_vente') return t.visites > 0 ? parseFloat(((t.ventes / t.visites) * 100).toFixed(1)) : 0
+  return 0
 }
 
 function getRankColor(rank, total) {
@@ -164,17 +163,13 @@ export default function FluxRDV({ conseilleres }) {
       const comms = commerciaux.filter(c => c.equipe === eq)
       const tot = comms.reduce((acc, c) => {
         const d = fluxParCommercial[c.id] || { rdv: 0, visites: 0, ventes: 0 }
-        return { rdv: acc.rdv + d.rdv, visites: acc.visites + d.visites, ventes: acc.ventes + d.ventes }
+        const t = calcTotaux(d)
+        return { rdv: acc.rdv + t.rdv, visites: acc.visites + t.visites, ventes: acc.ventes + t.ventes }
       }, { rdv: 0, visites: 0, ventes: 0 })
-      // Appliquer les regles: visites_total = visites + ventes, rdv_total = rdv + visites_total
-      tot.visites = tot.visites + tot.ventes
-      tot.rdv = tot.rdv + tot.visites
       const cv = calcCV(comms.map(c => (fluxParCommercial[c.id] || {}).rdv || 0))
-      const visTotal = (tot.visites || 0) + (tot.ventes || 0)
-      const rdvTotal = (tot.rdv || 0) + visTotal
-      res[eq] = { ...tot, rdv: rdvTotal, visites: visTotal, cv,
-        taux_presence: rdvTotal > 0 ? parseFloat(((visTotal/rdvTotal)*100).toFixed(1)) : 0,
-        taux_vente: visTotal > 0 ? parseFloat(((tot.ventes/visTotal)*100).toFixed(1)) : 0,
+      res[eq] = { ...tot, cv,
+        taux_presence: tot.rdv > 0 ? parseFloat(((tot.visites/tot.rdv)*100).toFixed(1)) : 0,
+        taux_vente: tot.visites > 0 ? parseFloat(((tot.ventes/tot.visites)*100).toFixed(1)) : 0,
       }
     })
     return res
@@ -192,12 +187,15 @@ export default function FluxRDV({ conseilleres }) {
       byMois[m].visites += parseFloat(f.visites || 0)
       byMois[m].ventes += parseFloat(f.ventes || 0)
     })
-    return Object.entries(byMois).sort(([a],[b]) => a.localeCompare(b)).map(([m, d]) => ({
-      label: MOIS_LABELS[parseInt(m.split('-')[1])-1]?.substring(0,3) + ' ' + m.split('-')[0].substring(2),
-      rdv: d.rdv, visites: d.visites, ventes: d.ventes,
-      taux_presence: d.rdv > 0 ? parseFloat(((d.visites/d.rdv)*100).toFixed(1)) : 0,
-      taux_vente: d.visites > 0 ? parseFloat(((d.ventes/d.visites)*100).toFixed(1)) : 0,
-    }))
+    return Object.entries(byMois).sort(([a],[b]) => a.localeCompare(b)).map(([m, d]) => {
+      const ht = calcTotaux(d)
+      return {
+        label: MOIS_LABELS[parseInt(m.split('-')[1])-1]?.substring(0,3) + ' ' + m.split('-')[0].substring(2),
+        rdv: Math.round(ht.rdv), visites: Math.round(ht.visites), ventes: Math.round(ht.ventes),
+        taux_presence: ht.rdv > 0 ? parseFloat(((ht.visites/ht.rdv)*100).toFixed(1)) : 0,
+        taux_vente: ht.visites > 0 ? parseFloat(((ht.ventes/ht.visites)*100).toFixed(1)) : 0,
+      }
+    })
   }, [selectedCommercial, fluxData])
 
   // Ranking par equipe - toujours separe par equipe dans la vue separee
@@ -337,8 +335,7 @@ export default function FluxRDV({ conseilleres }) {
               const d = fluxParCommercial[selectedCommercial.id] || { rdv: 0, visites: 0, ventes: 0 }
               return (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  {[{label:'Taux de présence',val:d.rdv>0?((d.visites/d.rdv)*100).toFixed(1):0,color:'#534AB7',desc:'Visites / RDV'},
-                    {label:'Taux de vente',val:d.visites>0?((d.ventes/d.visites)*100).toFixed(1):0,color:'#1a6b3c',desc:'Ventes / Visites'}].map(r => (
+                  {(() => { const pt = calcTotaux(d); return [{label:'Taux de présence',val:pt.rdv>0?((pt.visites/pt.rdv)*100).toFixed(1):0,color:'#534AB7',desc:'Visites / RDV'},{label:'Taux de vente',val:pt.visites>0?((pt.ventes/pt.visites)*100).toFixed(1):0,color:'#1a6b3c',desc:'Ventes / Visites'}] })().map(r => (
                     <div key={r.label} style={{ background: '#F8F7F4', borderRadius: 10, padding: 16 }}>
                       <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 4 }}>{r.label}</div>
                       <div style={{ fontSize: 28, fontWeight: 700, color: r.color }}>{r.val}%</div>
