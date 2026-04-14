@@ -213,7 +213,7 @@ export default function FluxRDV({ conseilleres }) {
 
   // Ranking par equipe - toujours separe par equipe dans la vue separee
   function getRanking(equipe) {
-    const comms = commerciaux.filter(c => c.equipe === equipe)
+    const comms = commerciaux.filter(c => c.equipe === equipe && !c.nom.includes('Non reconnu'))
     return [...comms]
       .map(c => ({ ...c, val: getKpiVal(fluxParCommercial[c.id] || {rdv:0,visites:0,ventes:0}, kpi) }))
       .sort((a,b) => b.val - a.val)
@@ -504,7 +504,7 @@ export default function FluxRDV({ conseilleres }) {
                     <td style={{ padding: '7px 8px', fontSize: 12, color: EQUIPES.sale.color }}>Total</td>
                     {['rdv','visites','ventes'].map(f => (
                       <td key={f} style={{ padding: '7px 8px', fontSize: 12, textAlign: 'center' }}>
-                        {commerciaux.filter(c=>c.equipe==='sale' && !c.nom.includes('Non reconnu')).reduce((s,c)=>s+(parseFloat(saisieForm[c.id]?.[f])||0),0)}
+                        {commerciaux.filter(c=>c.equipe==='sale').reduce((s,c)=>s+(parseFloat(saisieForm[c.id]?.[f])||0),0)}
                       </td>
                     ))}
                   </tr>
@@ -560,7 +560,7 @@ export default function FluxRDV({ conseilleres }) {
                     <td style={{ padding: '7px 8px', fontSize: 12, color: EQUIPES.kenitra.color }}>Total</td>
                     {['rdv','visites','ventes'].map(f => (
                       <td key={f} style={{ padding: '7px 8px', fontSize: 12, textAlign: 'center' }}>
-                        {commerciaux.filter(c=>c.equipe==='kenitra' && !c.nom.includes('Non reconnu')).reduce((s,c)=>s+(parseFloat(saisieForm[c.id]?.[f])||0),0)}
+                        {commerciaux.filter(c=>c.equipe==='kenitra').reduce((s,c)=>s+(parseFloat(saisieForm[c.id]?.[f])||0),0)}
                       </td>
                     ))}
                   </tr>
@@ -596,7 +596,7 @@ export default function FluxRDV({ conseilleres }) {
 
       {/* Vue All - ranking global */}
       {viewMode === 'all' && (() => {
-        const allRanking = [...commerciaux]
+        const allRanking = [...commerciaux.filter(c => !c.nom.includes('Non reconnu'))]
           .map(c => ({ ...c, val: getKpiVal(fluxParCommercial[c.id] || {rdv:0,visites:0,ventes:0}, kpi) }))
           .sort((a,b) => b.val - a.val)
         const maxVal = Math.max(...allRanking.map(c=>c.val), 1)
