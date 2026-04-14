@@ -235,7 +235,7 @@ export default function FluxRDV({ conseilleres }) {
     const { error } = await supabase.from('flux_rdv').insert(rows)
     
     if (!error) {
-      // Sync totaux vers saisies CC par conseillere
+      // Sync totaux vers saisies CC par conseillere - creer si n'existe pas
       const conseilleresIds = [...new Set(rows.map(r => r.conseillere_id))]
       for (const consId of conseilleresIds) {
         const { data: allFlux } = await supabase.from('flux_rdv')
@@ -244,21 +244,46 @@ export default function FluxRDV({ conseilleres }) {
           .gte('date_debut', dd)
           .lte('date_fin', df)
         
-        const totaux = (allFlux || []).reduce((acc, f) => ({
+        const totauxBruts = (allFlux || []).reduce((acc, f) => ({
           rdv: acc.rdv + parseFloat(f.rdv || 0),
           visites: acc.visites + parseFloat(f.visites || 0),
           ventes: acc.ventes + parseFloat(f.ventes || 0),
         }), { rdv: 0, visites: 0, ventes: 0 })
-        
-        // Mettre a jour ou inserer dans saisies
+
+        const t = calcTotaux(totauxBruts)
+        const rdvFinal = Math.round(t.rdv)
+        const visFinal = Math.round(t.visites)
+        const venFinal = Math.round(t.ventes)
+
         const { data: existSaisie } = await supabase.from('saisies')
-          .select('id')
+          .select('id, leads_bruts, indispos, echanges')
           .eq('conseillere_id', consId)
           .eq('date_debut', dd)
           .maybeSingle()
         
         if (existSaisie) {
-          await supabase.from('saisies').update({ rdv: Math.round(totaux.rdv), visites: Math.round(totaux.visites), ventes: totaux.ventes }).eq('id', existSaisie.id)
+          // Mettre a jour seulement RDV/Visites/Ventes
+          await supabase.from('saisies').update({
+            rdv: rdvFinal,
+            visites: visFinal,
+            ventes: venFinal,
+          }).eq('id', existSaisie.id)
+        } else {
+          // Creer la ligne CC avec RDV/Visites/Ventes - leads/echanges a 0 en attendant
+          await supabase.from('saisies').insert({
+            conseillere_id: consId,
+            date: dd,
+            date_debut: dd,
+            date_fin: df,
+            type_saisie: saisieMois ? 'periode' : 'jour',
+            leads_bruts: 0,
+            indispos: 0,
+            leads_nets: 0,
+            echanges: 0,
+            rdv: rdvFinal,
+            visites: visFinal,
+            ventes: venFinal,
+          })
         }
       }
     }
