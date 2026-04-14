@@ -430,28 +430,34 @@ export default function AnalyseCV({ conseilleres, saisies }) {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
-              {['Période', selectedKpi.label, 'CV cumulé', 'Statut'].map(h => (
-                <th key={h} style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '8px 10px', borderBottom: '1px solid rgba(201,168,76,0.15)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 500 }}>{h}</th>
-              ))}
+              {segment === 'flux'
+                ? ['Période', `Moy. ${selectedKpi.label}`, 'CV inter-commerciaux', 'Statut'].map(h => (
+                    <th key={h} style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '8px 10px', borderBottom: '1px solid rgba(201,168,76,0.15)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 500 }}>{h}</th>
+                  ))
+                : ['Période', selectedKpi.label, 'CV cumulé', 'Statut'].map(h => (
+                    <th key={h} style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '8px 10px', borderBottom: '1px solid rgba(201,168,76,0.15)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 500 }}>{h}</th>
+                  ))
+              }
             </tr>
           </thead>
           <tbody>
             {chartData.map((row, i) => {
-              const cvRow = cvData.find(c => c.label === row.label)
-              const cvVal = cvRow?.cv || 0
+              const cvVal = segment === 'flux' ? (row.cv_intercomm || 0) : (cvData.find(c => c.label === row.label)?.cv || 0)
               const statut = cvVal === 0 ? { label: '—', color: '#8A8A7A' } :
                 cvVal < 15 ? { label: '✅ Maîtrisé', color: '#1a6b3c' } :
                 cvVal < 30 ? { label: '🟡 Modéré', color: '#C9A84C' } :
                 cvVal < 50 ? { label: '🟠 Variable', color: '#E07B30' } :
                 { label: '🔴 Hors contrôle', color: '#E05C5C' }
-              const horsLimite = row.taux > stats.ucl || (stats.lcl > 0 && row.taux < stats.lcl)
+              const horsLimite = !selectedKpi?.isAbsolute && (row.taux > stats.ucl || (stats.lcl > 0 && row.taux < stats.lcl))
+              const displayVal = segment === 'flux' ? row.moy : row.taux
+              const displayUnit = selectedKpi?.isAbsolute ? '' : '%'
               return (
                 <tr key={i} onMouseEnter={e => e.currentTarget.style.background = '#F7F0DC'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                   <td style={{ padding: '9px 10px', fontSize: 12, fontWeight: 500, color: '#C9A84C', borderBottom: '1px solid rgba(201,168,76,0.06)' }}>{row.label}</td>
                   <td style={{ padding: '9px 10px', fontSize: 12, fontWeight: 500, color: horsLimite ? '#E05C5C' : selectedKpi.color, borderBottom: '1px solid rgba(201,168,76,0.06)' }}>
-                    {row.taux}{selectedKpi?.isAbsolute?'':'%'} {horsLimite && <span style={{ fontSize: 10, marginLeft: 4 }}>⚠️ hors limites</span>}
+                    {displayVal}{displayUnit} {horsLimite && <span style={{ fontSize: 10, marginLeft: 4 }}>⚠️ hors limites</span>}
                   </td>
-                  <td style={{ padding: '9px 10px', fontSize: 12, color: statut.color, borderBottom: '1px solid rgba(201,168,76,0.06)' }}>{cvVal > 0 ? `${cvVal}%` : '—'}</td>
+                  <td style={{ padding: '9px 10px', fontSize: 12, color: statut.color, fontWeight: 500, borderBottom: '1px solid rgba(201,168,76,0.06)' }}>{cvVal > 0 ? `${cvVal}%` : '—'}</td>
                   <td style={{ padding: '9px 10px', fontSize: 12, color: statut.color, borderBottom: '1px solid rgba(201,168,76,0.06)' }}>{statut.label}</td>
                 </tr>
               )
