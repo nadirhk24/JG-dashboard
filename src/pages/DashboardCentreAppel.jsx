@@ -132,7 +132,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   const [showHistorique, setShowHistorique] = useState(false)
   const [saisieMode, setSaisieMode] = useState('jour')
   const today = new Date().toISOString().split('T')[0]
-  const [form, setForm] = useState({ conseillere_id: '', date: today, date_debut: '', date_fin: '', leads_bruts: '', indispos: '', echanges: '', rdv: '', visites: '', ventes: '' })
+  const [form, setForm] = useState({ conseillere_id: '', date: today, date_debut: '', date_fin: '', leads_bruts: '', non_exploitables_cc: '', indispos: '', echanges: '', rdv: '', visites: '', ventes: '' })
 
   useEffect(() => { loadObjectifsPeriode() }, [selected])
 
@@ -178,7 +178,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   const chartData = useMemo(() => [...tableData].reverse().map(r => ({ label: r.label, conv: r.conversion_tel, presence: r.taux_presence, efficacite: r.efficacite_comm })), [tableData])
   const rankingSorted = useMemo(() => [...kpisParConseillere].sort((a,b) => ((b.conversion_tel+b.taux_presence)/2) - ((a.conversion_tel+a.taux_presence)/2)), [kpisParConseillere])
 
-  const leadsNetsForm = Math.max(0, (parseFloat(form.leads_bruts)||0) - (parseFloat(form.indispos)||0))
+  const leadsNetsForm = Math.max(0, (parseFloat(form.leads_bruts)||0) - (parseFloat(form.non_exploitables_cc)||0) - (parseFloat(form.indispos)||0))
 
   async function checkAndSave(e) {
     e.preventDefault()
@@ -238,6 +238,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
     }), { rdv: 0, visites: 0, ventes: 0 })
 
     const indisposVal = form.indispos !== '' ? base('indispos') : (existingData?.indispos ?? 0)
+    const nonExploitablesCCVal = form.non_exploitables_cc !== '' ? base('non_exploitables_cc') : (existingData?.non_exploitables_cc ?? 0)
     const leadsBrutsVal = form.leads_bruts !== '' ? base('leads_bruts') : (existingData?.leads_bruts ?? 0)
     
     const payload = {
@@ -247,8 +248,9 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
       date_fin: dateFin,
       type_saisie: saisieMode,
       leads_bruts: leadsBrutsVal,
+      non_exploitables_cc: nonExploitablesCCVal,
       indispos: indisposVal,
-      leads_nets: Math.max(0, leadsBrutsVal - indisposVal),
+      leads_nets: Math.max(0, leadsBrutsVal - nonExploitablesCCVal - indisposVal),
       echanges: form.echanges !== '' ? base('echanges') : (existingData?.echanges ?? 0),
       rdv: fluxRDV.rdv > 0 ? fluxRDV.rdv : (existingData?.rdv ?? 0),
       visites: fluxRDV.visites > 0 ? fluxRDV.visites : (existingData?.visites ?? 0),
@@ -289,7 +291,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
       const label = saisieMode === 'jour' ? `Données enregistrées pour le ${dateDebut} !` : `Données enregistrées du ${dateDebut} au ${dateFin} !`
       setMsg({ type: 'success', text: label })
       reload()
-      setForm(p => ({ ...p, leads_bruts: '', indispos: '', echanges: '', rdv: '', visites: '', ventes: '' }))
+      setForm(p => ({ ...p, leads_bruts: '', non_exploitables_cc: '', indispos: '', echanges: '', rdv: '', visites: '', ventes: '' }))
       setTimeout(() => setMsg(null), 3000)
     }
   }
@@ -387,8 +389,9 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
                 Les chiffres seront répartis uniformément sur chaque jour de la période.
               </div>
             )}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 14 }}>
               <div><label style={labelStyle}>Leads Bruts</label><input type="number" min="0" value={form.leads_bruts} onChange={e=>setForm(p=>({...p,leads_bruts:e.target.value}))} placeholder="ex: 120" style={inputStyle}/></div>
+              <div><label style={labelStyle}>Non exploit. CC</label><input type="number" min="0" value={form.non_exploitables_cc} onChange={e=>setForm(p=>({...p,non_exploitables_cc:e.target.value}))} placeholder="ex: 5" style={{...inputStyle, borderColor:'rgba(138,138,122,0.4)'}}/></div>
               <div><label style={labelStyle}>Indispos</label><input type="number" min="0" value={form.indispos} onChange={e=>setForm(p=>({...p,indispos:e.target.value}))} placeholder="ex: 20" style={inputStyle}/></div>
               <div><label style={labelStyle}>Leads Nets (auto)</label><input type="number" value={saisieMode==='jour'?leadsNetsForm:'—'} readOnly style={{ ...inputStyle, background: '#F7F0DC', borderColor: '#C9A84C', color: '#8a6a1a', fontWeight: 500 }}/></div>
             </div>
@@ -668,7 +671,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
                     onChange={e => setSelectedRows(e.target.checked ? new Set(saisies.slice(0,30).map(s=>s.id)) : new Set())}
                     style={{ accentColor: '#C9A84C' }}/>
                 </th>
-                {['Période','Conseillère','Leads Bruts','Indispos','Leads Nets','Échanges','RDV','Visites','Ventes','Actions'].map(h => (
+                {['Période','Conseillère','Leads Bruts','Non Expl. CC','Indispos','Leads Nets','Échanges','RDV','Visites','Ventes','Actions'].map(h => (
                   <th key={h} style={thStyle}>{h}</th>
                 ))}
               </tr>
@@ -695,6 +698,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
                     <td style={{...tdStyle,fontWeight:500,color:'#C9A84C',whiteSpace:'nowrap'}}>{periode}</td>
                     <td style={{...tdStyle,fontWeight:500}}>{c?.nom || '—'}</td>
                     <td style={tdStyle}>{s.leads_bruts}</td>
+                    <td style={{...tdStyle,color:'#8A8A7A'}}>{s.non_exploitables_cc || 0}</td>
                     <td style={{...tdStyle,color:'#E05C5C'}}>{s.indispos}</td>
                     <td style={{...tdStyle,color:'#C9A84C',fontWeight:500}}>{s.leads_nets}</td>
                     <td style={tdStyle}>{s.echanges}</td>
