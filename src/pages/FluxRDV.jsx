@@ -184,8 +184,10 @@ export default function FluxRDV({ conseilleres }) {
   const [msg, setMsg] = useState(null)
   const [saisieConseillere, setSaisieConseillere] = useState('')
   const [saisieMois, setSaisieMois] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`)
+  const [saisieDate, setSaisieDate] = useState(new Date().toISOString().substring(0,10))
   const [saisieDebut, setSaisieDebut] = useState('')
   const [saisieFin, setSaisieFin] = useState('')
+  const [saisieModeDate, setSaisieModeDate] = useState('jour') // 'jour' | 'periode'
   const [saisieForm, setSaisieForm] = useState({})
 
   const moisOptions = useMemo(() => getMoisOptions(), [])
@@ -293,12 +295,17 @@ export default function FluxRDV({ conseilleres }) {
     const entries = Object.entries(saisieForm).filter(([_, v]) => v.rdv || v.visites || v.ventes)
     if (!entries.length) { setMsg({ type: 'error', text: 'Saisis au moins une donnée' }); return }
     setSaving(true)
-    const year = parseInt(saisieMois.split('-')[0])
-    const month = parseInt(saisieMois.split('-')[1])
-    const lastDay = new Date(year, month, 0).getDate()
-    // Utiliser les dates personnalisées si renseignées, sinon le mois complet
-    const dd = saisieDebut || `${saisieMois}-01`
-    const df = saisieFin || `${saisieMois}-${String(lastDay).padStart(2,'0')}`
+    let dd, df
+    if (saisieModeDate === 'jour') {
+      dd = saisieDate
+      df = saisieDate
+    } else {
+      const year = parseInt(saisieMois.split('-')[0])
+      const month = parseInt(saisieMois.split('-')[1])
+      const lastDay = new Date(year, month, 0).getDate()
+      dd = saisieDebut || `${saisieMois}-01`
+      df = saisieFin || `${saisieMois}-${String(lastDay).padStart(2,'0')}`
+    }
     await supabase.from('flux_rdv').delete()
       .eq('conseillere_id', saisieConseillere)
       .gte('date_debut', dd)
@@ -345,22 +352,21 @@ export default function FluxRDV({ conseilleres }) {
         }), { visites: 0, ventes: 0 })
         const visTotal = Math.round(tot.visites + tot.ventes)
         const venTotal = Math.round(tot.ventes)
-        // Chercher une ligne mensuelle existante (date_debut=dd ET date_fin=df)
-        const { data: ligneMensuelle } = await supabase.from('saisies')
+        // Chercher la ligne CC exacte (même date_debut et date_fin)
+        const { data: ligneCC } = await supabase.from('saisies')
           .select('id')
           .eq('conseillere_id', consId)
           .eq('date_debut', dd)
           .eq('date_fin', df)
           .maybeSingle()
 
-        if (ligneMensuelle) {
-          // Mettre à jour la ligne mensuelle existante
-          await supabase.from('saisies').update({ visites: visTotal, ventes: venTotal }).eq('id', ligneMensuelle.id)
+        if (ligneCC) {
+          await supabase.from('saisies').update({ visites: visTotal, ventes: venTotal }).eq('id', ligneCC.id)
         } else {
-          // Créer une ligne mensuelle pour les visites/ventes
           await supabase.from('saisies').insert({
             conseillere_id: consId, date: dd, date_debut: dd, date_fin: df,
-            type_saisie: 'periode', leads_bruts: 0, indispos: 0, leads_nets: 0, echanges: 0,
+            type_saisie: dd === df ? 'jour' : 'periode',
+            leads_bruts: 0, indispos: 0, leads_nets: 0, echanges: 0,
             rdv: 0, visites: visTotal, ventes: venTotal,
           })
         }
@@ -507,6 +513,13 @@ export default function FluxRDV({ conseilleres }) {
         <div style={{ background: '#fff', borderRadius: 14, padding: 24, border: '1.5px solid #C9A84C', marginBottom: 24 }}>
           {msg && <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 14, fontSize: 12, fontWeight: 500, background: msg.type==='success'?'rgba(76,175,125,0.1)':'rgba(224,92,92,0.1)', color: msg.type==='success'?'#2d7a54':'#a03030' }}>{msg.text}</div>}
 
+          {/* Mode jour / periode */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            {[['jour','Par jour'],['periode','Par période']].map(([k,l]) => (
+              <button key={k} onClick={() => setSaisieModeDate(k)} style={{ padding: '7px 18px', borderRadius: 16, border: `1.5px solid ${saisieModeDate===k?'#C9A84C':'rgba(201,168,76,0.2)'}`, background: saisieModeDate===k?'#C9A84C':'#fff', color: saisieModeDate===k?'#fff':'#5A5A5A', fontSize: 12, cursor: 'pointer', fontWeight: saisieModeDate===k?500:400 }}>{l}</button>
+            ))}
+          </div>
+
           {/* Header avec conseillere, periode et boutons */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
@@ -517,22 +530,29 @@ export default function FluxRDV({ conseilleres }) {
                   {conseilleres.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
                 </select>
               </div>
-              <div>
-                <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 5, textTransform: 'uppercase' }}>Période</div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <select value={saisieMois} onChange={e=>setSaisieMois(e.target.value)} style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid rgba(201,168,76,0.25)', background: '#F8F7F4', fontSize: 13, outline: 'none' }}>
-                    {moisOptions.filter(m=>m.type==='month').slice(0,12).map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
-                  </select>
+              {saisieModeDate === 'jour' ? (
+                <div>
+                  <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 5, textTransform: 'uppercase' }}>Date</div>
+                  <input type="date" value={saisieDate} onChange={e=>setSaisieDate(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1.5px solid rgba(201,168,76,0.25)', background: '#F8F7F4', fontSize: 13, outline: 'none' }}/>
                 </div>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 5, textTransform: 'uppercase' }}>Début</div>
-                <input type="date" value={saisieDebut} onChange={e=>setSaisieDebut(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1.5px solid rgba(201,168,76,0.25)', background: '#F8F7F4', fontSize: 13, outline: 'none' }}/>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 5, textTransform: 'uppercase' }}>Fin</div>
-                <input type="date" value={saisieFin} onChange={e=>setSaisieFin(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1.5px solid rgba(201,168,76,0.25)', background: '#F8F7F4', fontSize: 13, outline: 'none' }}/>
-              </div>
+              ) : (
+                <>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 5, textTransform: 'uppercase' }}>Mois</div>
+                    <select value={saisieMois} onChange={e=>setSaisieMois(e.target.value)} style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid rgba(201,168,76,0.25)', background: '#F8F7F4', fontSize: 13, outline: 'none' }}>
+                      {moisOptions.filter(m=>m.type==='month').slice(0,12).map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 5, textTransform: 'uppercase' }}>Début</div>
+                    <input type="date" value={saisieDebut} onChange={e=>setSaisieDebut(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1.5px solid rgba(201,168,76,0.25)', background: '#F8F7F4', fontSize: 13, outline: 'none' }}/>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 5, textTransform: 'uppercase' }}>Fin</div>
+                    <input type="date" value={saisieFin} onChange={e=>setSaisieFin(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1.5px solid rgba(201,168,76,0.25)', background: '#F8F7F4', fontSize: 13, outline: 'none' }}/>
+                  </div>
+                </>
+              )}
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={handleSaisie} disabled={saving} style={{ background: saving?'#E8D5A3':'#C9A84C', color:'#fff', border:'none', padding:'9px 22px', borderRadius:8, fontSize:13, fontWeight:500, cursor:saving?'wait':'pointer' }}>
