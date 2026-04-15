@@ -9,9 +9,9 @@ export function calcJoignabilite(indispos, leadsBruts) {
   return parseFloat(((joints / leadsBruts) * 100).toFixed(1))
 }
 
-export function calcConversionTel(rdv, echanges) {
-  if (!echanges || echanges === 0) return 0
-  return parseFloat(((rdv / echanges) * 100).toFixed(1))
+export function calcConversionTel(rdv, echangesExploitables) {
+  if (!echangesExploitables || echangesExploitables === 0) return 0
+  return parseFloat(((rdv / echangesExploitables) * 100).toFixed(1))
 }
 
 export function calcTauxPresence(visites, rdv) {
@@ -24,8 +24,8 @@ export function calcEfficaciteComm(ventes, visites) {
   return parseFloat(((ventes / visites) * 100).toFixed(1))
 }
 
-export function calcLeadsNets(leadsBruts, indispos) {
-  return Math.max(0, (leadsBruts || 0) - (indispos || 0))
+export function calcLeadsNets(leadsBruts, nonExploitablesCC, indispos) {
+  return Math.max(0, (leadsBruts || 0) - (nonExploitablesCC || 0) - (indispos || 0))
 }
 
 export function calcCV(valeurs) {
@@ -45,13 +45,10 @@ export function couleurPerf(valeur, objectif) {
   return '#E05C5C'
 }
 
-// Filtre les saisies selon une plage de dates
-// Gere les saisies "par periode" (date_debut != date_fin)
 export function filtrerSaisiesParDate(saisies, dateDebut, dateFin) {
   return saisies.filter(s => {
     const sDebut = s.date_debut || s.date
     const sFin = s.date_fin || s.date
-    // Inclure si la saisie chevauche la plage demandee
     return sDebut <= dateFin && sFin >= dateDebut
   })
 }
@@ -64,21 +61,28 @@ export function agregerParPeriode(saisies, conseillereId = null) {
 
   const totaux = data.reduce((acc, s) => ({
     leads_bruts: acc.leads_bruts + (s.leads_bruts || 0),
+    non_exploitables_cc: acc.non_exploitables_cc + (s.non_exploitables_cc || 0),
     indispos: acc.indispos + (s.indispos || 0),
     echanges: acc.echanges + (s.echanges || 0),
+    echanges_exploitables: acc.echanges_exploitables + (s.echanges_exploitables || 0),
     rdv: acc.rdv + (s.rdv || 0),
     visites: acc.visites + (s.visites || 0),
     ventes: acc.ventes + (s.ventes || 0),
-  }), { leads_bruts: 0, indispos: 0, echanges: 0, rdv: 0, visites: 0, ventes: 0 })
+  }), { leads_bruts: 0, non_exploitables_cc: 0, indispos: 0, echanges: 0, echanges_exploitables: 0, rdv: 0, visites: 0, ventes: 0 })
 
-  const leadsNets = calcLeadsNets(totaux.leads_bruts, totaux.indispos)
+  const leadsNets = calcLeadsNets(totaux.leads_bruts, totaux.non_exploitables_cc, totaux.indispos)
+  // Utiliser echanges_exploitables si dispo, sinon fallback sur echanges - non_exploitables_cc
+  const echangesExpl = totaux.echanges_exploitables > 0
+    ? totaux.echanges_exploitables
+    : Math.max(0, totaux.echanges - totaux.non_exploitables_cc)
 
   return {
     ...totaux,
     leads_nets: leadsNets,
+    echanges_exploitables: echangesExpl,
     productivite: calcProductivite(totaux.echanges, leadsNets),
     joignabilite: calcJoignabilite(totaux.indispos, totaux.leads_bruts),
-    conversion_tel: calcConversionTel(totaux.rdv, totaux.echanges),
+    conversion_tel: calcConversionTel(totaux.rdv, echangesExpl),
     taux_presence: calcTauxPresence(totaux.visites, totaux.rdv),
     efficacite_comm: calcEfficaciteComm(totaux.ventes, totaux.visites),
   }

@@ -252,6 +252,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
       indispos: indisposVal,
       leads_nets: Math.max(0, leadsBrutsVal - nonExploitablesCCVal - indisposVal),
       echanges: form.echanges !== '' ? base('echanges') : (existingData?.echanges ?? 0),
+      echanges_exploitables: Math.max(0, (form.echanges !== '' ? base('echanges') : (existingData?.echanges ?? 0)) - nonExploitablesCCVal),
       rdv: fluxRDV.rdv > 0 ? fluxRDV.rdv : (existingData?.rdv ?? 0),
       visites: fluxRDV.visites > 0 ? fluxRDV.visites : (existingData?.visites ?? 0),
       ventes: fluxRDV.ventes > 0 ? fluxRDV.ventes : (existingData?.ventes ?? 0),
@@ -395,8 +396,9 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
               <div><label style={labelStyle}>Indispos</label><input type="number" min="0" value={form.indispos} onChange={e=>setForm(p=>({...p,indispos:e.target.value}))} placeholder="ex: 20" style={inputStyle}/></div>
               <div><label style={labelStyle}>Leads Nets (auto)</label><input type="number" value={saisieMode==='jour'?leadsNetsForm:'—'} readOnly style={{ ...inputStyle, background: '#F7F0DC', borderColor: '#C9A84C', color: '#8a6a1a', fontWeight: 500 }}/></div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(1, 1fr)', gap: 14, marginBottom: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
               <div><label style={labelStyle}>Échanges</label><input type="number" min="0" step="0.5" value={form.echanges} onChange={e=>setForm(p=>({...p,echanges:e.target.value}))} placeholder="0" style={inputStyle}/></div>
+              <div><label style={labelStyle}>Échanges exploitables (auto)</label><input type="number" value={form.echanges !== '' || form.non_exploitables_cc !== '' ? Math.max(0, (parseFloat(form.echanges)||0) - (parseFloat(form.non_exploitables_cc)||0)) : '—'} readOnly style={{ ...inputStyle, background: '#F7F0DC', borderColor: '#C9A84C', color: '#8a6a1a', fontWeight: 500 }}/></div>
             </div>
             <div style={{ padding: '10px 14px', background: 'rgba(83,74,183,0.05)', borderRadius: 8, marginBottom: 20, fontSize: 12, color: '#534AB7', border: '1px solid rgba(83,74,183,0.15)' }}>
               ℹ️ RDV, Visites et Ventes sont automatiquement calculés depuis le <strong>Flux RDV</strong>
