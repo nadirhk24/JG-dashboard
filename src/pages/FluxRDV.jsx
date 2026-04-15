@@ -294,6 +294,15 @@ export default function FluxRDV({ conseilleres }) {
     if (!saisieConseillere) { setMsg({ type: 'error', text: 'Sélectionne une conseillère' }); return }
     const entries = Object.entries(saisieForm).filter(([_, v]) => v.rdv || v.visites || v.ventes)
     if (!entries.length) { setMsg({ type: 'error', text: 'Saisis au moins une donnée' }); return }
+    // Bloquer les dimanches
+    if (saisieModeDate === 'jour') {
+      const jourSemaine = new Date(saisieDate).getDay()
+      if (jourSemaine === 0) {
+        setMsg({ type: 'error', text: 'Impossible de saisir un dimanche — déplace la date au lundi.' })
+        return
+      }
+    }
+
     setSaving(true)
     let dd, df
     if (saisieModeDate === 'jour') {
@@ -915,7 +924,7 @@ export default function FluxRDV({ conseilleres }) {
                 ))}</tr>
               </thead>
               <tbody>
-                {[...fluxData].sort((a,b)=>(b.date_debut||'').localeCompare(a.date_debut||'')).slice(0,50).map(f => {
+                {[...fluxData].filter(f => ['periode','non_reconnue'].includes(f.type_saisie)).sort((a,b)=>(b.date_debut||'').localeCompare(a.date_debut||'')).slice(0,100).map(f => {
                   const comm = commerciaux.find(c=>c.id===f.commercial_id)
                   const periode = f.date_debut && f.date_fin && f.date_debut !== f.date_fin
                     ? `${f.date_debut.substring(8)}/${f.date_debut.substring(5,7)} → ${f.date_fin.substring(8)}/${f.date_fin.substring(5,7)}`
