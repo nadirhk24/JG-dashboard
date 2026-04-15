@@ -4,6 +4,74 @@ import PageHeader from '../components/PageHeader'
 import SectionTitle from '../components/SectionTitle'
 import { supabase } from '../lib/supabase'
 
+
+const MOIS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
+function getQuarter(m) { return Math.floor(m / 3) + 1 }
+
+function DrillNav({ data, onSelect, selected }) {
+  const [expandedYear, setExpandedYear] = React.useState(null)
+  const [expandedQ, setExpandedQ] = React.useState(null)
+  const [expandedMonth, setExpandedMonth] = React.useState(null)
+
+  const years = React.useMemo(() => {
+    const ys = {}
+    data.forEach(f => {
+      const d = f.date_debut || f.date
+      if (!d) return
+      const dt = new Date(d)
+      const y = String(dt.getFullYear()), m = dt.getMonth(), q = getQuarter(m)
+      if (!ys[y]) ys[y] = {}
+      if (!ys[y][q]) ys[y][q] = new Set()
+      ys[y][q].add(m)
+    })
+    return ys
+  }, [data])
+
+  const btn = (active, color = '#C9A84C') => ({
+    padding: '5px 12px', borderRadius: 14, fontSize: 12, cursor: 'pointer',
+    border: `1.5px solid ${active ? color : 'rgba(201,168,76,0.2)'}`,
+    background: active ? color : '#fff', color: active ? '#fff' : '#5A5A5A',
+    fontWeight: active ? 500 : 400, transition: 'all 0.15s', whiteSpace: 'nowrap'
+  })
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 12, padding: '12px 16px', border: '1px solid rgba(201,168,76,0.15)', marginBottom: 20 }}>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        <button style={btn(!selected || selected.type === 'global')} onClick={() => { onSelect({ type: 'global', label: 'Global' }); setExpandedYear(null); setExpandedQ(null); setExpandedMonth(null) }}>Global</button>
+        {Object.keys(years).sort().reverse().map(year => (
+          <React.Fragment key={year}>
+            <button style={btn(selected?.type === 'year' && selected?.value === year)} onClick={() => { setExpandedYear(expandedYear === year ? null : year); setExpandedQ(null); setExpandedMonth(null); onSelect({ type: 'year', value: year, label: year }) }}>
+              {year} {expandedYear === year ? '▼' : '▶'}
+            </button>
+            {expandedYear === year && Object.keys(years[year]).sort((a,b) => a-b).map(q => (
+              <React.Fragment key={q}>
+                <button style={btn(selected?.type === 'quarter' && selected?.value === `${year}-Q${q}`, '#534AB7')} onClick={() => { setExpandedQ(expandedQ === `${year}-Q${q}` ? null : `${year}-Q${q}`); setExpandedMonth(null); onSelect({ type: 'quarter', value: `${year}-Q${q}`, label: `T${q} ${year}` }) }}>
+                  T{q} {expandedQ === `${year}-Q${q}` ? '▼' : '▶'}
+                </button>
+                {expandedQ === `${year}-Q${q}` && [...years[year][q]].sort((a,b) => a-b).map(m => {
+                  const mKey = `${year}-${String(m+1).padStart(2,'0')}`
+                  return (
+                    <React.Fragment key={m}>
+                      <button style={btn(selected?.type === 'month' && selected?.value === mKey, '#4CAF7D')} onClick={() => { setExpandedMonth(expandedMonth === mKey ? null : mKey); onSelect({ type: 'month', value: mKey, label: `${MOIS_SHORT[m]} ${year}` }) }}>
+                        {MOIS_SHORT[m]} {expandedMonth === mKey ? '▼' : '▶'}
+                      </button>
+                      {expandedMonth === mKey && [...new Set(data.filter(f => (f.date_debut||'').startsWith(mKey)).map(f => f.date_debut))].sort().map(date => (
+                        <button key={date} style={btn(selected?.type === 'day' && selected?.value === date, '#E07B30')} onClick={() => onSelect({ type: 'day', value: date, label: date.substring(8)+'/'+date.substring(5,7) })}>
+                          {date.substring(8)}/{date.substring(5,7)}
+                        </button>
+                      ))}
+                    </React.Fragment>
+                  )
+                })}
+              </React.Fragment>
+            ))}
+          </React.Fragment>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 const EQUIPES = {
   sale: { label: 'Équipe Sale', color: '#C9A84C', responsable: 'Abdelhakim Rhalmi' },
   kenitra: { label: 'Équipe Kenitra', color: '#534AB7', responsable: 'Karima Snaiki' },
@@ -99,6 +167,7 @@ function StarRank({ rank, total, maxDisplay=5 }) {
 }
 
 export default function FluxRDV({ conseilleres }) {
+  const [selected, setSelected] = React.useState({ type: 'global', label: 'Global' })
   const [commerciaux, setCommerciaux] = useState([])
   const [fluxData, setFluxData] = useState([])
   const [loading, setLoading] = useState(true)
@@ -140,22 +209,22 @@ export default function FluxRDV({ conseilleres }) {
   const fluxFiltres = useMemo(() => {
     return fluxData.filter(f => {
       const mD = f.date_debut?.substring(0, 7)
-      const mF = f.date_fin?.substring(0, 7)
-      if (selectedPeriod.startsWith('year-')) {
-        const y = selectedPeriod.split('-')[1]
-        return mD?.startsWith(y)
-      }
-      if (selectedPeriod.startsWith('quarter-')) {
-        const [, y, q] = selectedPeriod.split('-')
-        const qNum = parseInt(q.replace('Q',''))
+      const dd = f.date_debut || ''
+      if (!selected || selected.type === 'global') return true
+      if (selected.type === 'year') return dd.startsWith(selected.value)
+      if (selected.type === 'quarter') {
+        const [y, q] = selected.value.split('-Q')
+        const qNum = parseInt(q)
         const startM = (qNum - 1) * 3 + 1
         const endM = qNum * 3
         const mois = parseInt(mD?.split('-')[1] || 0)
-        return mD?.startsWith(y) && mois >= startM && mois <= endM
+        return dd.startsWith(y) && mois >= startM && mois <= endM
       }
-      return mD === selectedPeriod || mF === selectedPeriod
+      if (selected.type === 'month') return mD === selected.value
+      if (selected.type === 'day') return dd === selected.value
+      return true
     })
-  }, [fluxData, selectedPeriod])
+  }, [fluxData, selected])
 
   // Agregger par commercial
   const fluxParCommercial = useMemo(() => {
@@ -574,11 +643,12 @@ export default function FluxRDV({ conseilleres }) {
         </div>
       )}
 
+      {/* Navigation drill-down */}
+      <DrillNav data={fluxData} onSelect={setSelected} selected={selected} />
+
       {/* Filtres */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
-        <select value={selectedPeriod} onChange={e=>setSelectedPeriod(e.target.value)} style={{ padding: '7px 28px 7px 12px', borderRadius: 20, border: '1.5px solid rgba(201,168,76,0.25)', background: '#fff', fontSize: 13, outline: 'none', appearance: 'none', cursor: 'pointer' }}>
-          {moisOptions.map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
-        </select>
+        <div style={{ fontSize: 13, fontWeight: 500, color: '#C9A84C', padding: '6px 14px', borderRadius: 20, border: '1.5px solid rgba(201,168,76,0.25)', background: '#F8F7F4' }}>{selected?.label || 'Global'}</div>
         <div style={{ display: 'flex', gap: 6 }}>
           <button onClick={()=>setViewMode('separated')} style={btnStyle(viewMode==='separated')}>Vue séparée</button>
           <button onClick={()=>setViewMode('all')} style={btnStyle(viewMode==='all')}>Vue All</button>
