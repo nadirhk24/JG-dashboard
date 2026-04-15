@@ -201,7 +201,7 @@ export default function DashboardMarketing() {
   const [showColMenu, setShowColMenu] = useState(false)
   const [saisieMode, setSaisieMode] = useState('jour')
   const today = new Date().toISOString().split('T')[0]
-  const [form, setForm] = useState({ date: today, date_debut: '', date_fin: '', non_exploitables: '', indispos: '', suivis: '', rdv: '', visites: '', ventes: '' })
+  const [form, setForm] = useState({ date: today, date_debut: '', date_fin: '', non_exploitables: '', suivis: '', rdv: '', visites: '', ventes: '' })
 
   useEffect(() => { loadMarketing() }, [])
 
@@ -210,7 +210,7 @@ export default function DashboardMarketing() {
     try {
       const [{ data: mktData }, { data: ccData }] = await Promise.all([
         supabase.from('marketing_saisies').select('*').order('date', { ascending: true }),
-        supabase.from('saisies').select('date_debut, date_fin, leads_bruts')
+        supabase.from('saisies').select('date_debut, date_fin, leads_bruts, indispos')
       ])
       setMarketingData(mktData || [])
       setSaisiesCC(ccData || [])
@@ -253,31 +253,53 @@ export default function DashboardMarketing() {
     }).reduce((sum, s) => sum + (s.leads_bruts || 0), 0)
   }, [saisiesCC, selected])
 
+  // Indispos = somme des indispos CC pour la même période
+  const indisposCC = useMemo(() => {
+    return saisiesCC.filter(s => {
+      const d = s.date_debut
+      if (!d) return false
+      if (!selected || selected.type === 'global') return true
+      if (selected.type === 'year') return d.startsWith(selected.value)
+      if (selected.type === 'quarter') {
+        const [y, q] = selected.value.split('-Q')
+        const mois = parseInt(d.substring(5, 7))
+        const startM = (parseInt(q) - 1) * 3 + 1
+        const endM = parseInt(q) * 3
+        return d.startsWith(y) && mois >= startM && mois <= endM
+      }
+      if (selected.type === 'month') return d.substring(0, 7) === selected.value
+      if (selected.type === 'day') return d === selected.value
+      return true
+    }).reduce((sum, s) => sum + (s.indispos || 0), 0)
+  }, [saisiesCC, selected])
+
   const totaux = useMemo(() => {
     const agg = aggreger(dataFiltree)
-    const base_nette = Math.max(0, injectionsBrutes - agg.non_exploitables - agg.indispos)
+    const base_nette = Math.max(0, injectionsBrutes - agg.non_exploitables - indisposCC)
     return {
       ...agg,
       injections: injectionsBrutes,
+      indispos: indisposCC,
       base_nette,
       taux_non_exp: injectionsBrutes > 0 ? parseFloat(((agg.non_exploitables / injectionsBrutes) * 100).toFixed(1)) : 0,
-      taux_indispos: injectionsBrutes > 0 ? parseFloat(((agg.indispos / injectionsBrutes) * 100).toFixed(1)) : 0,
+      taux_indispos: injectionsBrutes > 0 ? parseFloat(((indisposCC / injectionsBrutes) * 100).toFixed(1)) : 0,
       taux_suivis: base_nette > 0 ? parseFloat(((agg.suivis / base_nette) * 100).toFixed(1)) : 0,
       taux_rdv: base_nette > 0 ? parseFloat(((agg.rdv / base_nette) * 100).toFixed(1)) : 0,
       taux_visites: base_nette > 0 ? parseFloat(((agg.visites / base_nette) * 100).toFixed(1)) : 0,
       taux_ventes: base_nette > 0 ? parseFloat(((agg.ventes / base_nette) * 100).toFixed(1)) : 0,
     }
-  }, [dataFiltree, injectionsBrutes])
+  }, [dataFiltree, injectionsBrutes, indisposCC])
 
   // Injections CC par clé de période (pour chartData)
-  const injectionsCCParPeriode = useMemo(() => {
+  const ccParPeriode = useMemo(() => {
     const map = {}
     saisiesCC.forEach(s => {
       const d = s.date_debut
       if (!d) return
       const key = (selected.type === 'day' || selected.type === 'month') ? d : d.substring(0, 7)
-      if (!map[key]) map[key] = 0
-      map[key] += s.leads_bruts || 0
+      if (!map[key]) map[key] = { injections: 0, indispos: 0 }
+      map[key].injections += s.leads_bruts || 0
+      map[key].indispos += s.indispos || 0
     })
     return map
   }, [saisiesCC, selected])
@@ -299,21 +321,24 @@ export default function DashboardMarketing() {
     })
     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([key, { label, rows }]) => {
       const agg = aggreger(rows)
-      const inj = injectionsCCParPeriode[key] || 0
-      const base_nette = Math.max(0, inj - agg.non_exploitables - agg.indispos)
+      const ccData = ccParPeriode[key] || { injections: 0, indispos: 0 }
+      const inj = ccData.injections
+      const indDispos = ccData.indispos
+      const base_nette = Math.max(0, inj - agg.non_exploitables - indDispos)
       return {
         label, ...agg,
         injections: inj,
+        indispos: indDispos,
         base_nette,
         taux_non_exp: inj > 0 ? parseFloat(((agg.non_exploitables / inj) * 100).toFixed(1)) : 0,
-        taux_indispos: inj > 0 ? parseFloat(((agg.indispos / inj) * 100).toFixed(1)) : 0,
+        taux_indispos: inj > 0 ? parseFloat(((indDispos / inj) * 100).toFixed(1)) : 0,
         taux_suivis: base_nette > 0 ? parseFloat(((agg.suivis / base_nette) * 100).toFixed(1)) : 0,
         taux_rdv: base_nette > 0 ? parseFloat(((agg.rdv / base_nette) * 100).toFixed(1)) : 0,
         taux_visites: base_nette > 0 ? parseFloat(((agg.visites / base_nette) * 100).toFixed(1)) : 0,
         taux_ventes: base_nette > 0 ? parseFloat(((agg.ventes / base_nette) * 100).toFixed(1)) : 0,
       }
     })
-  }, [dataFiltree, selected, injectionsCCParPeriode])
+  }, [dataFiltree, selected, ccParPeriode])
 
   const cvs = useMemo(() => ({
     taux_non_exp: calcCV(chartData.map(r => r.taux_non_exp)),
@@ -359,7 +384,7 @@ export default function DashboardMarketing() {
       date: dateDebut, date_debut: dateDebut, date_fin: dateFin, type_saisie: saisieMode,
       injections: 0, // Vient automatiquement des leads_bruts CC
       non_exploitables: form.non_exploitables !== '' ? base('non_exploitables') : (existingData?.non_exploitables ?? 0),
-      indispos: form.indispos !== '' ? base('indispos') : (existingData?.indispos ?? 0),
+      indispos: 0, // Vient automatiquement des indispos CC
       suivis: form.suivis !== '' ? base('suivis') : (existingData?.suivis ?? 0),
       rdv: form.rdv !== '' ? base('rdv') : (existingData?.rdv ?? 0),
       visites: form.visites !== '' ? base('visites') : (existingData?.visites ?? 0),
@@ -371,7 +396,7 @@ export default function DashboardMarketing() {
     else {
       setMsg({ type: 'success', text: dateDebut === dateFin ? `Données enregistrées pour le ${dateDebut} !` : `Données enregistrées du ${dateDebut} au ${dateFin} !` })
       loadMarketing()
-      setForm(p => ({ ...p, non_exploitables: '', indispos: '', suivis: '', rdv: '', visites: '', ventes: '' }))
+      setForm(p => ({ ...p, non_exploitables: '', suivis: '', rdv: '', visites: '', ventes: '' }))
       setTimeout(() => setMsg(null), 3000)
     }
   }
@@ -425,7 +450,7 @@ export default function DashboardMarketing() {
         <div style={{ ...cardStyle, borderColor: '#C9A84C' }}>
           <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4, color: '#2C2C2C' }}>Saisie Marketing</div>
           <div style={{ padding: '8px 12px', background: 'rgba(201,168,76,0.06)', borderRadius: 8, marginBottom: 16, fontSize: 12, color: '#8a6a1a', border: '1px solid rgba(201,168,76,0.2)' }}>
-            ℹ️ <strong>Injections</strong> = calculées automatiquement depuis les <strong>leads bruts Call Center</strong>
+            ℹ️ <strong>Injections</strong> et <strong>Indispos</strong> = calculées automatiquement depuis le <strong>Call Center</strong>
           </div>
           <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
             {[['jour','Par jour'],['periode','Par période']].map(([k,l]) => (
@@ -440,7 +465,7 @@ export default function DashboardMarketing() {
                 : <><div><label style={labelStyle}>Date début</label><input type="date" value={form.date_debut} onChange={e=>setForm(p=>({...p,date_debut:e.target.value}))} style={inputStyle}/></div><div><label style={labelStyle}>Date fin</label><input type="date" value={form.date_fin} onChange={e=>setForm(p=>({...p,date_fin:e.target.value}))} style={inputStyle}/></div></>}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 20 }}>
-              {[{key:'non_exploitables',label:'Non exploitables',color:'#8A8A7A'},{key:'indispos',label:'Indispos',color:'#E05C5C'},{key:'suivis',label:'Suivis',color:'#C9A84C'},{key:'rdv',label:'RDV',color:'#534AB7'},{key:'visites',label:'Visites',color:'#4CAF7D'},{key:'ventes',label:'Ventes',color:'#1a6b3c'}].map(f => (
+              {[{key:'non_exploitables',label:'Non exploitables',color:'#8A8A7A'},{key:'suivis',label:'Suivis',color:'#C9A84C'},{key:'rdv',label:'RDV',color:'#534AB7'},{key:'visites',label:'Visites',color:'#4CAF7D'},{key:'ventes',label:'Ventes',color:'#1a6b3c'}].map(f => (
                 <div key={f.key}>
                   <label style={{...labelStyle,color:f.color}}>{f.label}<InfoBulle text={BULLES[f.key]}/></label>
                   <input type="number" min="0" value={form[f.key]} onChange={e=>setForm(p=>({...p,[f.key]:e.target.value}))} placeholder="0" style={{...inputStyle,borderColor:`${f.color}50`}}/>
