@@ -276,31 +276,19 @@ export default function FluxRDV({ conseilleres }) {
         }), { visites: 0, ventes: 0 })
         const visTotal = Math.round(tot.visites + tot.ventes)
         const venTotal = Math.round(tot.ventes)
-        // Mettre à jour toutes les lignes CC de la période (jour par jour ou mensuelle)
-        const { data: saisiesCC } = await supabase.from('saisies')
-          .select('id, date_debut')
+        // Chercher une ligne mensuelle existante (date_debut=dd ET date_fin=df)
+        const { data: ligneMensuelle } = await supabase.from('saisies')
+          .select('id')
           .eq('conseillere_id', consId)
-          .gte('date_debut', dd)
-          .lte('date_debut', df)
+          .eq('date_debut', dd)
+          .eq('date_fin', df)
+          .maybeSingle()
 
-        if (saisiesCC && saisiesCC.length > 0) {
-          if (saisiesCC.length === 1) {
-            // 1 seule ligne → tout mettre dessus
-            await supabase.from('saisies').update({ visites: visTotal, ventes: venTotal }).eq('id', saisiesCC[0].id)
-          } else {
-            // Plusieurs lignes jour/jour → distribuer proportionnellement
-            const nbJours = saisiesCC.length
-            const visParJour = Math.round(visTotal / nbJours)
-            const venParJour = Math.round(venTotal / nbJours)
-            for (let i = 0; i < saisiesCC.length; i++) {
-              const isLast = i === saisiesCC.length - 1
-              const vis = isLast ? visTotal - visParJour * (nbJours - 1) : visParJour
-              const ven = isLast ? venTotal - venParJour * (nbJours - 1) : venParJour
-              await supabase.from('saisies').update({ visites: vis, ventes: ven }).eq('id', saisiesCC[i].id)
-            }
-          }
+        if (ligneMensuelle) {
+          // Mettre à jour la ligne mensuelle existante
+          await supabase.from('saisies').update({ visites: visTotal, ventes: venTotal }).eq('id', ligneMensuelle.id)
         } else {
-          // Aucune ligne → créer une ligne mensuelle
+          // Créer une ligne mensuelle pour les visites/ventes
           await supabase.from('saisies').insert({
             conseillere_id: consId, date: dd, date_debut: dd, date_fin: df,
             type_saisie: 'periode', leads_bruts: 0, indispos: 0, leads_nets: 0, echanges: 0,
