@@ -230,11 +230,7 @@ export default function FluxRDV({ conseilleres }) {
     // Utiliser les dates personnalisées si renseignées, sinon le mois complet
     const dd = saisieDebut || `${saisieMois}-01`
     const df = saisieFin || `${saisieMois}-${String(lastDay).padStart(2,'0')}`
-    await supabase.from('flux_rdv').delete()
-      .eq('conseillere_id', saisieConseillere)
-      .gte('date_debut', dd)
-      .lte('date_fin', df)
-      .in('type_saisie', ['periode', 'non_reconnue'])
+    await supabase.from('flux_rdv').delete().eq('conseillere_id', saisieConseillere).gte('date_debut', dd).lte('date_fin', df)
     const rows = entries
       .filter(([cid, v]) => !cid.startsWith('__non_reconnue_'))
       .map(([cid, v]) => ({
