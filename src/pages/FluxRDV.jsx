@@ -352,16 +352,33 @@ export default function FluxRDV({ conseilleres }) {
         }), { visites: 0, ventes: 0 })
         const visTotal = Math.round(tot.visites + tot.ventes)
         const venTotal = Math.round(tot.ventes)
-        // Chercher la ligne CC exacte (même date_debut et date_fin)
-        const { data: ligneCC } = await supabase.from('saisies')
-          .select('id')
+        // Chercher toutes les lignes CC de la periode
+        const { data: lignesCC } = await supabase.from('saisies')
+          .select('id, date_debut, rdv')
           .eq('conseillere_id', consId)
-          .eq('date_debut', dd)
-          .eq('date_fin', df)
-          .maybeSingle()
+          .gte('date_debut', dd)
+          .lte('date_debut', df)
+          .order('date_debut', { ascending: true })
 
-        if (ligneCC) {
-          await supabase.from('saisies').update({ visites: visTotal, ventes: venTotal }).eq('id', ligneCC.id)
+        if (lignesCC && lignesCC.length > 0) {
+          if (lignesCC.length === 1) {
+            // 1 seule ligne → mettre à jour visites+ventes sans toucher au rdv
+            await supabase.from('saisies').update({ visites: visTotal, ventes: venTotal }).eq('id', lignesCC[0].id)
+          } else {
+            // Plusieurs lignes jour/jour → chercher la ligne du jour exact si saisie par jour
+            const ligneJour = lignesCC.find(l => l.date_debut === dd)
+            if (ligneJour) {
+              await supabase.from('saisies').update({ visites: visTotal, ventes: venTotal }).eq('id', ligneJour.id)
+            } else {
+              // Créer une ligne pour cette période
+              await supabase.from('saisies').insert({
+                conseillere_id: consId, date: dd, date_debut: dd, date_fin: df,
+                type_saisie: dd === df ? 'jour' : 'periode',
+                leads_bruts: 0, indispos: 0, leads_nets: 0, echanges: 0,
+                rdv: 0, visites: visTotal, ventes: venTotal,
+              })
+            }
+          }
         } else {
           await supabase.from('saisies').insert({
             conseillere_id: consId, date: dd, date_debut: dd, date_fin: df,
