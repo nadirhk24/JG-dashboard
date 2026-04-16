@@ -177,6 +177,10 @@ export default function FluxRDV({ conseilleres }) {
   const [hiddenKpis, setHiddenKpis] = useState({})
   const [compareMode, setCompareMode] = useState('bars')
   const [selectedCommercial, setSelectedCommercial] = useState(null)
+  const [jourDetailCommercial, setJourDetailCommercial] = useState(null)
+  const [jourDetailSaisies, setJourDetailSaisies] = useState([])
+  const [jourEditId, setJourEditId] = useState(null)
+  const [jourEditForm, setJourEditForm] = useState({})
   const [detailMode, setDetailMode] = useState('%')
   const [showSaisie, setShowSaisie] = useState(false)
   const [showHistorique, setShowHistorique] = useState(false)
@@ -195,6 +199,65 @@ export default function FluxRDV({ conseilleres }) {
   const [selectedPeriod, setSelectedPeriod] = useState(currentMois)
 
   useEffect(() => { loadData() }, [])
+
+  async function loadJourDetail(commercialId, jour) {
+    const { data } = await supabase.from('flux_rdv')
+      .select('id, conseillere_id, visites, ventes, type_saisie')
+      .eq('commercial_id', commercialId)
+      .eq('date_debut', jour)
+      .eq('date_fin', jour)
+      .in('type_saisie', ['periode', 'non_reconnue'])
+    setJourDetailSaisies(data || [])
+  }
+
+  async function updateJourSaisie(saisieId, visites, ventes, jour, consId) {
+    await supabase.from('flux_rdv').update({ visites, ventes }).eq('id', saisieId)
+    // Recalculer et sync vers CC
+    const { data: allFlux } = await supabase.from('flux_rdv')
+      .select('visites, ventes')
+      .eq('conseillere_id', consId)
+      .eq('date_debut', jour)
+    const tot = (allFlux || []).reduce((acc, f) => ({
+      visites: acc.visites + parseFloat(f.visites||0),
+      ventes: acc.ventes + parseFloat(f.ventes||0),
+    }), { visites: 0, ventes: 0 })
+    const visTotal = Math.round(tot.visites + tot.ventes)
+    const venTotal = Math.round(tot.ventes)
+    const { data: ligneCC } = await supabase.from('saisies')
+      .select('id').eq('conseillere_id', consId)
+      .eq('date_debut', jour).eq('date_fin', jour).maybeSingle()
+    if (ligneCC) {
+      await supabase.from('saisies').update({ visites: visTotal, ventes: venTotal }).eq('id', ligneCC.id)
+    }
+    loadData()
+    loadJourDetail(jourDetailCommercial?.id, jour)
+    setJourEditId(null)
+  }
+
+  async function deleteJourSaisie(saisieId, jour, consId) {
+    if (!window.confirm('Supprimer cette saisie ?')) return
+    await supabase.from('flux_rdv').delete().eq('id', saisieId)
+    // Recalculer CC
+    const { data: allFlux } = await supabase.from('flux_rdv')
+      .select('visites, ventes')
+      .eq('conseillere_id', consId)
+      .eq('date_debut', jour)
+    const tot = (allFlux || []).reduce((acc, f) => ({
+      visites: acc.visites + parseFloat(f.visites||0),
+      ventes: acc.ventes + parseFloat(f.ventes||0),
+    }), { visites: 0, ventes: 0 })
+    const { data: ligneCC } = await supabase.from('saisies')
+      .select('id').eq('conseillere_id', consId)
+      .eq('date_debut', jour).eq('date_fin', jour).maybeSingle()
+    if (ligneCC) {
+      await supabase.from('saisies').update({
+        visites: Math.round(tot.visites + tot.ventes),
+        ventes: Math.round(tot.ventes)
+      }).eq('id', ligneCC.id)
+    }
+    loadData()
+    loadJourDetail(jourDetailCommercial?.id, jour)
+  }
 
   async function loadData() {
     setLoading(true)
@@ -422,6 +485,84 @@ export default function FluxRDV({ conseilleres }) {
       </PageHeader>
 
       {/* Modal detail commercial */}
+      {/* ── POPUP VUE JOUR : détail saisies d'un commercial ── */}
+      {jourDetailCommercial && selected.type === 'day' && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1001, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+          onClick={() => { setJourDetailCommercial(null); setJourEditId(null) }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '90%', maxWidth: 600, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div>
+                <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 20, fontWeight: 600, color: EQUIPES[jourDetailCommercial.equipe]?.color }}>{jourDetailCommercial.nom}</div>
+                <div style={{ fontSize: 12, color: '#5A5A5A', marginTop: 2 }}>Saisies manuelles — {selected.value}</div>
+              </div>
+              <button onClick={() => { setJourDetailCommercial(null); setJourEditId(null) }}
+                style={{ width: 36, height: 36, borderRadius: '50%', border: '1.5px solid rgba(201,168,76,0.2)', background: '#fff', color: '#5A5A5A', fontSize: 16, cursor: 'pointer' }}>✕</button>
+            </div>
+
+            {jourDetailSaisies.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 32, color: '#8A8A7A', fontSize: 13 }}>Aucune saisie manuelle pour ce jour</div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    {['Conseillère', 'Visites', 'Ventes', 'Actions'].map(h => (
+                      <th key={h} style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '8px 10px', borderBottom: '1px solid rgba(201,168,76,0.15)', textTransform: 'uppercase', fontWeight: 500 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {jourDetailSaisies.map(s => {
+                    const cons = conseilleres.find(c => c.id === s.conseillere_id)
+                    const isEditing = jourEditId === s.id
+                    return (
+                      <tr key={s.id} onMouseEnter={e => e.currentTarget.style.background = '#F7F0DC'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                        <td style={{ padding: '10px', fontSize: 12, fontWeight: 500, color: '#C9A84C' }}>{cons?.nom || '—'}</td>
+                        {isEditing ? (
+                          <>
+                            <td style={{ padding: '6px 10px' }}>
+                              <input type="number" min="0" value={jourEditForm.visites ?? s.visites}
+                                onChange={e => setJourEditForm(p => ({ ...p, visites: e.target.value }))}
+                                style={{ width: 60, padding: '5px 8px', border: '1.5px solid #C9A84C', borderRadius: 6, fontSize: 12, textAlign: 'center' }} />
+                            </td>
+                            <td style={{ padding: '6px 10px' }}>
+                              <input type="number" min="0" value={jourEditForm.ventes ?? s.ventes}
+                                onChange={e => setJourEditForm(p => ({ ...p, ventes: e.target.value }))}
+                                style={{ width: 60, padding: '5px 8px', border: '1.5px solid #1a6b3c', borderRadius: 6, fontSize: 12, textAlign: 'center' }} />
+                            </td>
+                            <td style={{ padding: '6px 10px' }}>
+                              <div style={{ display: 'flex', gap: 4 }}>
+                                <button onClick={() => updateJourSaisie(s.id, parseFloat(jourEditForm.visites ?? s.visites)||0, parseFloat(jourEditForm.ventes ?? s.ventes)||0, selected.value, s.conseillere_id)}
+                                  style={{ padding: '4px 10px', borderRadius: 6, background: '#C9A84C', color: '#fff', border: 'none', fontSize: 11, cursor: 'pointer' }}>✓</button>
+                                <button onClick={() => setJourEditId(null)}
+                                  style={{ padding: '4px 10px', borderRadius: 6, background: '#F8F7F4', color: '#5A5A5A', border: '1px solid rgba(201,168,76,0.2)', fontSize: 11, cursor: 'pointer' }}>✕</button>
+                              </div>
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td style={{ padding: '10px', fontSize: 12, color: '#4CAF7D' }}>{s.visites}</td>
+                            <td style={{ padding: '10px', fontSize: 12, color: '#1a6b3c' }}>{s.ventes}</td>
+                            <td style={{ padding: '10px' }}>
+                              <div style={{ display: 'flex', gap: 4 }}>
+                                <button onClick={() => { setJourEditId(s.id); setJourEditForm({ visites: s.visites, ventes: s.ventes }) }}
+                                  style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(201,168,76,0.3)', color: '#C9A84C', background: 'transparent', fontSize: 11, cursor: 'pointer' }}>✏️</button>
+                                <button onClick={() => deleteJourSaisie(s.id, selected.value, s.conseillere_id)}
+                                  style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(224,92,92,0.3)', color: '#E05C5C', background: 'transparent', fontSize: 11, cursor: 'pointer' }}>🗑️</button>
+                              </div>
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
       {selectedCommercial && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={() => setSelectedCommercial(null)}>
           <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '90%', maxWidth: 900, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }} onClick={e => e.stopPropagation()}>
@@ -745,7 +886,10 @@ export default function FluxRDV({ conseilleres }) {
                 const pct = maxVal > 0 ? (c.val / maxVal) * 100 : 0
                 const equipeColor = EQUIPES[c.equipe]?.color || '#C9A84C'
                 return (
-                  <div key={c.id} onClick={() => setSelectedCommercial(c)}
+                  <div key={c.id} onClick={() => {
+                      if (selected.type === 'day') { setJourDetailCommercial(c); loadJourDetail(c.id, selected.value) }
+                      else setSelectedCommercial(c)
+                    }}
                     style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', cursor: 'pointer', borderBottom: '1px solid rgba(201,168,76,0.05)' }}
                     onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'}
                     onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
