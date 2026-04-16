@@ -179,6 +179,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   const rankingSorted = useMemo(() => [...kpisParConseillere].sort((a,b) => ((b.conversion_tel+b.taux_presence)/2) - ((a.conversion_tel+a.taux_presence)/2)), [kpisParConseillere])
 
   const leadsNetsForm = Math.max(0, (parseFloat(form.leads_bruts)||0) - (parseFloat(form.indispos)||0))
+  const echangesNetsForm = Math.max(0, (parseFloat(form.echanges)||0) - (parseFloat(form.non_exploitables)||0))
 
   async function checkAndSave(e) {
     e.preventDefault()
