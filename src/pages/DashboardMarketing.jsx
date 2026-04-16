@@ -360,7 +360,6 @@ export default function DashboardMarketing() {
       return sD <= dateFin && sF >= dateDebut
     })
     if (existing.length > 0) {
-      // Charger la ligne existante complète pour la popup
       const { data: existingFull } = await supabase.from('marketing_saisies')
         .select('*').eq('id', existing[0].id).maybeSingle()
       setConfirmModal({ dateDebut, dateFin, existingData: existingFull })
@@ -430,67 +429,20 @@ export default function DashboardMarketing() {
 
   return (
     <div>
-      <PageHeader title="Dashboard Marketing" subtitle={selected.label}>
         {confirmModal && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-            <div style={{ background: '#fff', borderRadius: 16, padding: 32, maxWidth: 540, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 22, fontWeight: 600, color: '#E07B30' }}>⚠️ Données existantes</div>
-                <button onClick={() => setConfirmModal(null)} style={{ width: 32, height: 32, borderRadius: '50%', border: '1.5px solid rgba(201,168,76,0.2)', background: '#fff', fontSize: 16, cursor: 'pointer', color: '#5A5A5A' }}>✕</button>
-              </div>
-              <div style={{ fontSize: 13, color: '#5A5A5A', marginBottom: 20 }}>
-                Des données existent déjà pour <strong style={{ color: '#C9A84C' }}>{confirmModal.dateDebut}</strong>. Modifie directement les champs :
-              </div>
-              {confirmModal.existingData && (() => {
-                const d = confirmModal.existingData
-                const fields = [
-                  { key: 'non_exploitables', label: 'Non exploitables', color: '#8A8A7A' },
-                  { key: 'suivis', label: 'Suivis', color: '#C9A84C' },
-                  { key: 'rdv', label: 'RDV', color: '#534AB7' },
-                  { key: 'visites', label: 'Visites', color: '#4CAF7D' },
-                  { key: 'ventes', label: 'Ventes', color: '#1a6b3c' },
-                ]
-                return (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
-                    {fields.map(f => (
-                      <div key={f.key}>
-                        <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', marginBottom: 5, fontWeight: 500 }}>{f.label}</div>
-                        <input type="number" min="0"
-                          defaultValue={d[f.key] ?? 0}
-                          onChange={e => setConfirmModal(p => ({ ...p, editValues: { ...(p.editValues||{}), [f.key]: e.target.value } }))}
-                          style={{ width: '100%', padding: '8px 10px', border: `1.5px solid ${f.color}30`, borderRadius: 8, fontSize: 13, background: '#F8F7F4', outline: 'none', borderLeft: `3px solid ${f.color}`, boxSizing: 'border-box' }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )
-              })()}
-              <div style={{ padding: '8px 12px', background: 'rgba(201,168,76,0.06)', borderRadius: 8, marginBottom: 16, fontSize: 12, color: '#8a6a1a' }}>
-                ℹ️ Injections et Indispos sont calculées automatiquement depuis le Call Center
-              </div>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ background: '#fff', borderRadius: 16, padding: 32, maxWidth: 460, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+              <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 22, fontWeight: 600, color: '#2C2C2C', marginBottom: 12 }}>Mise à jour ?</div>
+              <div style={{ fontSize: 14, color: '#5A5A5A', marginBottom: 8, lineHeight: 1.6 }}>{confirmModal.message}</div>
+              <div style={{ fontSize: 13, color: '#C9A84C', fontWeight: 500, marginBottom: 20 }}>S'agit-il d'une mise à jour des données existantes ?</div>
               <div style={{ display: 'flex', gap: 12 }}>
-                <button onClick={async () => {
-                  const updates = confirmModal.editValues || {}
-                  const d = confirmModal.existingData
-                  await supabase.from('marketing_saisies').update({
-                    non_exploitables: parseInt(updates.non_exploitables ?? d.non_exploitables ?? 0),
-                    suivis: parseInt(updates.suivis ?? d.suivis ?? 0),
-                    rdv: parseInt(updates.rdv ?? d.rdv ?? 0),
-                    visites: parseInt(updates.visites ?? d.visites ?? 0),
-                    ventes: parseInt(updates.ventes ?? d.ventes ?? 0),
-                  }).eq('id', d.id)
-                  setConfirmModal(null)
-                  loadMarketing()
-                  setMsg({ type: 'success', text: 'Données mises à jour !' })
-                  setTimeout(() => setMsg(null), 3000)
-                }} style={{ flex: 1, padding: '12px', borderRadius: 8, background: '#C9A84C', color: '#fff', border: 'none', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>
-                  ✓ Enregistrer les modifications
-                </button>
-                <button onClick={() => setConfirmModal(null)} style={{ padding: '12px 20px', borderRadius: 8, background: '#fff', color: '#5A5A5A', border: '1.5px solid rgba(201,168,76,0.25)', fontSize: 14, cursor: 'pointer' }}>Annuler</button>
+                <button onClick={() => doSave(confirmModal.dateDebut, confirmModal.dateFin)} style={{ flex: 1, padding: '12px', borderRadius: 8, background: '#C9A84C', color: '#fff', border: 'none', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>Oui, mettre à jour</button>
+                <button onClick={() => setConfirmModal(null)} style={{ flex: 1, padding: '12px', borderRadius: 8, background: '#fff', color: '#5A5A5A', border: '1.5px solid rgba(201,168,76,0.25)', fontSize: 14, cursor: 'pointer' }}>Non, annuler</button>
               </div>
             </div>
           </div>
         )}
+      <PageHeader title="Dashboard Marketing" subtitle={selected.label}>
         <button onClick={() => setShowSaisie(!showSaisie)} style={{ padding: '8px 18px', borderRadius: 20, border: '1.5px solid #C9A84C', background: showSaisie ? '#C9A84C' : '#fff', color: showSaisie ? '#fff' : '#C9A84C', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
           {showSaisie ? '✕ Fermer' : '+ Saisir données'}
         </button>
