@@ -11,6 +11,7 @@ import Commerciaux from './pages/Commerciaux'
 import FluxRDV from './pages/FluxRDV'
 import AnalyseCV from './pages/AnalyseCV'
 import { supabase } from './lib/supabase'
+import BulleNotes from './components/BulleNotes'
 
 export default function App() {
   const [conseilleres, setConseilleres] = useState([])
@@ -63,6 +64,7 @@ export default function App() {
           )}
         </main>
       </div>
+      <BulleNotes />
     </BrowserRouter>
   )
 }
