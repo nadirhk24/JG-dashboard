@@ -144,20 +144,9 @@ export default function AnalyseCV({ conseilleres, saisies }) {
         ? fluxCommerciaux.filter(c => !c.nom.includes('Non reconnu'))
         : fluxCommerciaux.filter(c => c.equipe === fluxEquipe && !c.nom.includes('Non reconnu'))
 
-      // Grouper flux bruts par mois et par commercial
-      const fluxByMois = {}
-      fluxData.forEach(f => {
-        const m = f.date_debut?.substring(0, 7)
-        if (!m || !f.commercial_id) return
-        if (!fluxByMois[m]) fluxByMois[m] = {}
-        if (!fluxByMois[m][f.commercial_id]) fluxByMois[m][f.commercial_id] = { rdv: 0, visites: 0, ventes: 0 }
-        fluxByMois[m][f.commercial_id].rdv += parseFloat(f.rdv || 0)
-        fluxByMois[m][f.commercial_id].visites += parseFloat(f.visites || 0)
-        fluxByMois[m][f.commercial_id].ventes += parseFloat(f.ventes || 0)
-      })
+      // Grouper flux par période sélectionnée (jour/mois/trimestre) et par commercial
+      const fluxGroups = groupFn(fluxData.map(f => ({ ...f, date: f.date_debut })))
 
-      // Fonction pour calculer la valeur d'un commercial selon le KPI
-      // Applique les regles: visites = vis+ventes, rdv = rdv+vis+ventes
       function getCommVal(dRaw, key) {
         const ventes = parseFloat(dRaw.ventes || 0)
         const visSaisies = parseFloat(dRaw.visites || 0)
@@ -172,8 +161,18 @@ export default function AnalyseCV({ conseilleres, saisies }) {
         return 0
       }
 
-      // Pour chaque mois: valeur par commercial → CV inter-commerciaux
-      return Object.entries(fluxByMois).sort(([a],[b]) => a.localeCompare(b)).map(([mois, commData]) => {
+      // Pour chaque groupe: valeur par commercial → CV inter-commerciaux
+      return Object.entries(fluxGroups).sort(([a],[b]) => a.localeCompare(b)).map(([key, items]) => {
+        // Agréger par commercial dans ce groupe
+        const commData = {}
+        items.forEach(f => {
+          if (!f.commercial_id) return
+          if (!commData[f.commercial_id]) commData[f.commercial_id] = { rdv: 0, visites: 0, ventes: 0 }
+          commData[f.commercial_id].rdv += parseFloat(f.rdv || 0)
+          commData[f.commercial_id].visites += parseFloat(f.visites || 0)
+          commData[f.commercial_id].ventes += parseFloat(f.ventes || 0)
+        })
+
         const valsParComm = filteredComms
           .map(c => getCommVal(commData[c.id] || { rdv:0, visites:0, ventes:0 }, kpiKey))
           .filter(v => v > 0)
@@ -182,15 +181,13 @@ export default function AnalyseCV({ conseilleres, saisies }) {
           ? parseFloat((valsParComm.reduce((a,b)=>a+b,0) / valsParComm.length).toFixed(1))
           : 0
 
-        const cvMois = valsParComm.length >= 2 ? (() => {
+        const cvPeriode = valsParComm.length >= 2 ? (() => {
           if (moy === 0) return 0
           const ecart = Math.sqrt(valsParComm.reduce((s,v)=>s+Math.pow(v-moy,2),0) / valsParComm.length)
           return parseFloat(((ecart/moy)*100).toFixed(1))
         })() : 0
 
-        const label = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][parseInt(mois.split('-')[1])-1] + ' ' + mois.split('-')[0].substring(2)
-        // taux = CV inter-commerciaux de ce mois (pour tous les KPIs)
-        return { label, taux: cvMois, moy, cv_intercomm: cvMois }
+        return { label: formatGroupLabel(key, periode), taux: cvPeriode, moy, cv_intercomm: cvPeriode }
       })
     } else {
       const groups = groupFn(marketingData)
@@ -513,5 +510,5 @@ export default function AnalyseCV({ conseilleres, saisies }) {
       </div>
     </div>
   )
-} 
+}
 
