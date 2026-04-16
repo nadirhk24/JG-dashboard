@@ -265,29 +265,35 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
 
     const { error } = await supabase.from('saisies').insert(payload)
     
-    // Sync indispos vers marketing_saisies
-    if (!error && indisposVal > 0) {
-      const { data: mktExist } = await supabase.from('marketing_saisies')
-        .select('id, indispos')
-        .gte('date_debut', dateDebut)
-        .lte('date_fin', dateFin)
-        .maybeSingle()
-      if (mktExist) {
-        await supabase.from('marketing_saisies').update({ indispos: indisposVal }).eq('id', mktExist.id)
-      }
-    }
-    
-    // Sync automatique: leads bruts CC → injections Marketing
-    if (!error && payload.leads_bruts > 0) {
-      const mktExisting = await supabase.from('marketing_saisies').select('*')
-        .lte('date_debut', dateFin).gte('date_fin', dateDebut).maybeSingle()
+    // Sync CC → Marketing : leads_bruts → injections, indispos → indispos
+    if (!error) {
+      // Calculer les totaux CC pour ce jour (toutes conseillères)
+      const { data: allSaisiesJour } = await supabase.from('saisies')
+        .select('leads_bruts, indispos')
+        .eq('date_debut', dateDebut)
+        .eq('date_fin', dateFin)
       
-      if (mktExisting.data) {
-        // Mise a jour partielle - ajouter les leads bruts aux injections existantes
-        const newInjections = (mktExisting.data.injections || 0) - (mktExisting.data._cc_leads_before || 0) + payload.leads_bruts
-        await supabase.from('marketing_saisies').update({ 
-          injections: Math.max(0, (mktExisting.data.injections || 0) + payload.leads_bruts)
-        }).eq('id', mktExisting.data.id)
+      const totalLeads = (allSaisiesJour || []).reduce((s, x) => s + parseFloat(x.leads_bruts||0), 0)
+      const totalIndispos = (allSaisiesJour || []).reduce((s, x) => s + parseFloat(x.indispos||0), 0)
+
+      const { data: mktLine } = await supabase.from('marketing_saisies')
+        .select('id')
+        .eq('date_debut', dateDebut)
+        .eq('date_fin', dateFin)
+        .maybeSingle()
+
+      if (mktLine) {
+        await supabase.from('marketing_saisies').update({
+          injections: totalLeads,
+          indispos: totalIndispos,
+        }).eq('id', mktLine.id)
+      } else {
+        await supabase.from('marketing_saisies').insert({
+          date: dateDebut, date_debut: dateDebut, date_fin: dateFin,
+          type_saisie: saisieMode,
+          injections: totalLeads, indispos: totalIndispos,
+          non_exploitables: 0, suivis: 0, rdv: 0, visites: 0, ventes: 0,
+        })
       }
     }
 
@@ -395,6 +401,23 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
                   visites: parseFloat(updates.visites ?? d.visites ?? 0),
                   ventes: parseFloat(updates.ventes ?? d.ventes ?? 0),
                 }).eq('id', d.id)
+                // Sync CC → Marketing
+                const { data: allSaisiesJ } = await supabase.from('saisies')
+                  .select('leads_bruts, indispos')
+                  .eq('date_debut', d.date_debut)
+                  .eq('date_fin', d.date_fin)
+                const totalL = (allSaisiesJ || []).reduce((s, x) => s + parseFloat(x.leads_bruts||0), 0)
+                const totalI = (allSaisiesJ || []).reduce((s, x) => s + parseFloat(x.indispos||0), 0)
+                const { data: mktL } = await supabase.from('marketing_saisies')
+                  .select('id').eq('date_debut', d.date_debut).eq('date_fin', d.date_fin).maybeSingle()
+                if (mktL) {
+                  await supabase.from('marketing_saisies').update({ injections: totalL, indispos: totalI }).eq('id', mktL.id)
+                } else {
+                  await supabase.from('marketing_saisies').insert({
+                    date: d.date_debut, date_debut: d.date_debut, date_fin: d.date_fin, type_saisie: 'jour',
+                    injections: totalL, indispos: totalI, non_exploitables: 0, suivis: 0, rdv: 0, visites: 0, ventes: 0,
+                  })
+                }
                 setConfirmModal(null)
                 reload()
                 setMsg({ type: 'success', text: 'Données mises à jour !' })
