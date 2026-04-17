@@ -493,12 +493,11 @@ export default function AnalyseCV({ conseilleres, saisies }) {
             </ResponsiveContainer>
           )}
         </div>
-      <
 
           {/* Loi normale + CV cumulatif côte à côte */}
           {bellCurveData.length > 0 && (
             <div style={cardStyle}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
 
             {/* Loi normale */}
             <div style={{ cursor: 'pointer' }} onClick={() => setExpandedChart(expandedChart === 'bell' ? null : 'bell')}>
@@ -565,13 +564,10 @@ export default function AnalyseCV({ conseilleres, saisies }) {
             )}
           </div>
         </div>
-            </div>
-          )}
-        </div>
       </div>
 
-
-      <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C' }}>Tableau détaillé</div>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8, marginTop: 24 }}>
+        <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C' }}>Tableau détaillé</div>
         <InfoBulle text={segment === 'flux' ? "Moy. = moyenne du KPI par commercial ce mois. CV inter-commerciaux = dispersion entre les commerciaux. Plus le CV est élevé, plus les performances sont hétérogènes." : "Valeur du KPI par période avec le CV cumulé (calculé sur toutes les périodes jusqu'à celle-ci) et le statut de maîtrise correspondant."}/>
       </div>
       <div style={{ ...cardStyle, marginTop: 8 }}>
