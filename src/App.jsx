@@ -10,10 +10,13 @@ import Responsables from './pages/Responsables'
 import Commerciaux from './pages/Commerciaux'
 import FluxRDV from './pages/FluxRDV'
 import AnalyseCV from './pages/AnalyseCV'
+import Login from './pages/Login'
 import { supabase } from './lib/supabase'
 import BulleNotes from './components/BulleNotes'
+import { AuthProvider, useAuth } from './context/AuthContext'
 
-export default function App() {
+function AppContent() {
+  const { user, profil, loading: authLoading } = useAuth()
   const [conseilleres, setConseilleres] = useState([])
   const [saisies, setSaisies] = useState([])
   const [loading, setLoading] = useState(true)
@@ -66,5 +69,13 @@ export default function App() {
       </div>
       <BulleNotes />
     </BrowserRouter>
+  )
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   )
 }
