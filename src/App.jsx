@@ -38,6 +38,14 @@ function AppContent() {
 
   const sharedProps = { conseilleres, saisies, reload: loadData }
 
+  if (authLoading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#F8F7F4' }}>
+      <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 24, color: '#C9A84C' }}>Chargement...</div>
+    </div>
+  )
+
+  if (!user) return <Login />
+
   return (
     <BrowserRouter>
       <div style={{ display: 'flex', minHeight: '100vh' }}>
@@ -47,35 +55,4 @@ function AppContent() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ width: 48, height: 48, border: '3px solid #E8D5A3', borderTopColor: '#C9A84C', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }}></div>
-                <p style={{ color: '#5A5A5A', fontSize: 13 }}>Chargement...</p>
-              </div>
-              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-            </div>
-          ) : (
-            <Routes>
-              <Route path="/" element={<Navigate to="/centre-appel" />} />
-              <Route path="/centre-appel" element={<DashboardCentreAppel {...sharedProps} />} />
-              <Route path="/marketing" element={<DashboardMarketing />} />
-              <Route path="/objectifs" element={<Objectifs conseilleres={conseilleres} />} />
-              <Route path="/conseilleres" element={<Conseilleres {...sharedProps} />} />
-              <Route path="/calendrier" element={<Calendrier />} />
-              <Route path="/responsables" element={<Responsables />} />
-              <Route path="/commerciaux" element={<Commerciaux />} />
-              <Route path="/flux-rdv" element={<FluxRDV conseilleres={conseilleres} />} />
-              <Route path="/analyse-cv" element={<AnalyseCV {...sharedProps} />} />
-            </Routes>
-          )}
-        </main>
-      </div>
-      <BulleNotes />
-    </BrowserRouter>
-  )
-}
-
-export default function App() {
-  return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
-  )
-}
+                <p style={{ color: '#5A5A5A', fontSize: 13 }}>Cha
