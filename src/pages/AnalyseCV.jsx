@@ -434,13 +434,13 @@ export default function AnalyseCV({ conseilleres, saisies }) {
 
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8, marginTop: 24 }}>
   
-            {/* Graphes taux + CV */}
+            {/* LIGNE 1 : Graphe barres (gauche) + CV inter-commerciaux (droite) */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
         <div style={cardStyle}>
           <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C', marginBottom: 4 }}>{selectedKpi.label}</div>
           <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 16, display: 'flex', alignItems: 'center' }}>
-            {segment === 'flux' ? `CV inter-commerciaux par mois · UCL: ${stats.ucl}% · LCL: ${stats.lcl}%` : `Valeur par ${periode} · UCL: ${stats.ucl}${selectedKpi?.isAbsolute?'':'%'} · LCL: ${stats.lcl}${selectedKpi?.isAbsolute?'':'%'}`}
-            <InfoBulle text={segment === 'flux' ? `Chaque barre = CV inter-commerciaux de ce mois pour ${selectedKpi?.label}. Les lignes UCL/LCL délimitent la zone normale. Une barre hors limites signale une anomalie.` : `Chaque barre représente la valeur du KPI pour la période. Les lignes UCL/LCL délimitent la zone de variation normale.`}/>
+            {segment === 'flux' ? `CV inter-commerciaux par période · UCL: ${stats.ucl}% · LCL: ${stats.lcl}%` : `Valeur par ${periode} · UCL: ${stats.ucl}${selectedKpi?.isAbsolute?'':'%'} · LCL: ${stats.lcl}${selectedKpi?.isAbsolute?'':'%'}`}
+            <InfoBulle text={segment === 'flux' ? `Chaque barre = CV inter-commerciaux de la période pour ${selectedKpi?.label}. Les lignes UCL/LCL délimitent la zone normale.` : `Chaque barre représente la valeur du KPI pour la période.`}/>
           </div>
           {chartData.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: '#5A5A5A', fontSize: 13 }}>Pas de données</div>
@@ -469,8 +469,11 @@ export default function AnalyseCV({ conseilleres, saisies }) {
         </div>
 
         <div style={cardStyle}>
-          <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C', marginBottom: 4 }}>CV — {selectedKpi.label}</div>
-          <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 16 }}>Évolution du coefficient de variation</div>
+          <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C', marginBottom: 4, display: 'flex', alignItems: 'center' }}>
+            CV inter-périodes — {selectedKpi.label}
+            <InfoBulle text="CV calculé période par période (inter-commerciaux pour Flux RDV, valeur agrégée pour CC/Marketing). Mesure la dispersion entre les périodes successives."/>
+          </div>
+          <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 16 }}>Évolution du CV par période</div>
           {cvData.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: '#5A5A5A', fontSize: 13 }}>Pas assez de données</div>
           ) : (
@@ -498,7 +501,7 @@ export default function AnalyseCV({ conseilleres, saisies }) {
             <div style={{ cursor: 'pointer' }} onClick={() => setExpandedChart(expandedChart === 'bell' ? null : 'bell')}>
               <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C', marginBottom: 4, display: 'flex', alignItems: 'center' }}>
                 Distribution — Loi normale
-                <InfoBulle text="Représentation de la distribution des valeurs selon une loi normale. La zone verte (entre LCL et UCL) représente 95% des valeurs attendues."/>
+                <InfoBulle text="Distribution des valeurs sur l'ensemble de la période sélectionnée. Basée sur la moyenne et l'écart-type globaux. La zone entre LCL et UCL représente 95% des valeurs attendues."/>
                 <span style={{ marginLeft: 'auto', fontSize: 11, color: '#C9A84C' }}>{expandedChart === 'bell' ? '▲' : '▼'}</span>
               </div>
               <div style={{ fontSize: 10, color: '#5A5A5A', marginBottom: 8 }}>
@@ -529,8 +532,8 @@ export default function AnalyseCV({ conseilleres, saisies }) {
             {chartData.length > 0 && (
               <div style={{ cursor: 'pointer' }} onClick={() => setExpandedChart(expandedChart === 'cv' ? null : 'cv')}>
                 <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C', marginBottom: 4, display: 'flex', alignItems: 'center' }}>
-                  Évolution du CV
-                  <InfoBulle text="Évolution du coefficient de variation mois par mois. Si la courbe descend → le processus se stabilise ✅. Lignes de référence : 15% (maîtrisé) et 30% (variable)."/>
+                  CV cumulatif — {selectedKpi.label}
+                  <InfoBulle text="CV calculé de manière cumulative : chaque point inclut toutes les données depuis le début. Différent du CV inter-périodes (ligne du haut) qui mesure la dispersion entre périodes. Indique si le processus se stabilise globalement dans le temps."/>
                   <span style={{ marginLeft: 'auto', fontSize: 11, color: '#C9A84C' }}>{expandedChart === 'cv' ? '▲' : '▼'}</span>
                 </div>
                 <div style={{ fontSize: 10, color: '#5A5A5A', marginBottom: 8 }}>CV Global: <strong style={{ color: cvGlobal < 15 ? '#1a6b3c' : cvGlobal < 30 ? '#C9A84C' : '#E07B30' }}>{cvGlobal}%</strong></div>
