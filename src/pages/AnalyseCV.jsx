@@ -213,7 +213,7 @@ export default function AnalyseCV({ conseilleres, saisies }) {
         return { label: formatGroupLabel(key, periode), taux: agg[kpiKey] || 0 }
       })
     }
-  }, [segment, saisies, marketingData, kpiKey, periode, groupFn])
+  }, [segment, saisies, marketingData, kpiKey, periode, groupFn, fluxData, fluxCommerciaux, fluxEquipe])
 
   // CV cumulatif - inclut le premier point avec CV=0
   const cvData = useMemo(() => {
@@ -338,7 +338,103 @@ export default function AnalyseCV({ conseilleres, saisies }) {
         </div>
       </div>
 
-      {/* Graphes taux + CV */}
+      {/* ── BLOC CV BRUT FLUX RDV ── */}
+      {segment === 'flux' && (() => {
+        const filteredComms = fluxEquipe === 'all'
+          ? fluxCommerciaux.filter(c => !c.nom.includes('Non reconnu'))
+          : fluxCommerciaux.filter(c => c.equipe === fluxEquipe && !c.nom.includes('Non reconnu'))
+
+        // Récupérer toutes les valeurs brutes : 1 valeur par commercial par jour
+        const fluxGroups = groupFn(fluxData.map(f => ({ ...f, date: f.date_debut })))
+
+        const FLUX_KPIS_ALL = [
+          { key: 'flux_rdv', label: 'RDV', color: '#C9A84C' },
+          { key: 'flux_visites', label: 'Visites', color: '#4CAF7D' },
+          { key: 'flux_ventes', label: 'Ventes', color: '#1a6b3c' },
+          { key: 'flux_taux_presence', label: 'Tx Présence', color: '#534AB7', isRate: true },
+          { key: 'flux_taux_vente', label: 'Tx Vente', color: '#378ADD', isRate: true },
+        ]
+
+        function getVal(dRaw, key) {
+          const ventes = parseFloat(dRaw.ventes || 0)
+          const vis = parseFloat(dRaw.visites || 0)
+          const rdv = parseFloat(dRaw.rdv || 0)
+          const visTotal = vis + ventes
+          const rdvTotal = rdv + visTotal
+          if (key === 'flux_rdv') return rdvTotal
+          if (key === 'flux_visites') return visTotal
+          if (key === 'flux_ventes') return ventes
+          if (key === 'flux_taux_presence') return rdvTotal > 0 ? parseFloat(((visTotal/rdvTotal)*100).toFixed(1)) : 0
+          if (key === 'flux_taux_vente') return visTotal > 0 ? parseFloat(((ventes/visTotal)*100).toFixed(1)) : 0
+          return 0
+        }
+
+        // Pour chaque KPI: collecter TOUTES les valeurs brutes (commercial × jour)
+        const kpiStats = FLUX_KPIS_ALL.map(kpi => {
+          const allVals = []
+          Object.values(fluxGroups).forEach(items => {
+            const commData = {}
+            items.forEach(f => {
+              if (!f.commercial_id) return
+              if (!commData[f.commercial_id]) commData[f.commercial_id] = { rdv:0, visites:0, ventes:0 }
+              commData[f.commercial_id].rdv += parseFloat(f.rdv||0)
+              commData[f.commercial_id].visites += parseFloat(f.visites||0)
+              commData[f.commercial_id].ventes += parseFloat(f.ventes||0)
+            })
+            filteredComms.forEach(c => {
+              const v = getVal(commData[c.id] || {rdv:0,visites:0,ventes:0}, kpi.key)
+              if (v > 0) allVals.push(v)
+            })
+          })
+
+          if (allVals.length < 2) return { ...kpi, cv: 0, moy: 0, ecart: 0, ucl: 0, lcl: 0, n: allVals.length }
+          const moy = allVals.reduce((a,b)=>a+b,0) / allVals.length
+          const ecart = Math.sqrt(allVals.reduce((s,v)=>s+Math.pow(v-moy,2),0) / allVals.length)
+          const cv = moy > 0 ? parseFloat(((ecart/moy)*100).toFixed(1)) : 0
+          const ucl = parseFloat((moy + 2*ecart).toFixed(1))
+          const lcl = parseFloat(Math.max(0, moy - 2*ecart).toFixed(1))
+          return { ...kpi, cv, moy: parseFloat(moy.toFixed(1)), ecart: parseFloat(ecart.toFixed(1)), ucl, lcl, n: allVals.length }
+        })
+
+        const getMaitrise = cv => cv === 0 ? { label: 'Pas assez de données', color: '#8A8A7A', dot: '⚪' }
+          : cv < 15 ? { label: 'Maîtrisé', color: '#1a6b3c', dot: '🟢' }
+          : cv < 30 ? { label: 'Modérément variable', color: '#C9A84C', dot: '🟡' }
+          : cv < 50 ? { label: 'Variable — à surveiller', color: '#E07B30', dot: '🟠' }
+          : { label: 'Très variable', color: '#E05C5C', dot: '🔴' }
+
+        return (
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12, marginTop: 24 }}>
+              <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C' }}>
+                Analyse CV — Dispersion brute inter-commerciaux
+              </div>
+              <InfoBulle text={`CV calculé sur l'ensemble des valeurs brutes : chaque commercial × chaque jour de la période. Mesure la dispersion globale des performances individuelles.`}/>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14 }}>
+              {kpiStats.map(k => {
+                const m = getMaitrise(k.cv)
+                return (
+                  <div key={k.key} style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', border: '1px solid rgba(201,168,76,0.15)', borderTop: `3px solid ${k.color}` }}>
+                    <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', marginBottom: 8, fontWeight: 500 }}>{k.label}</div>
+                    <div style={{ fontSize: 28, fontWeight: 700, color: k.cv > 30 ? '#E07B30' : k.cv > 15 ? '#C9A84C' : '#1a6b3c' }}>{k.cv}%</div>
+                    <div style={{ fontSize: 11, color: m.color, marginTop: 4, fontWeight: 500 }}>{m.dot} {m.label}</div>
+                    <div style={{ marginTop: 8, fontSize: 10, color: '#8A8A7A', lineHeight: 1.6 }}>
+                      <div>Moy: <strong style={{ color: '#2C2C2C' }}>{k.moy}{k.isRate ? '%' : ''}</strong></div>
+                      <div>σ: <strong style={{ color: '#2C2C2C' }}>{k.ecart}{k.isRate ? '%' : ''}</strong></div>
+                      <div>UCL: <strong style={{ color: '#E05C5C' }}>{k.ucl}{k.isRate ? '%' : ''}</strong> · LCL: <strong style={{ color: '#4CAF7D' }}>{k.lcl}{k.isRate ? '%' : ''}</strong></div>
+                      <div>n = {k.n} valeurs</div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
+
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8, marginTop: 24 }}>
+  
+            {/* Graphes taux + CV */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
         <div style={cardStyle}>
           <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C', marginBottom: 4 }}>{selectedKpi.label}</div>
@@ -465,102 +561,7 @@ export default function AnalyseCV({ conseilleres, saisies }) {
         </div>
       )}
 
-      {/* ── BLOC CV BRUT FLUX RDV ── */}
-      {segment === 'flux' && (() => {
-        const filteredComms = fluxEquipe === 'all'
-          ? fluxCommerciaux.filter(c => !c.nom.includes('Non reconnu'))
-          : fluxCommerciaux.filter(c => c.equipe === fluxEquipe && !c.nom.includes('Non reconnu'))
-
-        // Récupérer toutes les valeurs brutes : 1 valeur par commercial par jour
-        const fluxGroups = groupFn(fluxData.map(f => ({ ...f, date: f.date_debut })))
-
-        const FLUX_KPIS_ALL = [
-          { key: 'flux_rdv', label: 'RDV', color: '#C9A84C' },
-          { key: 'flux_visites', label: 'Visites', color: '#4CAF7D' },
-          { key: 'flux_ventes', label: 'Ventes', color: '#1a6b3c' },
-          { key: 'flux_taux_presence', label: 'Tx Présence', color: '#534AB7', isRate: true },
-          { key: 'flux_taux_vente', label: 'Tx Vente', color: '#378ADD', isRate: true },
-        ]
-
-        function getVal(dRaw, key) {
-          const ventes = parseFloat(dRaw.ventes || 0)
-          const vis = parseFloat(dRaw.visites || 0)
-          const rdv = parseFloat(dRaw.rdv || 0)
-          const visTotal = vis + ventes
-          const rdvTotal = rdv + visTotal
-          if (key === 'flux_rdv') return rdvTotal
-          if (key === 'flux_visites') return visTotal
-          if (key === 'flux_ventes') return ventes
-          if (key === 'flux_taux_presence') return rdvTotal > 0 ? parseFloat(((visTotal/rdvTotal)*100).toFixed(1)) : 0
-          if (key === 'flux_taux_vente') return visTotal > 0 ? parseFloat(((ventes/visTotal)*100).toFixed(1)) : 0
-          return 0
-        }
-
-        // Pour chaque KPI: collecter TOUTES les valeurs brutes (commercial × jour)
-        const kpiStats = FLUX_KPIS_ALL.map(kpi => {
-          const allVals = []
-          Object.values(fluxGroups).forEach(items => {
-            const commData = {}
-            items.forEach(f => {
-              if (!f.commercial_id) return
-              if (!commData[f.commercial_id]) commData[f.commercial_id] = { rdv:0, visites:0, ventes:0 }
-              commData[f.commercial_id].rdv += parseFloat(f.rdv||0)
-              commData[f.commercial_id].visites += parseFloat(f.visites||0)
-              commData[f.commercial_id].ventes += parseFloat(f.ventes||0)
-            })
-            filteredComms.forEach(c => {
-              const v = getVal(commData[c.id] || {rdv:0,visites:0,ventes:0}, kpi.key)
-              if (v > 0) allVals.push(v)
-            })
-          })
-
-          if (allVals.length < 2) return { ...kpi, cv: 0, moy: 0, ecart: 0, ucl: 0, lcl: 0, n: allVals.length }
-          const moy = allVals.reduce((a,b)=>a+b,0) / allVals.length
-          const ecart = Math.sqrt(allVals.reduce((s,v)=>s+Math.pow(v-moy,2),0) / allVals.length)
-          const cv = moy > 0 ? parseFloat(((ecart/moy)*100).toFixed(1)) : 0
-          const ucl = parseFloat((moy + 2*ecart).toFixed(1))
-          const lcl = parseFloat(Math.max(0, moy - 2*ecart).toFixed(1))
-          return { ...kpi, cv, moy: parseFloat(moy.toFixed(1)), ecart: parseFloat(ecart.toFixed(1)), ucl, lcl, n: allVals.length }
-        })
-
-        const getMaitrise = cv => cv === 0 ? { label: 'Pas assez de données', color: '#8A8A7A', dot: '⚪' }
-          : cv < 15 ? { label: 'Maîtrisé', color: '#1a6b3c', dot: '🟢' }
-          : cv < 30 ? { label: 'Modérément variable', color: '#C9A84C', dot: '🟡' }
-          : cv < 50 ? { label: 'Variable — à surveiller', color: '#E07B30', dot: '🟠' }
-          : { label: 'Très variable', color: '#E05C5C', dot: '🔴' }
-
-        return (
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12, marginTop: 24 }}>
-              <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C' }}>
-                Analyse CV — Dispersion brute inter-commerciaux
-              </div>
-              <InfoBulle text={`CV calculé sur l'ensemble des valeurs brutes : chaque commercial × chaque jour de la période. Mesure la dispersion globale des performances individuelles.`}/>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14 }}>
-              {kpiStats.map(k => {
-                const m = getMaitrise(k.cv)
-                return (
-                  <div key={k.key} style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', border: '1px solid rgba(201,168,76,0.15)', borderTop: `3px solid ${k.color}` }}>
-                    <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', marginBottom: 8, fontWeight: 500 }}>{k.label}</div>
-                    <div style={{ fontSize: 28, fontWeight: 700, color: k.cv > 30 ? '#E07B30' : k.cv > 15 ? '#C9A84C' : '#1a6b3c' }}>{k.cv}%</div>
-                    <div style={{ fontSize: 11, color: m.color, marginTop: 4, fontWeight: 500 }}>{m.dot} {m.label}</div>
-                    <div style={{ marginTop: 8, fontSize: 10, color: '#8A8A7A', lineHeight: 1.6 }}>
-                      <div>Moy: <strong style={{ color: '#2C2C2C' }}>{k.moy}{k.isRate ? '%' : ''}</strong></div>
-                      <div>σ: <strong style={{ color: '#2C2C2C' }}>{k.ecart}{k.isRate ? '%' : ''}</strong></div>
-                      <div>UCL: <strong style={{ color: '#E05C5C' }}>{k.ucl}{k.isRate ? '%' : ''}</strong> · LCL: <strong style={{ color: '#4CAF7D' }}>{k.lcl}{k.isRate ? '%' : ''}</strong></div>
-                      <div>n = {k.n} valeurs</div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )
-      })()}
-
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8, marginTop: 24 }}>
-        <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C' }}>Tableau détaillé</div>
+      <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C' }}>Tableau détaillé</div>
         <InfoBulle text={segment === 'flux' ? "Moy. = moyenne du KPI par commercial ce mois. CV inter-commerciaux = dispersion entre les commerciaux. Plus le CV est élevé, plus les performances sont hétérogènes." : "Valeur du KPI par période avec le CV cumulé (calculé sur toutes les périodes jusqu'à celle-ci) et le statut de maîtrise correspondant."}/>
       </div>
       <div style={{ ...cardStyle, marginTop: 8 }}>
