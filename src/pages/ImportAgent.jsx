@@ -53,15 +53,30 @@ function detectFileType(filename) {
 // Détection mode cohort depuis le nom
 function detectMode(filename) {
   const n = filename.toLowerCase()
-  const months = { 'janvier':1,'février':2,'fevrier':2,'mars':3,'avril':4,'mai':5,'juin':6,
-                   'juillet':7,'août':8,'aout':8,'septembre':9,'octobre':10,'novembre':11,'décembre':12,'decembre':12 }
-  for (const [m, num] of Object.entries(months)) {
-    if (n.includes(m)) {
-      const yearMatch = n.match(/20\d\d/)
-      const year = yearMatch ? parseInt(yearMatch[0]) : new Date().getFullYear()
-      return { mode: 'cohort', month: num, year, label: `${m.charAt(0).toUpperCase()+m.slice(1)} ${year}` }
+  const typeInfo = detectFileType(filename)
+  const type = typeInfo?.type || ''
+
+  // CC (y compris visites/ventes CC) → toujours jour par jour
+  const isCC = ['injections','indispos','non_expl_cc','echanges','visites_cc','ventes_cc'].includes(type)
+  if (isCC) return { mode: 'jour', label: 'Jour par jour' }
+
+  // Marketing → toujours cohort mensuel, mois détecté depuis le nom
+  const isMkt = ['non_expl_mkt','suivis_mkt','rdv_mkt','ventes_mkt','visites_mkt'].includes(type)
+  if (isMkt) {
+    const months = { 'janvier':1,'février':2,'fevrier':2,'mars':3,'avril':4,'mai':5,'juin':6,
+                     'juillet':7,'août':8,'aout':8,'septembre':9,'octobre':10,'novembre':11,'décembre':12,'decembre':12 }
+    for (const [m, num] of Object.entries(months)) {
+      if (n.includes(m)) {
+        const yearMatch = n.match(/20\d\d/)
+        const year = yearMatch ? parseInt(yearMatch[0]) : new Date().getFullYear()
+        return { mode: 'cohort', month: num, year, label: `${m.charAt(0).toUpperCase()+m.slice(1)} ${year}` }
+      }
     }
+    // Pas de mois trouvé → mois courant par défaut
+    const now = new Date()
+    return { mode: 'cohort', month: now.getMonth()+1, year: now.getFullYear(), label: 'Mois courant' }
   }
+
   return { mode: 'jour', label: 'Jour par jour' }
 }
 
