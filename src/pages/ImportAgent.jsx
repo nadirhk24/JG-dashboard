@@ -233,8 +233,8 @@ function resolveConseillere(nom) {
 }
 
 // ─── Injection Supabase ────────────────────────────────────────────────────
-async function injectData(parsed, fileType, modeInfo) {
-  const results = { inserted: 0, updated: 0, errors: [] }
+async function injectData(parsed, fileType, modeInfo, dryRun = false) {
+  const results = { inserted: 0, updated: 0, errors: [], preview: [] }
   const { type } = fileType
   const { mode, month, year } = modeInfo
 
@@ -263,14 +263,19 @@ async function injectData(parsed, fileType, modeInfo) {
       if (row.isCohort) {
         // Mode cohort marketing : upsert global par mois
         const dateDebut = `${year}-${String(month).padStart(2,'0')}-01`
-        const { data: existing } = await supabase.from('marketing_saisies')
-          .select('id').eq('date_debut', dateDebut).maybeSingle()
-        if (existing) {
-          await supabase.from('marketing_saisies').update({ [field]: row.count }).eq('id', existing.id)
-          results.updated++
-        } else {
-          await supabase.from('marketing_saisies').insert({ date: dateDebut, date_debut: dateDebut, date_fin: dateDebut, type_saisie: 'mois', [field]: row.count })
+        if (dryRun) {
+          results.preview.push({ date: dateDebut, conseillere: 'GLOBAL', field, value: row.count, table: 'marketing_saisies', action: 'cohort' })
           results.inserted++
+        } else {
+          const { data: existing } = await supabase.from('marketing_saisies')
+            .select('id').eq('date_debut', dateDebut).maybeSingle()
+          if (existing) {
+            await supabase.from('marketing_saisies').update({ [field]: row.count }).eq('id', existing.id)
+            results.updated++
+          } else {
+            await supabase.from('marketing_saisies').insert({ date: dateDebut, date_debut: dateDebut, date_fin: dateDebut, type_saisie: 'mois', [field]: row.count })
+            results.inserted++
+          }
         }
         continue
       }
@@ -279,18 +284,22 @@ async function injectData(parsed, fileType, modeInfo) {
         const consId = resolveConseillere(row.nom)
         if (!consId) { results.errors.push(`Nom non reconnu: ${row.nom}`); continue }
 
-        const { data: existing } = await supabase.from('saisies')
-          .select('id').eq('conseillere_id', consId).eq('date', row.date).maybeSingle()
-
-        if (existing) {
-          await supabase.from('saisies').update({ [field]: row.count }).eq('id', existing.id)
-          results.updated++
-        } else {
-          await supabase.from('saisies').insert({
-            conseillere_id: consId, date: row.date, date_debut: row.date, date_fin: row.date,
-            type_saisie: 'jour', [field]: row.count,
-          })
+        if (dryRun) {
+          results.preview.push({ date: row.date, conseillere: row.nom, field, value: row.count, table: 'saisies', action: 'upsert' })
           results.inserted++
+        } else {
+          const { data: existing } = await supabase.from('saisies')
+            .select('id').eq('conseillere_id', consId).eq('date', row.date).maybeSingle()
+          if (existing) {
+            await supabase.from('saisies').update({ [field]: row.count }).eq('id', existing.id)
+            results.updated++
+          } else {
+            await supabase.from('saisies').insert({
+              conseillere_id: consId, date: row.date, date_debut: row.date, date_fin: row.date,
+              type_saisie: 'jour', [field]: row.count,
+            })
+            results.inserted++
+          }
         }
       }
 
@@ -347,7 +356,10 @@ async function injectData(parsed, fileType, modeInfo) {
       if (isMkt) {
         const { data: existing } = await supabase.from('marketing_saisies')
           .select('id').eq('date_debut', row.date).maybeSingle()
-        if (existing) {
+        if (dryRun) {
+          results.preview.push({ date: row.date, conseillere: 'Marketing', field, value: row.count, table: 'marketing_saisies', action: 'upsert' })
+          results.inserted++
+        } else if (existing) {
           await supabase.from('marketing_saisies').update({ [field]: row.count }).eq('id', existing.id)
           results.updated++
         } else {
@@ -439,6 +451,8 @@ export default function ImportAgent() {
   const [status, setStatus] = useState({}) // { slotIdx: { state: 'idle'|'parsing'|'preview'|'injecting'|'done'|'error', result, parsed } }
   const [globalMsg, setGlobalMsg] = useState(null)
   const [running, setRunning] = useState(false)
+  const [dryRun, setDryRun] = useState(false)
+  const [dryRunResults, setDryRunResults] = useState([])
 
   // Charger le mapping Odoo depuis Supabase au démarrage
   React.useEffect(() => {
@@ -555,7 +569,10 @@ export default function ImportAgent() {
         setStatus(p => ({ ...p, [index]: { state: 'error', result: { errors: [`${unknown.length} nom(s) non reconnu(s) — définis le mapping d'abord`] } } }))
         continue
       }
-      const result = await injectData(parsedNormal, slot.typeInfo, slot.modeInfo)
+      const result = await injectData(parsedNormal, slot.typeInfo, slot.modeInfo, dryRun)
+      if (dryRun && result.preview.length > 0) {
+        setDryRunResults(prev => [...prev, { fileName: slot.file.name, typeInfo: slot.typeInfo, rows: result.preview }])
+      }
         totalInserted += result.inserted
         totalUpdated += result.updated
         totalErrors += result.errors.length
@@ -667,7 +684,7 @@ export default function ImportAgent() {
                 <span style={{ color: stateColor(status[i].state) }}>
                   {status[i].state === 'parsing'   && 'Lecture du fichier...'}
                   {status[i].state === 'injecting' && `Injection (${status[i].count} lignes)...`}
-                  {status[i].state === 'done'      && `✓ ${status[i].result.inserted} insérés · ${status[i].result.updated} mis à jour`}
+                  {status[i].state === 'done'      && (dryRun ? `👁 ${status[i].result.inserted} lignes simulées` : `✓ ${status[i].result.inserted} insérés · ${status[i].result.updated} mis à jour`)}
                   {status[i].state === 'error'     && `Erreur: ${status[i].result?.errors?.[0] || 'inconnue'}`}
                 </span>
               </div>
@@ -676,23 +693,36 @@ export default function ImportAgent() {
         ))}
       </div>
 
-      {/* Bouton lancer */}
-      <div style={{ display: 'flex', justifyContent: 'center' }}>
+      {/* Bouton lancer + toggle dry run */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+        {/* Toggle mode test */}
+        <div
+          onClick={() => { setDryRun(p => !p); setDryRunResults([]); setStatus({}) }}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 18px', borderRadius: 20, cursor: 'pointer', border: `1.5px solid ${dryRun ? 'rgba(83,74,183,0.5)' : 'rgba(201,168,76,0.2)'}`, background: dryRun ? 'rgba(83,74,183,0.08)' : '#F8F7F4', transition: 'all 0.2s' }}
+        >
+          <div style={{ width: 36, height: 20, borderRadius: 10, background: dryRun ? '#534AB7' : '#D8D5CE', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+            <div style={{ position: 'absolute', top: 2, left: dryRun ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+          </div>
+          <span style={{ fontSize: 13, fontWeight: dryRun ? 600 : 400, color: dryRun ? '#534AB7' : '#5A5A5A' }}>
+            {dryRun ? '👁 Mode test activé — aucune donnée ne sera modifiée' : 'Mode test (simulation)'}
+          </span>
+        </div>
+
         <button
-          onClick={lancerImport}
+          onClick={() => { setDryRunResults([]); lancerImport() }}
           disabled={!hasValidFiles || running}
           style={{
             padding: '14px 48px', borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: (!hasValidFiles || running) ? 'not-allowed' : 'pointer',
-            background: running ? '#E8D5A3' : allDone ? 'rgba(76,175,125,0.15)' : '#C9A84C',
-            color: running ? '#8a6a1a' : allDone ? '#2d7a54' : '#fff',
-            border: allDone ? '1.5px solid rgba(76,175,125,0.4)' : 'none',
-            boxShadow: running || !hasValidFiles ? 'none' : '0 4px 20px rgba(201,168,76,0.3)',
+            background: running ? '#E8D5A3' : dryRun ? '#534AB7' : allDone ? 'rgba(76,175,125,0.15)' : '#C9A84C',
+            color: running ? '#8a6a1a' : allDone && !dryRun ? '#2d7a54' : '#fff',
+            border: allDone && !dryRun ? '1.5px solid rgba(76,175,125,0.4)' : 'none',
+            boxShadow: running || !hasValidFiles ? 'none' : `0 4px 20px ${dryRun ? 'rgba(83,74,183,0.3)' : 'rgba(201,168,76,0.3)'}`,
             transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 10,
           }}
         >
           {running ? (
-            <><span style={{ width: 16, height: 16, border: '2px solid #E8D5A3', borderTopColor: '#C9A84C', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display:'inline-block' }} />Importation en cours...</>
-          ) : allDone ? '✓ Import terminé' : `🚀 Lancer l'import (${slots.filter(s => s && s.typeInfo).length} fichier${slots.filter(s => s && s.typeInfo).length > 1 ? 's' : ''})`}
+            <><span style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display:'inline-block' }} />{dryRun ? 'Simulation...' : 'Importation en cours...'}</>
+          ) : dryRun ? `👁 Simuler (${slots.filter(s => s && s.typeInfo).length} fichier${slots.filter(s => s && s.typeInfo).length > 1 ? 's' : ''})` : allDone ? '✓ Import terminé' : `🚀 Lancer l'import (${slots.filter(s => s && s.typeInfo).length} fichier${slots.filter(s => s && s.typeInfo).length > 1 ? 's' : ''})`}
         </button>
       </div>
 
@@ -774,6 +804,49 @@ export default function ImportAgent() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* Résultats Dry Run */}
+      {dryRun && dryRunResults.length > 0 && (
+        <div style={{ marginTop: 24, background: '#fff', borderRadius: 14, border: '1.5px solid rgba(83,74,183,0.3)', overflow: 'hidden' }}>
+          <div style={{ padding: '14px 20px', background: 'rgba(83,74,183,0.06)', borderBottom: '1px solid rgba(83,74,183,0.15)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#534AB7' }}>👁 Aperçu — ce qui serait injecté</div>
+              <div style={{ fontSize: 11, color: '#8A8A7A', marginTop: 2 }}>Aucune donnée modifiée — désactive le mode test pour injecter pour de vrai</div>
+            </div>
+            <div style={{ fontSize: 12, color: '#534AB7', fontWeight: 500 }}>{dryRunResults.reduce((s,r) => s + r.rows.length, 0)} lignes au total</div>
+          </div>
+          {dryRunResults.map((file, fi) => (
+            <div key={fi} style={{ borderBottom: '1px solid rgba(83,74,183,0.08)' }}>
+              <div style={{ padding: '10px 20px', fontSize: 12, fontWeight: 600, color: '#534AB7', background: 'rgba(83,74,183,0.03)' }}>
+                {file.fileName} — {file.rows.length} lignes
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>{['Date','Conseillère / dest.','Champ','Valeur','Table','Action'].map(h => (
+                      <th key={h} style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '6px 12px', borderBottom: '1px solid rgba(83,74,183,0.1)', textTransform: 'uppercase', fontWeight: 500 }}>{h}</th>
+                    ))}</tr>
+                  </thead>
+                  <tbody>
+                    {file.rows.map((row, ri) => (
+                      <tr key={ri} onMouseEnter={e => e.currentTarget.style.background='rgba(83,74,183,0.03)'} onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                        <td style={{ padding: '7px 12px', fontSize: 12, color: '#C9A84C', fontWeight: 500 }}>{row.date}</td>
+                        <td style={{ padding: '7px 12px', fontSize: 12 }}>{row.conseillere}</td>
+                        <td style={{ padding: '7px 12px', fontSize: 12, color: '#534AB7', fontWeight: 500 }}>{row.field}</td>
+                        <td style={{ padding: '7px 12px', fontSize: 13, fontWeight: 700, color: '#2C2C2C' }}>{row.value}</td>
+                        <td style={{ padding: '7px 12px', fontSize: 11, color: '#8A8A7A' }}>{row.table}</td>
+                        <td style={{ padding: '7px 12px' }}>
+                          <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 8, background: row.action === 'cohort' ? 'rgba(83,74,183,0.1)' : 'rgba(76,175,125,0.1)', color: row.action === 'cohort' ? '#534AB7' : '#2E9455', fontWeight: 500 }}>{row.action}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
