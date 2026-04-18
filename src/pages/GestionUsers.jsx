@@ -165,10 +165,11 @@ export default function GestionUsers() {
                     {VOLETS.map(v => {
                       const active = user.permissions?.[v.key] ?? false
                       const hasSub = (v.key === 'centre_appel' || v.key === 'flux_rdv') && active && !isSuperAdmin
+                          const hasAnalyseSub = v.key === 'analyse_cv' && active && !isSuperAdmin
 
                       return (
                         <div key={v.key}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: hasSub ? '10px 10px 0 0' : 10, background: active ? 'rgba(201,168,76,0.06)' : '#F8F7F4', border: `1.5px solid ${active ? 'rgba(201,168,76,0.3)' : 'rgba(201,168,76,0.1)'}`, borderBottom: hasSub ? 'none' : undefined, transition: 'all 0.15s' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: (hasSub || hasAnalyseSub) ? '10px 10px 0 0' : 10, background: active ? 'rgba(201,168,76,0.06)' : '#F8F7F4', border: `1.5px solid ${active ? 'rgba(201,168,76,0.3)' : 'rgba(201,168,76,0.1)'}`, borderBottom: (hasSub || hasAnalyseSub) ? 'none' : undefined, transition: 'all 0.15s' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                               <span style={{ fontSize: 16 }}>{v.icon}</span>
                               <span style={{ fontSize: 12, fontWeight: active ? 500 : 400, color: active ? '#2C2C2C' : '#8A8A7A' }}>{v.label}</span>
@@ -187,6 +188,49 @@ export default function GestionUsers() {
                                     <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 8px', borderRadius: 7, background: on ? 'rgba(76,175,125,0.07)' : 'transparent' }}>
                                       <span style={{ fontSize: 11, color: on ? '#2C2C2C' : '#8A8A7A', fontWeight: on ? 500 : 400 }}>{c.nom}</span>
                                       <SmallToggle value={on} onChange={() => toggleConseillere(user, c.id)} />
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Sous-niveau segments Analyse CV */}
+                          {v.key === 'analyse_cv' && active && !isSuperAdmin && (
+                            <div style={{ padding: '10px 12px', background: 'rgba(201,168,76,0.03)', border: '1.5px solid rgba(201,168,76,0.3)', borderTop: 'none', borderRadius: '0 0 10px 10px' }}>
+                              <div style={{ fontSize: 10, color: '#8A8A7A', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 500, marginBottom: 8 }}>Segments visibles</div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                                {[
+                                  { key: 'analyse_cv_cc',        label: 'Call Center',  color: '#C9A84C' },
+                                  { key: 'analyse_cv_marketing', label: 'Marketing',    color: '#378ADD' },
+                                  { key: 'analyse_cv_flux',      label: 'Flux RDV',     color: '#534AB7', children: [
+                                    { key: 'analyse_cv_flux_sale',    label: 'Sale',    color: '#C9A84C' },
+                                    { key: 'analyse_cv_flux_kenitra', label: 'Kenitra', color: '#534AB7' },
+                                  ]},
+                                ].map(seg => {
+                                  const segOn = user.permissions?.[seg.key] !== false
+                                  return (
+                                    <div key={seg.key}>
+                                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 8px', borderRadius: 7, background: segOn ? `${seg.color}10` : 'transparent' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: seg.color }} />
+                                          <span style={{ fontSize: 11, color: segOn ? '#2C2C2C' : '#8A8A7A', fontWeight: segOn ? 500 : 400 }}>{seg.label}</span>
+                                        </div>
+                                        <SmallToggle value={segOn} onChange={() => savePermissions(user.id, { ...user.permissions, [seg.key]: !segOn })} />
+                                      </div>
+                                      {/* Sous-équipes Flux RDV */}
+                                      {seg.children && segOn && seg.children.map(child => {
+                                        const childOn = user.permissions?.[child.key] !== false
+                                        return (
+                                          <div key={child.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '3px 8px 3px 24px', borderRadius: 7, background: childOn ? `${child.color}08` : 'transparent' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                              <div style={{ width: 6, height: 6, borderRadius: '50%', background: child.color, opacity: 0.7 }} />
+                                              <span style={{ fontSize: 11, color: childOn ? '#5A5A5A' : '#ABABAB' }}>{child.label}</span>
+                                            </div>
+                                            <SmallToggle value={childOn} onChange={() => savePermissions(user.id, { ...user.permissions, [child.key]: !childOn })} />
+                                          </div>
+                                        )
+                                      })}
                                     </div>
                                   )
                                 })}

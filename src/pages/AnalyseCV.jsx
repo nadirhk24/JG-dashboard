@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react'
+import { useAuth } from '../context/AuthContext'
 import { BarChart, Bar, LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, LabelList } from 'recharts'
 import PageHeader from '../components/PageHeader'
 import SectionTitle from '../components/SectionTitle'
@@ -170,7 +171,19 @@ function CVBrutBloc({ fluxEquipe, fluxCommerciaux, fluxData, groupFn, InfoBulleC
   )
 }
 export default function AnalyseCV({ conseilleres, saisies }) {
-  const [segment, setSegment] = useState('callcenter')
+  const { profil } = useAuth()
+  const isSuperAdmin = profil?.role === 'super_admin'
+  const perms = profil?.permissions || {}
+  // Permissions segments Analyse CV
+  const canSeeCC      = isSuperAdmin || perms.analyse_cv_cc !== false
+  const canSeeMkt     = isSuperAdmin || perms.analyse_cv_marketing !== false
+  const canSeeFlux    = isSuperAdmin || perms.analyse_cv_flux !== false
+  const canSeeFluxSale    = isSuperAdmin || perms.analyse_cv_flux_sale !== false
+  const canSeeFluxKenitra = isSuperAdmin || perms.analyse_cv_flux_kenitra !== false
+
+  // Segment par défaut : premier autorisé
+  const defaultSegment = canSeeCC ? 'callcenter' : canSeeMkt ? 'marketing' : 'flux'
+  const [segment, setSegment] = useState(defaultSegment)
   const [kpiKey, setKpiKey] = useState('conversion_tel')
   const [periode, setPeriode] = useState('mois')
   const [marketingData, setMarketingData] = useState([])
@@ -320,9 +333,9 @@ export default function AnalyseCV({ conseilleres, saisies }) {
         <div>
           <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, fontWeight: 500 }}>Segment</div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button style={btnStyle(segment === 'callcenter')} onClick={() => setSegment('callcenter')}>Call Center</button>
-            <button style={btnStyle(segment === 'marketing')} onClick={() => setSegment('marketing')}>Marketing</button>
-            <button style={btnStyle(segment === 'flux', '#534AB7')} onClick={() => setSegment('flux')}>Flux RDV</button>
+            {canSeeCC && <button style={btnStyle(segment === 'callcenter')} onClick={() => setSegment('callcenter')}>Call Center</button>}
+            {canSeeMkt && <button style={btnStyle(segment === 'marketing')} onClick={() => setSegment('marketing')}>Marketing</button>}
+            {canSeeFlux && <button style={btnStyle(segment === 'flux', '#534AB7')} onClick={() => setSegment('flux')}>Flux RDV</button>}
           </div>
         </div>
         <div>
@@ -338,9 +351,9 @@ export default function AnalyseCV({ conseilleres, saisies }) {
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, fontWeight: 500 }}>Equipe</div>
           <div style={{ display: 'flex', gap: 8 }}>
-            {[['all','Toutes'],['sale','Sale'],['kenitra','Kenitra']].map(([k,l]) => (
-              <button key={k} onClick={() => setFluxEquipe(k)} style={btnStyle(fluxEquipe===k)}>{l}</button>
-            ))}
+            {(canSeeFluxSale && canSeeFluxKenitra) && <button onClick={() => setFluxEquipe('all')} style={btnStyle(fluxEquipe==='all')}>Toutes</button>}
+            {canSeeFluxSale && <button onClick={() => setFluxEquipe('sale')} style={btnStyle(fluxEquipe==='sale')}>Sale</button>}
+            {canSeeFluxKenitra && <button onClick={() => setFluxEquipe('kenitra')} style={btnStyle(fluxEquipe==='kenitra')}>Kenitra</button>}
           </div>
           <div style={{ marginTop: 10, fontSize: 11, color: '#5A5A5A', padding: '8px 12px', background: 'rgba(201,168,76,0.05)', borderRadius: 8, border: '1px solid rgba(201,168,76,0.1)' }}>
             Le graphe montre l'evolution du CV inter-commerciaux par periode
