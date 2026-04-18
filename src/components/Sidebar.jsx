@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 
 const NAV_STRUCTURE = [
   {
@@ -31,6 +32,8 @@ const NAV_STRUCTURE = [
 ]
 
 export default function Sidebar() {
+  const { profil } = useAuth()
+  const isSuperAdmin = profil?.role === 'super_admin'
   const [collapsed, setCollapsed] = useState(false)
   const [expandedSections, setExpandedSections] = useState({ 'Tableaux de bord': true, 'Gestion': true, 'Équipe': true })
   const [expandedItems, setExpandedItems] = useState({ '/centre-appel': false })
@@ -111,6 +114,31 @@ export default function Sidebar() {
               })}
             </div>
           ))}
+
+        {/* Section Admin - super_admin uniquement */}
+        {isSuperAdmin && (
+          <div>
+            {!collapsed && (
+              <div style={{ padding: '8px 20px 4px', color: 'rgba(255,255,255,0.3)', fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', fontWeight: 500 }}>
+                Admin
+              </div>
+            )}
+            <NavLink to="/gestion-users" style={({ isActive }) => ({
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: collapsed ? '10px 0' : '9px 20px',
+              justifyContent: collapsed ? 'center' : 'flex-start',
+              textDecoration: 'none', fontSize: 13,
+              fontWeight: isActive ? 500 : 400,
+              color: isActive ? '#C9A84C' : 'rgba(201,168,76,0.6)',
+              borderLeft: collapsed ? 'none' : isActive ? '3px solid #C9A84C' : '3px solid transparent',
+              background: isActive ? 'rgba(201,168,76,0.08)' : 'transparent',
+              transition: 'all 0.15s',
+            })} title={collapsed ? 'Gestion Utilisateurs' : ''}>
+              <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor', flexShrink: 0 }}></span>
+              {!collapsed && '🔐 Gestion Utilisateurs'}
+            </NavLink>
+          </div>
+        )}
         </nav>
 
         <div style={{ padding: collapsed ? '12px 0' : '12px 14px', borderTop: '1px solid rgba(201,168,76,0.15)', display: 'flex', justifyContent: collapsed ? 'center' : 'flex-end' }}>

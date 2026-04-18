@@ -10,6 +10,7 @@ import Responsables from './pages/Responsables'
 import Commerciaux from './pages/Commerciaux'
 import FluxRDV from './pages/FluxRDV'
 import AnalyseCV from './pages/AnalyseCV'
+import GestionUsers from './pages/GestionUsers'
 import Login from './pages/Login'
 import { supabase } from './lib/supabase'
 import BulleNotes from './components/BulleNotes'
@@ -90,6 +91,7 @@ function AppContent() {
               <Route path="/commerciaux" element={<Commerciaux />} />
               <Route path="/flux-rdv" element={<FluxRDV conseilleres={conseilleres} />} />
               <Route path="/analyse-cv" element={<AnalyseCV {...sharedProps} />} />
+              <Route path="/gestion-users" element={<GestionUsers />} />
             </Routes>
           )}
         </main>
