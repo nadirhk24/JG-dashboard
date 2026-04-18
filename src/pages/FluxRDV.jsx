@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import { useAuth } from '../context/AuthContext'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import PageHeader from '../components/PageHeader'
 import SectionTitle from '../components/SectionTitle'
@@ -167,6 +168,12 @@ function StarRank({ rank, total, maxDisplay=5 }) {
 }
 
 export default function FluxRDV({ conseilleres }) {
+  const { profil } = useAuth()
+  const isSuperAdmin = profil?.role === 'super_admin'
+  // Équipes autorisées selon permissions
+  const canSeeSale = isSuperAdmin || profil?.permissions?.flux_rdv_sale === true
+  const canSeeKenitra = isSuperAdmin || profil?.permissions?.flux_rdv_kenitra === true
+
   const [selected, setSelected] = React.useState({ type: 'global', label: 'Global' })
   const [commerciaux, setCommerciaux] = useState([])
   const [fluxData, setFluxData] = useState([])
@@ -472,7 +479,14 @@ export default function FluxRDV({ conseilleres }) {
   const inputStyle = { width: '55px', padding: '5px 6px', border: '1.5px solid rgba(201,168,76,0.25)', borderRadius: 6, fontSize: 12, textAlign: 'center', background: '#F8F7F4', outline: 'none' }
   const btnStyle = (active, color='#C9A84C') => ({ padding: '6px 14px', borderRadius: 16, border: `1.5px solid ${active?color:'rgba(201,168,76,0.2)'}`, background: active?color:'#fff', color: active?'#fff':'#5A5A5A', fontSize: 12, fontWeight: active?500:400, cursor: 'pointer', transition: 'all 0.15s' })
 
-  const equipes = viewMode === 'separated' ? (filterEquipe === 'all' ? ['sale','kenitra'] : [filterEquipe]) : []
+  // Équipes visibles selon permissions
+  const equipesAutorisees = useMemo(() => {
+    const all = []
+    if (canSeeSale) all.push('sale')
+    if (canSeeKenitra) all.push('kenitra')
+    return all
+  }, [canSeeSale, canSeeKenitra])
+  const equipes = viewMode === 'separated' ? (filterEquipe === 'all' ? equipesAutorisees : [filterEquipe].filter(e => equipesAutorisees.includes(e))) : []
 
   if (loading) return <div style={{ padding: 32, color: '#5A5A5A' }}>Chargement...</div>
 

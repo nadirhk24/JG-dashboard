@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react'
+import { useAuth } from '../context/AuthContext'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import PageHeader from '../components/PageHeader'
 import ConseillereFilter from '../components/ConseillereFilter'
@@ -103,21 +104,33 @@ function DrillNav({ data, onSelect, selected }) {
   )
 }
 
-const RANK_COLS = [
-  { key: 'leads_bruts', label: 'Leads Bruts' },
-  { key: 'leads_nets', label: 'Leads Nets' },
+const ALL_RANK_COLS = [
+  { key: 'leads_bruts', label: 'Leads Bruts', hideForConseillere: true },
+  { key: 'leads_nets', label: 'Leads Nets', hideForConseillere: true },
   { key: 'echanges', label: 'Échanges' },
   { key: 'productivite', label: 'Productivité', color: '#378ADD' },
   { key: 'joignabilite', label: 'Joignabilité', color: '#2E9455' },
   { key: 'conv_tel', label: 'Conv. Tél.', color: '#C9A84C' },
   { key: 'rdv', label: 'RDV', color: '#534AB7' },
   { key: 'presence', label: 'Présence', color: '#4CAF7D' },
-  { key: 'visites', label: 'Visites', color: '#4CAF7D' },
+  { key: 'visites', label: 'Visites', color: '#4CAF7D', selfOnly: true },
   { key: 'efficacite_comm', label: 'Eff. Comm.', color: '#534AB7' },
-  { key: 'ventes', label: 'Ventes', color: '#1a6b3c' },
+  { key: 'ventes', label: 'Ventes', color: '#1a6b3c', selfOnly: true },
 ]
 
 export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
+  const { profil } = useAuth()
+  const isSuperAdmin = profil?.role === 'super_admin'
+  const isConseillere = profil?.role === 'conseillere'
+  // Conseillères visibles selon permissions
+  const conseillerePerms = profil?.permissions?.centre_appel_conseilleres || {}
+  const conseilleresFiltrees = useMemo(() => {
+    if (isSuperAdmin || !isConseillere) return conseilleres
+    return conseilleres.filter(c => conseillerePerms[c.id] === true)
+  }, [conseilleres, isSuperAdmin, isConseillere, conseillerePerms])
+  // Mon propre ID conseillère (pour vue restreinte)
+  const myConseillereId = profil?.conseillere_id || null
+
   const [selected, setSelected] = useState({ type: 'global', label: 'Global' })
   const [filtreConseillere, setFiltreConseillere] = useState('all')
   const [drillConseillere, setDrillConseillere] = useState(null)
@@ -148,8 +161,11 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
     return data
   }, [saisies, selected, filtreConseillere])
 
-  const kpisGlobal = useMemo(() => agregerParPeriode(saisiesFiltrees), [saisiesFiltrees])
-  const kpisParConseillere = useMemo(() => conseilleres.map(c => ({ ...c, ...agregerParPeriode(saisiesFiltrees, c.id) })), [conseilleres, saisiesFiltrees])
+  const kpisGlobal = useMemo(() => {
+    if (isConseillere && myConseillereId) return agregerParPeriode(saisiesFiltrees, myConseillereId)
+    return agregerParPeriode(saisiesFiltrees)
+  }, [saisiesFiltrees, isConseillere, myConseillereId])
+  const kpisParConseillere = useMemo(() => conseilleresFiltrees.map(c => ({ ...c, ...agregerParPeriode(saisiesFiltrees, c.id) })), [conseilleresFiltrees, saisiesFiltrees])
   const cvConvTel = useMemo(() => calcCV(kpisParConseillere.map(c => c.conversion_tel)), [kpisParConseillere])
   const cvPresence = useMemo(() => calcCV(kpisParConseillere.map(c => c.taux_presence)), [kpisParConseillere])
   const cvEfficacite = useMemo(() => calcCV(kpisParConseillere.map(c => c.efficacite_comm)), [kpisParConseillere])
@@ -594,7 +610,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
           {showRankCols && (
             <div style={{ position: 'absolute', right: 0, top: '110%', background: '#fff', border: '1px solid rgba(201,168,76,0.2)', borderRadius: 10, padding: '12px', zIndex: 100, minWidth: 180, boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
               <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, fontWeight: 500 }}>Masquer / Afficher</div>
-              {RANK_COLS.map(c => (
+              {ALL_RANK_COLS.filter(c => !c.hideForConseillere).map(c => (
                 <label key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', cursor: 'pointer', fontSize: 12, color: hiddenRankCols[c.key]?'#8A8A7A':'#2C2C2C' }}>
                   <input type="checkbox" checked={!hiddenRankCols[c.key]} onChange={() => setHiddenRankCols(p=>({...p,[c.key]:!p[c.key]}))} style={{ accentColor: '#C9A84C' }}/>
                   {c.label}
@@ -613,7 +629,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
                 <th style={thStyle}>#</th>
                 <th style={thStyle}>Étoiles</th>
                 <th style={thStyle}>Conseillère</th>
-                {RANK_COLS.filter(c=>!hiddenRankCols[c.key]).map(c => <th key={c.key} style={{...thStyle,color:c.color||'#5A5A5A'}}>{c.label}</th>)}
+                {ALL_RANK_COLS.filter(c => !hiddenRankCols[c.key] && !c.hideForConseillere).map(c => <th key={c.key} style={{...thStyle,color:c.color||'#5A5A5A'}}>{c.label}</th>)}
                 <th style={thStyle}>Score</th>
                 <th style={thStyle}>Détail</th>
               </tr>
@@ -641,7 +657,9 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
                     <td style={{...tdStyle,fontSize:16,fontWeight:700,color:rankColor}}>{i+1}</td>
                     <td style={{...tdStyle,color:'#C9A84C',letterSpacing:2,fontSize:16}}>{stars}</td>
                     <td style={{...tdStyle,fontWeight:500,color:rankColor,fontSize:12}}>{c.nom}</td>
-                    {RANK_COLS.filter(col=>!hiddenRankCols[col.key]).map(col => {
+                    {ALL_RANK_COLS.filter(col => !hiddenRankCols[col.key] && !col.hideForConseillere).map(col => {
+                      // Pour selfOnly (visites/ventes) : masquer valeur si pas ma ligne
+                      const isMine = c.id === myConseillereId || !isConseillere
                       const cv = colValues[col.key]
                       if (!cv) return <td key={col.key} style={tdStyle}>—</td>
                       if (cv.isBar) return (
@@ -654,7 +672,8 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
                           </div>
                         </td>
                       )
-                      return <td key={col.key} style={cv.style}>{cv.val}</td>
+                      const displayVal = col.selfOnly && !isMine ? '—' : cv.val
+                      return <td key={col.key} style={cv.style}>{displayVal}</td>
                     })}
                     <td style={{...tdStyle,fontWeight:600,color:rankColor,fontSize:13}}>{score}%</td>
                     <td style={tdStyle}>
