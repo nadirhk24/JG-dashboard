@@ -15,13 +15,27 @@ import { supabase } from './lib/supabase'
 import BulleNotes from './components/BulleNotes'
 import { AuthProvider, useAuth } from './context/AuthContext'
 
+function Spinner() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#F8F7F4' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ width: 48, height: 48, border: '3px solid #E8D5A3', borderTopColor: '#C9A84C', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }}></div>
+        <p style={{ color: '#5A5A5A', fontSize: 13 }}>Chargement...</p>
+      </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  )
+}
+
 function AppContent() {
-  const { user, profil, loading: authLoading } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const [conseilleres, setConseilleres] = useState([])
   const [saisies, setSaisies] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => {
+    if (user) loadData()
+  }, [user])
 
   async function loadData() {
     setLoading(true)
@@ -36,6 +50,19 @@ function AppContent() {
     setLoading(false)
   }
 
+  // 1. Auth en cours de vérification
+  if (authLoading) return <Spinner />
+
+  // 2. Non connecté → Login
+  if (!user) {
+    return (
+      <BrowserRouter>
+        <Login />
+      </BrowserRouter>
+    )
+  }
+
+  // 3. Connecté → app normale
   const sharedProps = { conseilleres, saisies, reload: loadData }
 
   return (
