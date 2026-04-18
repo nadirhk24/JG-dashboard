@@ -1,0 +1,502 @@
+import React, { useState, useRef, useCallback } from 'react'
+import { supabase } from '../lib/supabase'
+import PageHeader from '../components/PageHeader'
+import * as XLSX from 'xlsx'
+
+// ─── Mapping noms Odoo → ID Supabase ───────────────────────────────────────
+const CONSEILLERE_MAP = {
+  'IBNTABET SIHAM':       '05846018-a68b-4415-a429-3afafdb2b6b8',
+  'SIHAM IBNTABET':       '05846018-a68b-4415-a429-3afafdb2b6b8',
+  'S.IBNTABET':           '05846018-a68b-4415-a429-3afafdb2b6b8',
+  'KAOUTAR HRARTI':       '129090e2-d446-4424-934a-2f39d73a5954',
+  'HRARTI KAOUTAR':       '129090e2-d446-4424-934a-2f39d73a5954',
+  'K.HRARTI':             '129090e2-d446-4424-934a-2f39d73a5954',
+  'GHIZLANE ELBAKARI':    '1b7086c6-922a-42b2-95e8-f10cac431ba6',
+  'ELBAKARI GHIZLANE':    '1b7086c6-922a-42b2-95e8-f10cac431ba6',
+  'G.ELBAKARI':           '1b7086c6-922a-42b2-95e8-f10cac431ba6',
+  'FATIMA ZAHRAA':        '6adfe150-0752-4f5e-90ea-28d25d769b49',
+  'FATIMA ZAHRAA AAKIBA': '6adfe150-0752-4f5e-90ea-28d25d769b49',
+  'F.AAKIBA':             '6adfe150-0752-4f5e-90ea-28d25d769b49',
+  'Hala ELAOUAD':         'cfb8af80-d40b-46dc-9519-78ba7567cda8',
+  'HALA ELAOUAD':         'cfb8af80-d40b-46dc-9519-78ba7567cda8',
+  'H.ELAOUAD':            'cfb8af80-d40b-46dc-9519-78ba7567cda8',
+  'Rajaa ELKHANCHAR':     'dc5100ac-b5ad-4705-b3e6-45fb04d1ff64',
+  'RAJAA ELKHANCHAR':     'dc5100ac-b5ad-4705-b3e6-45fb04d1ff64',
+  'ELKHANCHAR RAJAA':     'dc5100ac-b5ad-4705-b3e6-45fb04d1ff64',
+  'R.ELKHANCHAR':         'dc5100ac-b5ad-4705-b3e6-45fb04d1ff64',
+}
+
+// Noms conseillères à ignorer dans les participants du calendrier
+const CONSEILLERES_NOMS = [
+  'IBNTABET SIHAM','SIHAM IBNTABET','KAOUTAR HRARTI','GHIZLANE ELBAKARI',
+  'FATIMA ZAHRAA','FATIMA ZAHRAA AAKIBA','Hala ELAOUAD','HALA ELAOUAD',
+  'Rajaa ELKHANCHAR','RAJAA ELKHANCHAR','NADIR HADRAK','N.HADRAK',
+]
+
+// ─── Détection du type de fichier depuis son nom ───────────────────────────
+function detectFileType(filename) {
+  const n = filename.toLowerCase().replace(/[_\-]/g, ' ')
+  if (n.includes('injection') || n.includes('lead'))             return { type: 'injections',     label: 'Injections / Leads bruts', dest: 'CC + Marketing', color: '#C9A84C' }
+  if (n.includes('indispo'))                                      return { type: 'indispos',        label: 'Indisponibles',            dest: 'CC + Marketing', color: '#E07B30' }
+  if (n.includes('non expl') && n.includes('cc'))                return { type: 'non_expl_cc',     label: 'Non exploitables CC',      dest: 'CC',             color: '#E05C5C' }
+  if (n.includes('non expl') && n.includes('market'))            return { type: 'non_expl_mkt',    label: 'Non exploitables Marketing',dest: 'Marketing',     color: '#534AB7' }
+  if (n.includes('non expl'))                                    return { type: 'non_expl_cc',     label: 'Non exploitables CC',      dest: 'CC',             color: '#E05C5C' }
+  if (n.includes('echange') || n.includes('échange'))            return { type: 'echanges',        label: 'Échanges bruts',           dest: 'CC',             color: '#378ADD' }
+  if (n.includes('vente') && n.includes('cc'))                   return { type: 'ventes_cc',       label: 'Ventes CC',                dest: 'CC',             color: '#1a6b3c' }
+  if (n.includes('visite') && n.includes('cc'))                  return { type: 'visites_cc',      label: 'Visites CC',               dest: 'CC',             color: '#2E9455' }
+  if (n.includes('suivi'))                                       return { type: 'suivis_mkt',      label: 'Suivis Marketing',         dest: 'Marketing',      color: '#534AB7' }
+  if (n.includes('rdv') && n.includes('market'))                 return { type: 'rdv_mkt',         label: 'RDV Marketing',            dest: 'Marketing',      color: '#C9A84C' }
+  if (n.includes('vente') && n.includes('market'))               return { type: 'ventes_mkt',      label: 'Ventes Marketing',         dest: 'Marketing',      color: '#1a6b3c' }
+  if (n.includes('visite') && n.includes('market'))              return { type: 'visites_mkt',     label: 'Visites Marketing',        dest: 'Marketing',      color: '#2E9455' }
+  if (n.includes('rdv') || n.includes('calendrier'))             return { type: 'rdv_calendrier',  label: 'RDV Calendrier',           dest: 'Flux RDV',       color: '#534AB7' }
+  return null
+}
+
+// Détection mode cohort depuis le nom
+function detectMode(filename) {
+  const n = filename.toLowerCase()
+  const months = { 'janvier':1,'février':2,'fevrier':2,'mars':3,'avril':4,'mai':5,'juin':6,
+                   'juillet':7,'août':8,'aout':8,'septembre':9,'octobre':10,'novembre':11,'décembre':12,'decembre':12 }
+  for (const [m, num] of Object.entries(months)) {
+    if (n.includes(m)) {
+      const yearMatch = n.match(/20\d\d/)
+      const year = yearMatch ? parseInt(yearMatch[0]) : new Date().getFullYear()
+      return { mode: 'cohort', month: num, year, label: `${m.charAt(0).toUpperCase()+m.slice(1)} ${year}` }
+    }
+  }
+  return { mode: 'jour', label: 'Jour par jour' }
+}
+
+// ─── Parsers ───────────────────────────────────────────────────────────────
+function parseWithDatetime(rows) {
+  // Format: col0=datetime, col1=vendeur — injections / indispos / non_expl_mkt
+  const counts = {}
+  for (const row of rows) {
+    const dateVal = row[0], vendeur = row[1]
+    if (!vendeur || typeof vendeur !== 'string') continue
+    const nom = vendeur.trim().toUpperCase()
+    // Ignorer les lignes de sous-total (contiennent "(")
+    if (nom.includes('(')) continue
+    let dateStr = null
+    if (dateVal instanceof Date) {
+      dateStr = dateVal.toISOString().split('T')[0]
+    } else if (typeof dateVal === 'number') {
+      // Excel serial date
+      const d = XLSX.SSF.parse_date_code(dateVal)
+      if (d) dateStr = `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`
+    }
+    if (!dateStr) continue
+    const key = `${dateStr}|||${vendeur.trim()}`
+    counts[key] = (counts[key] || 0) + 1
+  }
+  return Object.entries(counts).map(([key, count]) => {
+    const [date, nom] = key.split('|||')
+    return { date, nom, count }
+  })
+}
+
+function parseWithTextDate(rows) {
+  // Format: col0=date texte ou nom vendeur — non_expl_cc / échanges / ventes CC / visites CC
+  const MONTHS = { 'janv':1,'févr':2,'fevr':2,'mars':3,'avr':4,'mai':5,'juin':6,
+                   'juil':7,'août':8,'aout':8,'sept':9,'oct':10,'nov':11,'déc':12,'dec':12 }
+  const results = []
+  let currentDate = null
+
+  for (const row of rows) {
+    const val = row[0]
+    if (val === null || val === undefined) continue
+    const str = String(val).trim()
+    if (!str) continue
+
+    // Ligne de date groupe: "04 avr. 2026 (16)"
+    const dateMatch = str.match(/^(\d+)\s+(\w+)\.?\s+(\d{4})/)
+    if (dateMatch && str.includes('(')) {
+      const day = parseInt(dateMatch[1])
+      const monthKey = dateMatch[2].toLowerCase().replace('.','')
+      const month = MONTHS[monthKey]
+      const year = parseInt(dateMatch[3])
+      if (month) currentDate = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`
+      continue
+    }
+    // Ligne sous-groupe conseillère: "    Hala ELAOUAD (9)"
+    if (str.startsWith('    ') && str.includes('(')) continue
+    // Ligne individuelle
+    if (currentDate && !str.includes('(')) {
+      results.push({ date: currentDate, nom: str, count: 1 })
+    }
+  }
+  // Agréger
+  const agg = {}
+  for (const r of results) {
+    const key = `${r.date}|||${r.nom}`
+    agg[key] = (agg[key] || 0) + r.count
+  }
+  return Object.entries(agg).map(([key, count]) => {
+    const [date, nom] = key.split('|||')
+    return { date, nom, count }
+  })
+}
+
+function parseCohort(rows, month, year) {
+  // Mode cohort: 1 seule valeur globale pour le mois
+  let total = 0
+  for (const row of rows) {
+    const val = row[0]
+    if (val === null || val === undefined) continue
+    const str = String(val).trim()
+    if (!str || str.includes('(') || !str || str === 'Vendeur' || str === 'Créé le') continue
+    // Ligne individuelle
+    if (row[1] !== null || (row[1] === null && str && !str.startsWith('    '))) {
+      total++
+    }
+  }
+  const dateStr = `${year}-${String(month).padStart(2,'0')}-01`
+  return [{ date: dateStr, nom: 'GLOBAL', count: total, isCohort: true }]
+}
+
+// ─── Résolution ID conseillère ─────────────────────────────────────────────
+function resolveConseillere(nom) {
+  const key = nom.trim().toUpperCase()
+  return CONSEILLERE_MAP[key] || CONSEILLERE_MAP[nom.trim()] || null
+}
+
+// ─── Injection Supabase ────────────────────────────────────────────────────
+async function injectData(parsed, fileType, modeInfo) {
+  const results = { inserted: 0, updated: 0, errors: [] }
+  const { type } = fileType
+  const { mode, month, year } = modeInfo
+
+  // Champ cible selon le type
+  const fieldMap = {
+    injections:    'leads_bruts',
+    indispos:      'indispos',
+    non_expl_cc:   'non_exploitables_cc',
+    echanges:      'echanges',
+    ventes_cc:     'ventes',
+    visites_cc:    'visites',
+    non_expl_mkt:  'non_exploitables',
+    suivis_mkt:    'suivis',
+    rdv_mkt:       'rdv',
+    ventes_mkt:    'ventes',
+    visites_mkt:   'visites',
+  }
+
+  const isCC = ['injections','indispos','non_expl_cc','echanges','ventes_cc','visites_cc'].includes(type)
+  const isMkt = ['non_expl_mkt','suivis_mkt','rdv_mkt','ventes_mkt','visites_mkt'].includes(type)
+  const isBoth = ['injections','indispos'].includes(type)
+  const field = fieldMap[type]
+
+  for (const row of parsed) {
+    try {
+      if (row.isCohort) {
+        // Mode cohort marketing : upsert global par mois
+        const dateDebut = `${year}-${String(month).padStart(2,'0')}-01`
+        const { data: existing } = await supabase.from('marketing_saisies')
+          .select('id').eq('date_debut', dateDebut).maybeSingle()
+        if (existing) {
+          await supabase.from('marketing_saisies').update({ [field]: row.count }).eq('id', existing.id)
+          results.updated++
+        } else {
+          await supabase.from('marketing_saisies').insert({ date: dateDebut, date_debut: dateDebut, date_fin: dateDebut, type_saisie: 'mois', [field]: row.count })
+          results.inserted++
+        }
+        continue
+      }
+
+      if (isCC || isBoth) {
+        const consId = resolveConseillere(row.nom)
+        if (!consId) { results.errors.push(`Nom non reconnu: ${row.nom}`); continue }
+
+        const { data: existing } = await supabase.from('saisies')
+          .select('id').eq('conseillere_id', consId).eq('date', row.date).maybeSingle()
+
+        if (existing) {
+          await supabase.from('saisies').update({ [field]: row.count }).eq('id', existing.id)
+          results.updated++
+        } else {
+          await supabase.from('saisies').insert({
+            conseillere_id: consId, date: row.date, date_debut: row.date, date_fin: row.date,
+            type_saisie: 'jour', [field]: row.count,
+          })
+          results.inserted++
+        }
+      }
+
+      if (isBoth) {
+        // Sync vers marketing_saisies pour injections et indispos
+        const mktField = type === 'injections' ? 'injections' : 'indispos'
+        // Calculer le total CC pour ce jour
+        const { data: saisiesJour } = await supabase.from('saisies')
+          .select('leads_bruts, indispos').eq('date', row.date)
+        const totalLeads = (saisiesJour || []).reduce((s,x) => s + (x.leads_bruts||0), 0)
+        const totalIndispos = (saisiesJour || []).reduce((s,x) => s + (x.indispos||0), 0)
+        const { data: mktLine } = await supabase.from('marketing_saisies')
+          .select('id').eq('date_debut', row.date).maybeSingle()
+        if (mktLine) {
+          await supabase.from('marketing_saisies').update({ injections: totalLeads, indispos: totalIndispos }).eq('id', mktLine.id)
+        } else {
+          await supabase.from('marketing_saisies').insert({
+            date: row.date, date_debut: row.date, date_fin: row.date, type_saisie: 'jour',
+            injections: totalLeads, indispos: totalIndispos, non_exploitables: 0, suivis: 0, rdv: 0, visites: 0, ventes: 0,
+          })
+        }
+      }
+
+      if (isMkt) {
+        const { data: existing } = await supabase.from('marketing_saisies')
+          .select('id').eq('date_debut', row.date).maybeSingle()
+        if (existing) {
+          await supabase.from('marketing_saisies').update({ [field]: row.count }).eq('id', existing.id)
+          results.updated++
+        } else {
+          await supabase.from('marketing_saisies').insert({
+            date: row.date, date_debut: row.date, date_fin: row.date, type_saisie: 'jour',
+            [field]: row.count, injections: 0, non_exploitables: 0, indispos: 0, suivis: 0, rdv: 0, visites: 0, ventes: 0,
+          })
+          results.inserted++
+        }
+      }
+    } catch(e) {
+      results.errors.push(`Erreur ${row.date} ${row.nom}: ${e.message}`)
+    }
+  }
+  return results
+}
+
+// ─── Composant FileSlot ────────────────────────────────────────────────────
+function FileSlot({ index, fileInfo, onFile, onRemove }) {
+  const inputRef = useRef()
+  const [drag, setDrag] = useState(false)
+
+  function handleDrop(e) {
+    e.preventDefault(); setDrag(false)
+    const file = e.dataTransfer.files[0]
+    if (file) onFile(index, file)
+  }
+
+  return (
+    <div
+      onDragOver={e => { e.preventDefault(); setDrag(true) }}
+      onDragLeave={() => setDrag(false)}
+      onDrop={handleDrop}
+      onClick={() => !fileInfo && inputRef.current.click()}
+      style={{
+        borderRadius: 12, border: `2px dashed ${drag ? '#C9A84C' : fileInfo ? 'rgba(201,168,76,0.4)' : 'rgba(201,168,76,0.2)'}`,
+        background: drag ? 'rgba(201,168,76,0.05)' : fileInfo ? 'rgba(201,168,76,0.04)' : '#FAFAF8',
+        padding: '18px 20px', cursor: fileInfo ? 'default' : 'pointer',
+        transition: 'all 0.15s', minHeight: 80, display: 'flex', alignItems: 'center', gap: 14,
+      }}
+    >
+      <input ref={inputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display:'none' }}
+        onChange={e => e.target.files[0] && onFile(index, e.target.files[0])} />
+
+      {!fileInfo ? (
+        <div style={{ flex: 1, textAlign: 'center' }}>
+          <div style={{ fontSize: 22, marginBottom: 4 }}>📂</div>
+          <div style={{ fontSize: 12, color: '#8A8A7A' }}>Glisser un fichier ou cliquer</div>
+          <div style={{ fontSize: 11, color: '#ABABAB', marginTop: 2 }}>.xlsx · .xls · .csv</div>
+        </div>
+      ) : (
+        <>
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: fileInfo.typeInfo?.color+'20' || 'rgba(201,168,76,0.1)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink: 0 }}>
+            <span style={{ fontSize: 18 }}>📄</span>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{fileInfo.file.name}</div>
+            {fileInfo.typeInfo ? (
+              <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: fileInfo.typeInfo.color+'20', color: fileInfo.typeInfo.color, fontWeight: 500 }}>{fileInfo.typeInfo.label}</span>
+                <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: 'rgba(83,74,183,0.1)', color: '#534AB7' }}>→ {fileInfo.typeInfo.dest}</span>
+                <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: 'rgba(138,138,122,0.1)', color: '#5A5A5A' }}>{fileInfo.modeInfo?.label}</span>
+              </div>
+            ) : (
+              <div style={{ fontSize: 11, color: '#E05C5C', marginTop: 4 }}>⚠ Type non reconnu — vérifier le nom du fichier</div>
+            )}
+          </div>
+          <button onClick={e => { e.stopPropagation(); onRemove(index) }}
+            style={{ width: 28, height: 28, borderRadius: '50%', border: '1.5px solid rgba(224,92,92,0.3)', background: 'transparent', color: '#E05C5C', fontSize: 14, cursor: 'pointer', flexShrink: 0, display:'flex', alignItems:'center', justifyContent:'center' }}>
+            ✕
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─── Page principale ───────────────────────────────────────────────────────
+const NB_SLOTS = 6
+
+export default function ImportAgent() {
+  const [slots, setSlots] = useState(Array(NB_SLOTS).fill(null))
+  const [previews, setPreviews] = useState({})
+  const [status, setStatus] = useState({}) // { slotIdx: { state: 'idle'|'parsing'|'preview'|'injecting'|'done'|'error', result, parsed } }
+  const [globalMsg, setGlobalMsg] = useState(null)
+  const [running, setRunning] = useState(false)
+
+  function handleFile(index, file) {
+    const typeInfo = detectFileType(file.name)
+    const modeInfo = detectMode(file.name)
+    const newSlots = [...slots]
+    newSlots[index] = { file, typeInfo, modeInfo }
+    setSlots(newSlots)
+    setStatus(p => ({ ...p, [index]: { state: 'idle' } }))
+  }
+
+  function removeFile(index) {
+    const newSlots = [...slots]
+    newSlots[index] = null
+    setSlots(newSlots)
+    const newStatus = { ...status }
+    delete newStatus[index]
+    setStatus(newStatus)
+    const newPreviews = { ...previews }
+    delete newPreviews[index]
+    setPreviews(newPreviews)
+  }
+
+  async function parseFile(index, fileInfo) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = e => {
+        try {
+          const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true })
+          const ws = wb.Sheets[wb.SheetNames[0]]
+          const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, dateNF: 'yyyy-mm-dd' })
+
+          // Reparser avec cellDates pour avoir les vraies dates
+          const wb2 = XLSX.read(e.target.result, { type: 'array', cellDates: true })
+          const ws2 = wb2.Sheets[wb2.SheetNames[0]]
+          const rows2 = XLSX.utils.sheet_to_json(ws2, { header: 1, raw: true })
+
+          const { type } = fileInfo.typeInfo
+          const { mode, month, year } = fileInfo.modeInfo
+          let parsed = []
+
+          if (mode === 'cohort') {
+            parsed = parseCohort(rows2.slice(1), month, year)
+          } else if (['injections','indispos','non_expl_mkt'].includes(type)) {
+            parsed = parseWithDatetime(rows2.slice(1))
+          } else {
+            parsed = parseWithTextDate(rows2.slice(1))
+          }
+          resolve(parsed)
+        } catch(err) { reject(err) }
+      }
+      reader.onerror = reject
+      reader.readAsArrayBuffer(fileInfo.file)
+    })
+  }
+
+  async function lancerImport() {
+    const filesToProcess = slots.map((s, i) => ({ slot: s, index: i })).filter(x => x.slot && x.slot.typeInfo)
+    if (filesToProcess.length === 0) { setGlobalMsg({ type: 'error', text: 'Aucun fichier valide à importer' }); return }
+
+    setRunning(true)
+    setGlobalMsg(null)
+    let totalInserted = 0, totalUpdated = 0, totalErrors = 0
+
+    for (const { slot, index } of filesToProcess) {
+      setStatus(p => ({ ...p, [index]: { state: 'parsing' } }))
+      try {
+        const parsed = await parseFile(index, slot)
+        setStatus(p => ({ ...p, [index]: { state: 'injecting', count: parsed.length } }))
+        const result = await injectData(parsed, slot.typeInfo, slot.modeInfo)
+        totalInserted += result.inserted
+        totalUpdated += result.updated
+        totalErrors += result.errors.length
+        setStatus(p => ({ ...p, [index]: { state: result.errors.length > 0 ? 'error' : 'done', result } }))
+      } catch(err) {
+        setStatus(p => ({ ...p, [index]: { state: 'error', result: { errors: [err.message] } } }))
+        totalErrors++
+      }
+    }
+
+    setRunning(false)
+    setGlobalMsg({
+      type: totalErrors > 0 ? 'warning' : 'success',
+      text: `Import terminé — ${totalInserted} insertions, ${totalUpdated} mises à jour${totalErrors > 0 ? `, ${totalErrors} erreurs` : ''}`
+    })
+  }
+
+  const hasValidFiles = slots.some(s => s && s.typeInfo)
+  const allDone = hasValidFiles && slots.every((s, i) => !s || !s.typeInfo || (status[i] && (status[i].state === 'done' || status[i].state === 'error')))
+
+  const stateIcon = (state) => ({ idle: '○', parsing: '⟳', injecting: '⟳', done: '✓', error: '✗' }[state] || '○')
+  const stateColor = (state) => ({ idle: '#8A8A7A', parsing: '#C9A84C', injecting: '#534AB7', done: '#4CAF7D', error: '#E05C5C' }[state] || '#8A8A7A')
+
+  return (
+    <div>
+      <PageHeader
+        title={<span style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <span style={{ fontSize: 28 }}>🤖</span> Agent d'import
+        </span>}
+        subtitle="Dépose les exports Odoo — l'agent détecte, parse et injecte dans Supabase"
+      />
+
+      {/* Message global */}
+      {globalMsg && (
+        <div style={{ padding: '12px 16px', borderRadius: 10, marginBottom: 20, fontSize: 13, fontWeight: 500,
+          background: globalMsg.type === 'success' ? 'rgba(76,175,125,0.1)' : globalMsg.type === 'warning' ? 'rgba(224,123,48,0.1)' : 'rgba(224,92,92,0.1)',
+          color: globalMsg.type === 'success' ? '#2d7a54' : globalMsg.type === 'warning' ? '#a05a1a' : '#a03030',
+          border: `1px solid ${globalMsg.type === 'success' ? 'rgba(76,175,125,0.3)' : globalMsg.type === 'warning' ? 'rgba(224,123,48,0.3)' : 'rgba(224,92,92,0.3)'}`,
+        }}>
+          {globalMsg.text}
+        </div>
+      )}
+
+      {/* Instructions */}
+      <div style={{ background: 'rgba(201,168,76,0.06)', borderRadius: 12, padding: '14px 18px', marginBottom: 24, border: '1px solid rgba(201,168,76,0.15)', fontSize: 12, color: '#5A5A5A', lineHeight: 1.8 }}>
+        <strong style={{ color: '#2C2C2C', display: 'block', marginBottom: 6 }}>Comment nommer tes fichiers :</strong>
+        <span style={{ marginRight: 16 }}>📥 <strong>injections avril</strong> → Leads bruts CC + Marketing</span>
+        <span style={{ marginRight: 16 }}>📥 <strong>indispos avril</strong> → Indispos CC + Marketing</span>
+        <span style={{ marginRight: 16 }}>📥 <strong>non expl cc avril</strong> → Non exploitables CC</span>
+        <span style={{ marginRight: 16 }}>📥 <strong>echanges avril</strong> → Échanges bruts</span>
+        <span style={{ marginRight: 16 }}>📥 <strong>ventes cc avril</strong> → Ventes CC</span>
+        <span style={{ marginRight: 16 }}>📥 <strong>mise a jour RDV marketing janvier</strong> → cohort mois</span>
+      </div>
+
+      {/* Grille de slots */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 24 }}>
+        {slots.map((slot, i) => (
+          <div key={i}>
+            <FileSlot index={i} fileInfo={slot} onFile={handleFile} onRemove={removeFile} />
+            {/* Statut d'injection */}
+            {status[i] && status[i].state !== 'idle' && (
+              <div style={{ marginTop: 6, padding: '6px 12px', borderRadius: 8, background: '#F8F7F4', border: '1px solid rgba(201,168,76,0.1)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ color: stateColor(status[i].state), fontWeight: 600 }}>{stateIcon(status[i].state)}</span>
+                <span style={{ color: stateColor(status[i].state) }}>
+                  {status[i].state === 'parsing'   && 'Lecture du fichier...'}
+                  {status[i].state === 'injecting' && `Injection (${status[i].count} lignes)...`}
+                  {status[i].state === 'done'      && `✓ ${status[i].result.inserted} insérés · ${status[i].result.updated} mis à jour`}
+                  {status[i].state === 'error'     && `Erreur: ${status[i].result?.errors?.[0] || 'inconnue'}`}
+                </span>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Bouton lancer */}
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <button
+          onClick={lancerImport}
+          disabled={!hasValidFiles || running}
+          style={{
+            padding: '14px 48px', borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: (!hasValidFiles || running) ? 'not-allowed' : 'pointer',
+            background: running ? '#E8D5A3' : allDone ? 'rgba(76,175,125,0.15)' : '#C9A84C',
+            color: running ? '#8a6a1a' : allDone ? '#2d7a54' : '#fff',
+            border: allDone ? '1.5px solid rgba(76,175,125,0.4)' : 'none',
+            boxShadow: running || !hasValidFiles ? 'none' : '0 4px 20px rgba(201,168,76,0.3)',
+            transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 10,
+          }}
+        >
+          {running ? (
+            <><span style={{ width: 16, height: 16, border: '2px solid #E8D5A3', borderTopColor: '#C9A84C', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display:'inline-block' }} />Importation en cours...</>
+          ) : allDone ? '✓ Import terminé' : `🚀 Lancer l'import (${slots.filter(s => s && s.typeInfo).length} fichier${slots.filter(s => s && s.typeInfo).length > 1 ? 's' : ''})`}
+        </button>
+      </div>
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  )
+}

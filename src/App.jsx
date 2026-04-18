@@ -11,6 +11,7 @@ import Commerciaux from './pages/Commerciaux'
 import FluxRDV from './pages/FluxRDV'
 import AnalyseCV from './pages/AnalyseCV'
 import GestionUsers from './pages/GestionUsers'
+import ImportAgent from './pages/ImportAgent'
 import Login from './pages/Login'
 import { supabase } from './lib/supabase'
 import BulleNotes from './components/BulleNotes'
@@ -103,6 +104,7 @@ function AppContent() {
               <Route path="/flux-rdv" element={<ProtectedRoute permKey="flux_rdv"><FluxRDV conseilleres={conseilleres} /></ProtectedRoute>} />
               <Route path="/analyse-cv" element={<ProtectedRoute permKey="analyse_cv"><AnalyseCV {...sharedProps} /></ProtectedRoute>} />
               <Route path="/gestion-users" element={<ProtectedRoute permKey="gestion_users"><GestionUsers /></ProtectedRoute>} />
+              <Route path="/import" element={<ImportAgent />} />
             </Routes>
           )}
         </main>
