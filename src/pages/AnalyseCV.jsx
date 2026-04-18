@@ -363,7 +363,7 @@ export default function AnalyseCV({ conseilleres, saisies }) {
               </>
             ) : (
               <div style={{ padding: '5px 14px', borderRadius: 20, background: canSeeFluxSale ? 'rgba(201,168,76,0.15)' : 'rgba(83,74,183,0.15)', color: canSeeFluxSale ? '#C9A84C' : '#534AB7', fontSize: 12, fontWeight: 600, border: `1.5px solid ${canSeeFluxSale ? 'rgba(201,168,76,0.4)' : 'rgba(83,74,183,0.4)'}` }}>
-                {canSeeFluxSale ? '🔒 Équipe Sale' : '🔒 Équipe Kenitra'}
+                {canSeeFluxSale ? 'Équipe Sale' : 'Équipe Kenitra'}
               </div>
             )}
           </div>
@@ -401,7 +401,7 @@ export default function AnalyseCV({ conseilleres, saisies }) {
         <div style={{ width: 1, height: 40, background: 'rgba(201,168,76,0.2)' }}></div>
         <div>
           <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Maitrise</div>
-          <div style={{ fontSize: 13, color: maitrise.color, fontWeight: 500 }}>{maitrise.dot} {maitrise.label}</div>
+          <div style={{ fontSize: 13, color: maitrise.color, fontWeight: 500 }}><span style={{width:8,height:8,borderRadius:'50%',background:maitrise.color,display:'inline-block',marginRight:6,flexShrink:0,verticalAlign:'middle'}}></span>{maitrise.label}</div>
         </div>
       </div>
       {segment === 'flux' && (
@@ -474,7 +474,7 @@ export default function AnalyseCV({ conseilleres, saisies }) {
               <div style={{ fontSize: 10, color: '#5A5A5A', marginBottom: 8 }}>
                 Moy: <strong>{stats.moy}{selectedKpi && selectedKpi.isAbsolute ? '' : '%'}</strong> UCL: <strong style={{ color: '#E05C5C' }}>{stats.ucl}</strong> LCL: <strong style={{ color: '#4CAF7D' }}>{stats.lcl}</strong>
               </div>
-              <div style={{ fontSize: 11, color: maitrise.color, marginBottom: 8, fontWeight: 500 }}>{maitrise.dot} {maitrise.label}</div>
+              <div style={{ fontSize: 11, color: maitrise.color, marginBottom: 8, fontWeight: 500 }}><span style={{width:8,height:8,borderRadius:'50%',background:maitrise.color,display:'inline-block',marginRight:6,flexShrink:0,verticalAlign:'middle'}}></span>{maitrise.label}</div>
               <ResponsiveContainer width="100%" height={expandedChart === 'bell' ? 300 : 180}>
                 <AreaChart data={bellCurveData} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
                   <defs>
@@ -502,7 +502,7 @@ export default function AnalyseCV({ conseilleres, saisies }) {
                   <span style={{ marginLeft: 'auto', fontSize: 11, color: '#C9A84C' }}>{expandedChart === 'cv' ? 'v' : '>'}</span>
                 </div>
                 <div style={{ fontSize: 10, color: '#5A5A5A', marginBottom: 8 }}>CV Global: <strong style={{ color: cvGlobal < 15 ? '#1a6b3c' : cvGlobal < 30 ? '#C9A84C' : '#E07B30' }}>{cvGlobal}%</strong></div>
-                <div style={{ fontSize: 11, color: maitrise.color, marginBottom: 8, fontWeight: 500 }}>{maitrise.dot} {maitrise.label}</div>
+                <div style={{ fontSize: 11, color: maitrise.color, marginBottom: 8, fontWeight: 500 }}><span style={{width:8,height:8,borderRadius:'50%',background:maitrise.color,display:'inline-block',marginRight:6,flexShrink:0,verticalAlign:'middle'}}></span>{maitrise.label}</div>
                 <ResponsiveContainer width="100%" height={expandedChart === 'cv' ? 300 : 180}>
                   <LineChart data={chartData.map((d,i) => ({ ...d, cvCumul: cvData[i] ? cvData[i].cv : 0 }))} margin={{ top: 10, right: 40, bottom: 0, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.08)"/>
