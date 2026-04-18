@@ -24,10 +24,10 @@ export default function Login() {
   return (
     <div style={{ minHeight: '100vh', background: '#F8F7F4', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <div style={{ width: '100%', maxWidth: 400 }}>
-        {/* Logo / Titre */}
+        {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
-          <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 36, fontWeight: 700, color: '#2C2C2C', letterSpacing: 1 }}>JG Dashboard</div>
-          <div style={{ fontSize: 13, color: '#8A8A7A', marginTop: 6 }}>Eljirari Groupe — Accès sécurisé</div>
+          <img src="/Logo.png" alt="JG Logo" style={{ width: 140, height: 'auto', marginBottom: 12 }} />
+          <div style={{ fontSize: 13, color: '#8A8A7A' }}>Eljirari Groupe — Accès sécurisé</div>
         </div>
 
         {/* Card login */}
