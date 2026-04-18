@@ -3,28 +3,21 @@ import { supabase } from '../lib/supabase'
 import PageHeader from '../components/PageHeader'
 import * as XLSX from 'xlsx'
 
-// ─── Mapping noms Odoo → ID Supabase ───────────────────────────────────────
-const CONSEILLERE_MAP = {
+// ─── Mapping dynamique — chargé depuis Supabase (odoo_mapping) ────────────
+// Fallback statique au cas où la table n'est pas encore créée
+const FALLBACK_MAP = {
   'IBNTABET SIHAM':       '05846018-a68b-4415-a429-3afafdb2b6b8',
   'SIHAM IBNTABET':       '05846018-a68b-4415-a429-3afafdb2b6b8',
-  'S.IBNTABET':           '05846018-a68b-4415-a429-3afafdb2b6b8',
   'KAOUTAR HRARTI':       '129090e2-d446-4424-934a-2f39d73a5954',
-  'HRARTI KAOUTAR':       '129090e2-d446-4424-934a-2f39d73a5954',
-  'K.HRARTI':             '129090e2-d446-4424-934a-2f39d73a5954',
   'GHIZLANE ELBAKARI':    '1b7086c6-922a-42b2-95e8-f10cac431ba6',
-  'ELBAKARI GHIZLANE':    '1b7086c6-922a-42b2-95e8-f10cac431ba6',
-  'G.ELBAKARI':           '1b7086c6-922a-42b2-95e8-f10cac431ba6',
   'FATIMA ZAHRAA':        '6adfe150-0752-4f5e-90ea-28d25d769b49',
   'FATIMA ZAHRAA AAKIBA': '6adfe150-0752-4f5e-90ea-28d25d769b49',
-  'F.AAKIBA':             '6adfe150-0752-4f5e-90ea-28d25d769b49',
   'Hala ELAOUAD':         'cfb8af80-d40b-46dc-9519-78ba7567cda8',
   'HALA ELAOUAD':         'cfb8af80-d40b-46dc-9519-78ba7567cda8',
-  'H.ELAOUAD':            'cfb8af80-d40b-46dc-9519-78ba7567cda8',
   'Rajaa ELKHANCHAR':     'dc5100ac-b5ad-4705-b3e6-45fb04d1ff64',
   'RAJAA ELKHANCHAR':     'dc5100ac-b5ad-4705-b3e6-45fb04d1ff64',
-  'ELKHANCHAR RAJAA':     'dc5100ac-b5ad-4705-b3e6-45fb04d1ff64',
-  'R.ELKHANCHAR':         'dc5100ac-b5ad-4705-b3e6-45fb04d1ff64',
 }
+let CONSEILLERE_MAP = { ...FALLBACK_MAP }
 
 const NON_RECONNU_IDS = {
   sale:    '1b9201a1-9333-4725-8e38-e9297777745b',
@@ -436,11 +429,35 @@ function FileSlot({ index, fileInfo, onFile, onRemove }) {
 const NB_SLOTS = 6
 
 export default function ImportAgent() {
+  const [mappingLoaded, setMappingLoaded] = useState(false)
+  const [conseilleresList, setConseilleresList] = useState([])
+  const [unmappedNoms, setUnmappedNoms] = useState([]) // noms Odoo non reconnus
+  const [pendingMapping, setPendingMapping] = useState({}) // { nomOdoo: conseillereId }
+  const [showMappingModal, setShowMappingModal] = useState(false)
   const [slots, setSlots] = useState(Array(NB_SLOTS).fill(null))
   const [previews, setPreviews] = useState({})
   const [status, setStatus] = useState({}) // { slotIdx: { state: 'idle'|'parsing'|'preview'|'injecting'|'done'|'error', result, parsed } }
   const [globalMsg, setGlobalMsg] = useState(null)
   const [running, setRunning] = useState(false)
+
+  // Charger le mapping Odoo depuis Supabase au démarrage
+  React.useEffect(() => {
+    async function loadMapping() {
+      try {
+        const { data } = await supabase.from('odoo_mapping').select('nom_odoo, conseillere_id')
+        if (data && data.length > 0) {
+          const map = {}
+          data.forEach(r => { map[r.nom_odoo] = r.conseillere_id })
+          CONSEILLERE_MAP = { ...FALLBACK_MAP, ...map }
+        }
+      } catch(e) { console.warn('odoo_mapping non disponible, fallback utilisé') }
+      // Charger liste conseillères pour le sélecteur
+      const { data: cons } = await supabase.from('conseilleres').select('id, nom').order('nom')
+      setConseilleresList(cons || [])
+      setMappingLoaded(true)
+    }
+    loadMapping()
+  }, [])
   const [nonReconnus, setNonReconnus] = useState([]) // lignes sans commercial
   const [nonRecEquipes, setNonRecEquipes] = useState({}) // { 'date|||cons': 'sale'|'kenitra' }
   const [showNonRec, setShowNonRec] = useState(false)
@@ -523,6 +540,21 @@ export default function ImportAgent() {
           setShowNonRec(true)
         }
       }
+      // Détecter noms non reconnus dans le mapping
+      const rows = Array.isArray(parsedNormal) ? parsedNormal : []
+      const unknown = []
+      for (const row of rows) {
+        const nom = row.nomConseillere || row.nom
+        if (nom && nom !== 'GLOBAL' && !resolveConseillere(nom)) {
+          if (!unknown.includes(nom)) unknown.push(nom)
+        }
+      }
+      if (unknown.length > 0) {
+        setUnmappedNoms(prev => [...new Set([...prev, ...unknown])])
+        setShowMappingModal(true)
+        setStatus(p => ({ ...p, [index]: { state: 'error', result: { errors: [`${unknown.length} nom(s) non reconnu(s) — définis le mapping d'abord`] } } }))
+        continue
+      }
       const result = await injectData(parsedNormal, slot.typeInfo, slot.modeInfo)
         totalInserted += result.inserted
         totalUpdated += result.updated
@@ -542,6 +574,22 @@ export default function ImportAgent() {
   }
 
   const hasValidFiles = slots.some(s => s && s.typeInfo)
+  async function sauvegarderMapping() {
+    const entries = Object.entries(pendingMapping).filter(([,v]) => v)
+    if (entries.length === 0) return
+    // Sauvegarder dans Supabase
+    await supabase.from('odoo_mapping').upsert(
+      entries.map(([nom_odoo, conseillere_id]) => ({ nom_odoo, conseillere_id })),
+      { onConflict: 'nom_odoo' }
+    )
+    // Mettre à jour le mapping local
+    entries.forEach(([nom, id]) => { CONSEILLERE_MAP[nom] = id })
+    setUnmappedNoms([])
+    setPendingMapping({})
+    setShowMappingModal(false)
+    setGlobalMsg({ type: 'success', text: `${entries.length} mapping(s) sauvegardé(s) — relance l'import` })
+  }
+
   async function injecterNonReconnus() {
     for (const row of nonReconnus) {
       const key = `${row.date}|||${row.nomConseillere}`
@@ -647,6 +695,38 @@ export default function ImportAgent() {
           ) : allDone ? '✓ Import terminé' : `🚀 Lancer l'import (${slots.filter(s => s && s.typeInfo).length} fichier${slots.filter(s => s && s.typeInfo).length > 1 ? 's' : ''})`}
         </button>
       </div>
+
+      {/* Modal Mapping noms non reconnus */}
+      {showMappingModal && unmappedNoms.length > 0 && (
+        <div style={{ marginTop: 28, background: '#fff', borderRadius: 14, border: '1.5px solid rgba(83,74,183,0.3)', overflow: 'hidden' }}>
+          <div style={{ padding: '14px 20px', background: 'rgba(83,74,183,0.06)', borderBottom: '1px solid rgba(83,74,183,0.15)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#534AB7' }}>🔗 Noms Odoo non reconnus ({unmappedNoms.length})</div>
+              <div style={{ fontSize: 11, color: '#8A8A7A', marginTop: 2 }}>Associe chaque nom à une conseillère — sauvegardé pour les prochains imports</div>
+            </div>
+            <button onClick={sauvegarderMapping}
+              style={{ padding: '8px 18px', borderRadius: 8, background: '#534AB7', color: '#fff', border: 'none', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+              Sauvegarder et relancer
+            </button>
+          </div>
+          <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {unmappedNoms.map(nom => (
+              <div key={nom} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ flex: 1, padding: '8px 14px', borderRadius: 8, background: '#F8F7F4', border: '1px solid rgba(83,74,183,0.2)', fontSize: 13, fontWeight: 500, color: '#534AB7' }}>{nom}</div>
+                <span style={{ color: '#8A8A7A', fontSize: 16 }}>→</span>
+                <select
+                  value={pendingMapping[nom] || ''}
+                  onChange={e => setPendingMapping(p => ({ ...p, [nom]: e.target.value }))}
+                  style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1.5px solid rgba(201,168,76,0.3)', fontSize: 13, background: '#F8F7F4', outline: 'none', color: '#2C2C2C' }}
+                >
+                  <option value=''>Sélectionner une conseillère...</option>
+                  {conseilleresList.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
+                </select>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Panneau Non Reconnus */}
       {showNonRec && nonReconnus.length > 0 && (
