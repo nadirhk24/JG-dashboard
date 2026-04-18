@@ -189,7 +189,11 @@ export default function AnalyseCV({ conseilleres, saisies }) {
   const [marketingData, setMarketingData] = useState([])
   const [fluxData, setFluxData] = useState([])
   const [fluxCommerciaux, setFluxCommerciaux] = useState([])
-  const [fluxEquipe, setFluxEquipe] = useState('all')
+  // Équipe par défaut selon permissions — verrouillée si 1 seule équipe
+  const defaultFluxEquipe = (!canSeeFluxSale && canSeeFluxKenitra) ? 'kenitra'
+    : (canSeeFluxSale && !canSeeFluxKenitra) ? 'sale'
+    : 'all'
+  const [fluxEquipe, setFluxEquipe] = useState(defaultFluxEquipe)
   const [expandedChart, setExpandedChart] = useState(null)
   useEffect(() => { loadMarketing(); loadFlux() }, [])
   async function loadMarketing() {
@@ -351,9 +355,17 @@ export default function AnalyseCV({ conseilleres, saisies }) {
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, fontWeight: 500 }}>Equipe</div>
           <div style={{ display: 'flex', gap: 8 }}>
-            {(canSeeFluxSale && canSeeFluxKenitra) && <button onClick={() => setFluxEquipe('all')} style={btnStyle(fluxEquipe==='all')}>Toutes</button>}
-            {canSeeFluxSale && <button onClick={() => setFluxEquipe('sale')} style={btnStyle(fluxEquipe==='sale')}>Sale</button>}
-            {canSeeFluxKenitra && <button onClick={() => setFluxEquipe('kenitra')} style={btnStyle(fluxEquipe==='kenitra')}>Kenitra</button>}
+            {(canSeeFluxSale && canSeeFluxKenitra) ? (
+              <>
+                <button onClick={() => setFluxEquipe('all')} style={btnStyle(fluxEquipe==='all')}>Toutes</button>
+                <button onClick={() => setFluxEquipe('sale')} style={btnStyle(fluxEquipe==='sale')}>Sale</button>
+                <button onClick={() => setFluxEquipe('kenitra')} style={btnStyle(fluxEquipe==='kenitra', '#534AB7')}>Kenitra</button>
+              </>
+            ) : (
+              <div style={{ padding: '5px 14px', borderRadius: 20, background: canSeeFluxSale ? 'rgba(201,168,76,0.15)' : 'rgba(83,74,183,0.15)', color: canSeeFluxSale ? '#C9A84C' : '#534AB7', fontSize: 12, fontWeight: 600, border: `1.5px solid ${canSeeFluxSale ? 'rgba(201,168,76,0.4)' : 'rgba(83,74,183,0.4)'}` }}>
+                {canSeeFluxSale ? '🔒 Équipe Sale' : '🔒 Équipe Kenitra'}
+              </div>
+            )}
           </div>
           <div style={{ marginTop: 10, fontSize: 11, color: '#5A5A5A', padding: '8px 12px', background: 'rgba(201,168,76,0.05)', borderRadius: 8, border: '1px solid rgba(201,168,76,0.1)' }}>
             Le graphe montre l'evolution du CV inter-commerciaux par periode
