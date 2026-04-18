@@ -1,32 +1,46 @@
 import React, { useState } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink, useLocation, Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+
+// Mapping chemin → clé permission
+const ROUTE_PERMISSION = {
+  '/centre-appel': 'centre_appel',
+  '/flux-rdv':     'flux_rdv',
+  '/marketing':    'marketing',
+  '/analyse-cv':   'analyse_cv',
+  '/objectifs':    'objectifs',
+  '/conseilleres': 'conseilleres',
+  '/commerciaux':  'commerciaux',
+  '/calendrier':   'calendrier',
+  '/responsables': 'conseilleres', // même droit que conseilleres
+  '/gestion-users':'gestion_users',
+}
 
 const NAV_STRUCTURE = [
   {
     section: 'Tableaux de bord',
     items: [
       {
-        path: '/centre-appel', label: 'Call Center',
-        children: [{ path: '/flux-rdv', label: 'Flux RDV' }]
+        path: '/centre-appel', label: 'Call Center', permKey: 'centre_appel',
+        children: [{ path: '/flux-rdv', label: 'Flux RDV', permKey: 'flux_rdv' }]
       },
-      { path: '/marketing', label: 'Performance Marketing' },
-      { path: '/analyse-cv', label: 'Analyse Capabilité' },
+      { path: '/marketing',  label: 'Performance Marketing', permKey: 'marketing' },
+      { path: '/analyse-cv', label: 'Analyse Capabilité',    permKey: 'analyse_cv' },
     ]
   },
   {
     section: 'Gestion',
     items: [
-      { path: '/objectifs', label: 'Objectifs' },
+      { path: '/objectifs', label: 'Objectifs', permKey: 'objectifs' },
     ]
   },
   {
     section: 'Équipe',
     items: [
-      { path: '/responsables', label: 'Responsables' },
-      { path: '/conseilleres', label: 'Conseillères' },
-      { path: '/commerciaux', label: 'Commerciaux' },
-      { path: '/calendrier', label: 'Calendrier' },
+      { path: '/responsables', label: 'Responsables',  permKey: 'conseilleres' },
+      { path: '/conseilleres', label: 'Conseillères',  permKey: 'conseilleres' },
+      { path: '/commerciaux',  label: 'Commerciaux',   permKey: 'commerciaux' },
+      { path: '/calendrier',   label: 'Calendrier',    permKey: 'calendrier' },
     ]
   },
 ]
@@ -34,10 +48,18 @@ const NAV_STRUCTURE = [
 export default function Sidebar() {
   const { profil } = useAuth()
   const isSuperAdmin = profil?.role === 'super_admin'
+  const permissions = profil?.permissions || {}
   const [collapsed, setCollapsed] = useState(false)
   const [expandedSections, setExpandedSections] = useState({ 'Tableaux de bord': true, 'Gestion': true, 'Équipe': true })
   const [expandedItems, setExpandedItems] = useState({ '/centre-appel': false })
   const location = useLocation()
+
+  // Vérifie si un volet est accessible
+  function canAccess(permKey) {
+    if (!permKey) return true
+    if (isSuperAdmin) return true
+    return permissions[permKey] === true
+  }
 
   function toggleSection(section) {
     setExpandedSections(p => ({ ...p, [section]: !p[section] }))
@@ -79,66 +101,72 @@ export default function Sidebar() {
         </div>
 
         <nav style={{ flex: 1, paddingTop: 12 }}>
-          {NAV_STRUCTURE.map(({ section, items }) => (
-            <div key={section}>
-              {!collapsed && (
-                <button onClick={() => toggleSection(section)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 20px 4px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.3)', fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', fontWeight: 500 }}>
-                  {section}
-                  <span style={{ fontSize: 10, opacity: 0.6 }}>{expandedSections[section] ? '▼' : '▶'}</span>
-                </button>
-              )}
-              {(collapsed || expandedSections[section]) && items.map(item => {
-                const isActive = location.pathname === item.path || (item.children && item.children.some(c => location.pathname === c.path))
-                const isExpanded = expandedItems[item.path]
-                return (
-                  <div key={item.path}>
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                      <NavLink to={item.path} style={({ isActive }) => ({ ...linkStyle(isActive), flex: 1 })} title={collapsed ? item.label : ''}>
-                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor', flexShrink: 0 }}></span>
-                        {!collapsed && item.label}
-                      </NavLink>
-                      {!collapsed && item.children && (
-                        <button onClick={() => toggleItem(item.path)} style={{ padding: '0 12px 0 4px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>
-                          {isExpanded ? '▼' : '▶'}
-                        </button>
-                      )}
+          {NAV_STRUCTURE.map(({ section, items }) => {
+            // Filtrer les items visibles
+            const visibleItems = items.filter(item => canAccess(item.permKey))
+            if (visibleItems.length === 0) return null
+            return (
+              <div key={section}>
+                {!collapsed && (
+                  <button onClick={() => toggleSection(section)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 20px 4px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.3)', fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', fontWeight: 500 }}>
+                    {section}
+                    <span style={{ fontSize: 10, opacity: 0.6 }}>{expandedSections[section] ? '▼' : '▶'}</span>
+                  </button>
+                )}
+                {(collapsed || expandedSections[section]) && visibleItems.map(item => {
+                  const isActive = location.pathname === item.path || (item.children && item.children.some(c => location.pathname === c.path))
+                  const isExpanded = expandedItems[item.path]
+                  const visibleChildren = (item.children || []).filter(c => canAccess(c.permKey))
+                  return (
+                    <div key={item.path}>
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <NavLink to={item.path} style={({ isActive }) => ({ ...linkStyle(isActive), flex: 1 })} title={collapsed ? item.label : ''}>
+                          <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor', flexShrink: 0 }}></span>
+                          {!collapsed && item.label}
+                        </NavLink>
+                        {!collapsed && visibleChildren.length > 0 && (
+                          <button onClick={() => toggleItem(item.path)} style={{ padding: '0 12px 0 4px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>
+                            {isExpanded ? '▼' : '▶'}
+                          </button>
+                        )}
+                      </div>
+                      {!collapsed && visibleChildren.length > 0 && isExpanded && visibleChildren.map(child => (
+                        <NavLink key={child.path} to={child.path} style={({ isActive }) => linkStyle(isActive, 1)}>
+                          <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'currentColor', flexShrink: 0 }}></span>
+                          {child.label}
+                        </NavLink>
+                      ))}
                     </div>
-                    {!collapsed && item.children && isExpanded && item.children.map(child => (
-                      <NavLink key={child.path} to={child.path} style={({ isActive }) => linkStyle(isActive, 1)}>
-                        <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'currentColor', flexShrink: 0 }}></span>
-                        {child.label}
-                      </NavLink>
-                    ))}
-                  </div>
-                )
-              })}
-            </div>
-          ))}
-
-        {/* Section Admin - super_admin uniquement */}
-        {isSuperAdmin && (
-          <div>
-            {!collapsed && (
-              <div style={{ padding: '8px 20px 4px', color: 'rgba(255,255,255,0.3)', fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', fontWeight: 500 }}>
-                Admin
+                  )
+                })}
               </div>
-            )}
-            <NavLink to="/gestion-users" style={({ isActive }) => ({
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: collapsed ? '10px 0' : '9px 20px',
-              justifyContent: collapsed ? 'center' : 'flex-start',
-              textDecoration: 'none', fontSize: 13,
-              fontWeight: isActive ? 500 : 400,
-              color: isActive ? '#C9A84C' : 'rgba(201,168,76,0.6)',
-              borderLeft: collapsed ? 'none' : isActive ? '3px solid #C9A84C' : '3px solid transparent',
-              background: isActive ? 'rgba(201,168,76,0.08)' : 'transparent',
-              transition: 'all 0.15s',
-            })} title={collapsed ? 'Gestion Utilisateurs' : ''}>
-              <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor', flexShrink: 0 }}></span>
-              {!collapsed && '🔐 Gestion Utilisateurs'}
-            </NavLink>
-          </div>
-        )}
+            )
+          })}
+
+          {/* Section Admin - super_admin uniquement */}
+          {isSuperAdmin && (
+            <div>
+              {!collapsed && (
+                <div style={{ padding: '8px 20px 4px', color: 'rgba(255,255,255,0.3)', fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', fontWeight: 500 }}>
+                  Admin
+                </div>
+              )}
+              <NavLink to="/gestion-users" style={({ isActive }) => ({
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: collapsed ? '10px 0' : '9px 20px',
+                justifyContent: collapsed ? 'center' : 'flex-start',
+                textDecoration: 'none', fontSize: 13,
+                fontWeight: isActive ? 500 : 400,
+                color: isActive ? '#C9A84C' : 'rgba(201,168,76,0.6)',
+                borderLeft: collapsed ? 'none' : isActive ? '3px solid #C9A84C' : '3px solid transparent',
+                background: isActive ? 'rgba(201,168,76,0.08)' : 'transparent',
+                transition: 'all 0.15s',
+              })} title={collapsed ? 'Gestion Utilisateurs' : ''}>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor', flexShrink: 0 }}></span>
+                {!collapsed && '🔐 Gestion Utilisateurs'}
+              </NavLink>
+            </div>
+          )}
         </nav>
 
         <div style={{ padding: collapsed ? '12px 0' : '12px 14px', borderTop: '1px solid rgba(201,168,76,0.15)', display: 'flex', justifyContent: collapsed ? 'center' : 'flex-end' }}>

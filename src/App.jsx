@@ -16,6 +16,17 @@ import { supabase } from './lib/supabase'
 import BulleNotes from './components/BulleNotes'
 import { AuthProvider, useAuth } from './context/AuthContext'
 
+
+// Composant qui bloque l'accès si permission manquante
+function ProtectedRoute({ permKey, children }) {
+  const { profil } = useAuth()
+  const isSuperAdmin = profil?.role === 'super_admin'
+  if (isSuperAdmin) return children
+  if (!permKey) return children
+  if (profil?.permissions?.[permKey] === true) return children
+  return <Navigate to="/centre-appel" replace />
+}
+
 function Spinner() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#F8F7F4' }}>
@@ -82,16 +93,16 @@ function AppContent() {
           ) : (
             <Routes>
               <Route path="/" element={<Navigate to="/centre-appel" />} />
-              <Route path="/centre-appel" element={<DashboardCentreAppel {...sharedProps} />} />
-              <Route path="/marketing" element={<DashboardMarketing />} />
-              <Route path="/objectifs" element={<Objectifs conseilleres={conseilleres} />} />
-              <Route path="/conseilleres" element={<Conseilleres {...sharedProps} />} />
-              <Route path="/calendrier" element={<Calendrier />} />
-              <Route path="/responsables" element={<Responsables />} />
-              <Route path="/commerciaux" element={<Commerciaux />} />
-              <Route path="/flux-rdv" element={<FluxRDV conseilleres={conseilleres} />} />
-              <Route path="/analyse-cv" element={<AnalyseCV {...sharedProps} />} />
-              <Route path="/gestion-users" element={<GestionUsers />} />
+              <Route path="/centre-appel" element={<ProtectedRoute permKey="centre_appel"><DashboardCentreAppel {...sharedProps} /></ProtectedRoute>} />
+              <Route path="/marketing" element={<ProtectedRoute permKey="marketing"><DashboardMarketing /></ProtectedRoute>} />
+              <Route path="/objectifs" element={<ProtectedRoute permKey="objectifs"><Objectifs conseilleres={conseilleres} /></ProtectedRoute>} />
+              <Route path="/conseilleres" element={<ProtectedRoute permKey="conseilleres"><Conseilleres {...sharedProps} /></ProtectedRoute>} />
+              <Route path="/calendrier" element={<ProtectedRoute permKey="calendrier"><Calendrier /></ProtectedRoute>} />
+              <Route path="/responsables" element={<ProtectedRoute permKey="conseilleres"><Responsables /></ProtectedRoute>} />
+              <Route path="/commerciaux" element={<ProtectedRoute permKey="commerciaux"><Commerciaux /></ProtectedRoute>} />
+              <Route path="/flux-rdv" element={<ProtectedRoute permKey="flux_rdv"><FluxRDV conseilleres={conseilleres} /></ProtectedRoute>} />
+              <Route path="/analyse-cv" element={<ProtectedRoute permKey="analyse_cv"><AnalyseCV {...sharedProps} /></ProtectedRoute>} />
+              <Route path="/gestion-users" element={<ProtectedRoute permKey="gestion_users"><GestionUsers /></ProtectedRoute>} />
             </Routes>
           )}
         </main>
