@@ -26,6 +26,11 @@ const CONSEILLERE_MAP = {
   'R.ELKHANCHAR':         'dc5100ac-b5ad-4705-b3e6-45fb04d1ff64',
 }
 
+const NON_RECONNU_IDS = {
+  sale:    '1b9201a1-9333-4725-8e38-e9297777745b',
+  kenitra: 'e87e531e-820e-4f39-8fd7-5fa00cf0671e',
+}
+
 // Noms conseillères à ignorer dans les participants du calendrier
 const CONSEILLERES_NOMS = [
   'IBNTABET SIHAM','SIHAM IBNTABET','KAOUTAR HRARTI','GHIZLANE ELBAKARI',
@@ -42,8 +47,8 @@ function detectFileType(filename) {
   if (n.includes('non expl') && n.includes('market'))            return { type: 'non_expl_mkt',    label: 'Non exploitables Marketing',dest: 'Marketing',     color: '#534AB7' }
   if (n.includes('non expl'))                                    return { type: 'non_expl_cc',     label: 'Non exploitables CC',      dest: 'CC',             color: '#E05C5C' }
   if (n.includes('echange') || n.includes('échange'))            return { type: 'echanges',        label: 'Échanges bruts',           dest: 'CC',             color: '#378ADD' }
-  if (n.includes('vente') && n.includes('cc'))                   return { type: 'ventes_cc',       label: 'Ventes CC',                dest: 'CC',             color: '#1a6b3c' }
-  if (n.includes('visite') && n.includes('cc'))                  return { type: 'visites_cc',      label: 'Visites CC',               dest: 'CC',             color: '#2E9455' }
+  if (n.includes('vente') && n.includes('cc'))                   return { type: 'ventes_cc',       label: 'Ventes CC',                dest: 'CC + Flux RDV',  color: '#1a6b3c', hasCommercial: true }
+  if (n.includes('visite') && n.includes('cc'))                  return { type: 'visites_cc',      label: 'Visites CC',               dest: 'CC + Flux RDV',  color: '#2E9455', hasCommercial: true }
   if (n.includes('suivi'))                                       return { type: 'suivis_mkt',      label: 'Suivis Marketing',         dest: 'Marketing',      color: '#534AB7' }
   if (n.includes('rdv') && n.includes('market'))                 return { type: 'rdv_mkt',         label: 'RDV Marketing',            dest: 'Marketing',      color: '#C9A84C' }
   if (n.includes('vente') && n.includes('market'))               return { type: 'ventes_mkt',      label: 'Ventes Marketing',         dest: 'Marketing',      color: '#1a6b3c' }
@@ -96,21 +101,23 @@ function parseWithDatetime(rows) {
 }
 
 function parseWithTextDate(rows) {
-  // Format: col0=date texte ou nom vendeur — non_expl_cc / échanges / ventes CC / visites CC
+  // Format: col0=date texte ou commercial, col1=conseillère (optionnel)
+  // Gère 1 colonne (non_expl_cc, échanges) et 2 colonnes (ventes CC, visites CC)
   const MONTHS = { 'janv':1,'févr':2,'fevr':2,'mars':3,'avr':4,'mai':5,'juin':6,
                    'juil':7,'août':8,'aout':8,'sept':9,'oct':10,'nov':11,'déc':12,'dec':12 }
   const results = []
   let currentDate = null
 
   for (const row of rows) {
-    const val = row[0]
-    if (val === null || val === undefined) continue
-    const str = String(val).trim()
-    if (!str) continue
+    const val0 = row[0]
+    const val1 = row[1] // conseillère si 2 colonnes, null sinon
+    if (val0 === null || val0 === undefined) continue
+    const str0 = String(val0).trim()
+    if (!str0) continue
 
     // Ligne de date groupe: "04 avr. 2026 (16)"
-    const dateMatch = str.match(/^(\d+)\s+(\w+)\.?\s+(\d{4})/)
-    if (dateMatch && str.includes('(')) {
+    const dateMatch = str0.match(/^(\d+)\s+(\w+)\.?\s+(\d{4})/)
+    if (dateMatch && str0.includes('(')) {
       const day = parseInt(dateMatch[1])
       const monthKey = dateMatch[2].toLowerCase().replace('.','')
       const month = MONTHS[monthKey]
@@ -119,10 +126,14 @@ function parseWithTextDate(rows) {
       continue
     }
     // Ligne sous-groupe conseillère: "    Hala ELAOUAD (9)"
-    if (str.startsWith('    ') && str.includes('(')) continue
+    if (str0.startsWith('    ') && str0.includes('(')) continue
+
     // Ligne individuelle
-    if (currentDate && !str.includes('(')) {
-      results.push({ date: currentDate, nom: str, count: 1 })
+    if (currentDate && !str0.includes('(')) {
+      // Si col1 existe → c'est le nom de la conseillère (format 2 colonnes : ventes/visites CC)
+      // Si col1 null → col0 est le nom de la conseillère (format 1 colonne)
+      const nomConseillere = (val1 && String(val1).trim()) ? String(val1).trim() : str0
+      results.push({ date: currentDate, nom: nomConseillere, count: 1 })
     }
   }
   // Agréger
@@ -135,6 +146,74 @@ function parseWithTextDate(rows) {
     const [date, nom] = key.split('|||')
     return { date, nom, count }
   })
+}
+
+function parseVisitesVentesCC(rows) {
+  // Format: col0=commercial concerné, col1=conseillère
+  // Retourne: { normal: [{date, nomConseillere, nomCommercial, count}], nonReconnus: [{date, nomConseillere, count}] }
+  const MONTHS = { 'janv':1,'févr':2,'fevr':2,'mars':3,'avr':4,'mai':5,'juin':6,
+                   'juil':7,'août':8,'aout':8,'sept':9,'oct':10,'nov':11,'déc':12,'dec':12 }
+  const normal = []
+  const nonReconnus = []
+  let currentDate = null
+
+  for (const row of rows) {
+    const val0 = row[0]
+    const val1 = row[1]
+    if (val0 === null && val1 === null) continue
+    const str0 = val0 !== null && val0 !== undefined ? String(val0).trim() : ''
+    const str1 = val1 !== null && val1 !== undefined ? String(val1).trim() : ''
+
+    // Ligne date groupe: "18 avr. 2026 (6)"
+    const dateMatch = str0.match(/^(\d+)\s+(\w+)\.?\s+(\d{4})/)
+    if (dateMatch && str0.includes('(')) {
+      const day = parseInt(dateMatch[1])
+      const monthKey = dateMatch[2].toLowerCase().replace('.','')
+      const month = MONTHS[monthKey]
+      const year = parseInt(dateMatch[3])
+      if (month) currentDate = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`
+      continue
+    }
+    // Ligne sous-groupe conseillère: "    Hala ELAOUAD (9)"
+    if (str0.startsWith('    ') && str0.includes('(')) continue
+    if (!currentDate) continue
+
+    // Ligne individuelle
+    if (str1) {
+      const nomConseillere = str1
+      if (!str0) {
+        // Commercial null → non reconnu
+        nonReconnus.push({ date: currentDate, nomConseillere, count: 1 })
+      } else {
+        // Commercial identifié
+        normal.push({ date: currentDate, nomConseillere, nomCommercial: str0, count: 1 })
+      }
+    }
+  }
+
+  // Agréger normal
+  const aggNormal = {}
+  for (const r of normal) {
+    const key = `${r.date}|||${r.nomConseillere}|||${r.nomCommercial}`
+    aggNormal[key] = (aggNormal[key] || 0) + r.count
+  }
+  const normalAgg = Object.entries(aggNormal).map(([key, count]) => {
+    const [date, nomConseillere, nomCommercial] = key.split('|||')
+    return { date, nomConseillere, nomCommercial, count }
+  })
+
+  // Agréger non reconnus
+  const aggNR = {}
+  for (const r of nonReconnus) {
+    const key = `${r.date}|||${r.nomConseillere}`
+    aggNR[key] = (aggNR[key] || 0) + r.count
+  }
+  const nonRecAgg = Object.entries(aggNR).map(([key, count]) => {
+    const [date, nomConseillere] = key.split('|||')
+    return { date, nomConseillere, count }
+  })
+
+  return { normal: normalAgg, nonReconnus: nonRecAgg }
 }
 
 function parseCohort(rows, month, year) {
@@ -242,6 +321,36 @@ async function injectData(parsed, fileType, modeInfo) {
         }
       }
 
+      // Visites/Ventes CC avec commerciaux → flux_rdv
+      if (['visites_cc','ventes_cc'].includes(type) && !row.isCohort) {
+        // Les lignes normales ont nomCommercial — chercher l'ID du commercial
+        if (row.nomCommercial) {
+          const consId = resolveConseillere(row.nomConseillere || row.nom)
+          if (!consId) { results.errors.push(`Conseillère non reconnue: ${row.nomConseillere}`); continue }
+          // Chercher commercial par nom dans Supabase
+          const { data: comm } = await supabase.from('commerciaux')
+            .select('id').ilike('nom', `%${row.nomCommercial}%`).maybeSingle()
+          if (!comm) { results.errors.push(`Commercial non reconnu: ${row.nomCommercial}`); continue }
+          const fluxField = type === 'visites_cc' ? 'visites' : 'ventes'
+          const { data: existing } = await supabase.from('flux_rdv')
+            .select('id').eq('conseillere_id', consId).eq('commercial_id', comm.id)
+            .eq('date_debut', row.date).maybeSingle()
+          if (existing) {
+            const { data: cur } = await supabase.from('flux_rdv').select(fluxField).eq('id', existing.id).maybeSingle()
+            await supabase.from('flux_rdv').update({ [fluxField]: (cur?.[fluxField] || 0) + row.count }).eq('id', existing.id)
+            results.updated++
+          } else {
+            await supabase.from('flux_rdv').insert({
+              conseillere_id: consId, commercial_id: comm.id,
+              date_debut: row.date, date_fin: row.date, type_saisie: 'jour',
+              rdv: 0, visites: type === 'visites_cc' ? row.count : 0, ventes: type === 'ventes_cc' ? row.count : 0,
+            })
+            results.inserted++
+          }
+        }
+        continue
+      }
+
       if (isMkt) {
         const { data: existing } = await supabase.from('marketing_saisies')
           .select('id').eq('date_debut', row.date).maybeSingle()
@@ -332,6 +441,9 @@ export default function ImportAgent() {
   const [status, setStatus] = useState({}) // { slotIdx: { state: 'idle'|'parsing'|'preview'|'injecting'|'done'|'error', result, parsed } }
   const [globalMsg, setGlobalMsg] = useState(null)
   const [running, setRunning] = useState(false)
+  const [nonReconnus, setNonReconnus] = useState([]) // lignes sans commercial
+  const [nonRecEquipes, setNonRecEquipes] = useState({}) // { 'date|||cons': 'sale'|'kenitra' }
+  const [showNonRec, setShowNonRec] = useState(false)
 
   function handleFile(index, file) {
     const typeInfo = detectFileType(file.name)
@@ -376,6 +488,8 @@ export default function ImportAgent() {
             parsed = parseCohort(rows2.slice(1), month, year)
           } else if (['injections','indispos','non_expl_mkt'].includes(type)) {
             parsed = parseWithDatetime(rows2.slice(1))
+          } else if (['visites_cc','ventes_cc'].includes(type)) {
+            parsed = parseVisitesVentesCC(rows2.slice(1))
           } else {
             parsed = parseWithTextDate(rows2.slice(1))
           }
@@ -400,7 +514,16 @@ export default function ImportAgent() {
       try {
         const parsed = await parseFile(index, slot)
         setStatus(p => ({ ...p, [index]: { state: 'injecting', count: parsed.length } }))
-        const result = await injectData(parsed, slot.typeInfo, slot.modeInfo)
+        // Séparer non reconnus si visites/ventes CC
+      let parsedNormal = parsed
+      if (slot.typeInfo.hasCommercial && parsed.nonReconnus) {
+        parsedNormal = parsed.normal || []
+        if (parsed.nonReconnus.length > 0) {
+          setNonReconnus(prev => [...prev, ...parsed.nonReconnus.map(r => ({ ...r, fileType: slot.typeInfo.type }))])
+          setShowNonRec(true)
+        }
+      }
+      const result = await injectData(parsedNormal, slot.typeInfo, slot.modeInfo)
         totalInserted += result.inserted
         totalUpdated += result.updated
         totalErrors += result.errors.length
@@ -419,6 +542,35 @@ export default function ImportAgent() {
   }
 
   const hasValidFiles = slots.some(s => s && s.typeInfo)
+  async function injecterNonReconnus() {
+    for (const row of nonReconnus) {
+      const key = `${row.date}|||${row.nomConseillere}`
+      const equipe = nonRecEquipes[key]
+      if (!equipe) continue
+      const consId = resolveConseillere(row.nomConseillere)
+      if (!consId) continue
+      const commId = NON_RECONNU_IDS[equipe]
+      const fluxField = row.fileType === 'visites_cc' ? 'visites' : 'ventes'
+      const { data: existing } = await supabase.from('flux_rdv')
+        .select('id').eq('conseillere_id', consId).eq('commercial_id', commId)
+        .eq('date_debut', row.date).maybeSingle()
+      if (existing) {
+        const { data: cur } = await supabase.from('flux_rdv').select(fluxField).eq('id', existing.id).maybeSingle()
+        await supabase.from('flux_rdv').update({ [fluxField]: (cur?.[fluxField] || 0) + row.count }).eq('id', existing.id)
+      } else {
+        await supabase.from('flux_rdv').insert({
+          conseillere_id: consId, commercial_id: commId,
+          date_debut: row.date, date_fin: row.date, type_saisie: 'jour',
+          rdv: 0, visites: fluxField === 'visites' ? row.count : 0, ventes: fluxField === 'ventes' ? row.count : 0,
+        })
+      }
+    }
+    setNonReconnus([])
+    setNonRecEquipes({})
+    setShowNonRec(false)
+    setGlobalMsg({ type: 'success', text: 'Non reconnus injectés !' })
+  }
+
   const allDone = hasValidFiles && slots.every((s, i) => !s || !s.typeInfo || (status[i] && (status[i].state === 'done' || status[i].state === 'error')))
 
   const stateIcon = (state) => ({ idle: '○', parsing: '⟳', injecting: '⟳', done: '✓', error: '✗' }[state] || '○')
@@ -495,6 +647,55 @@ export default function ImportAgent() {
           ) : allDone ? '✓ Import terminé' : `🚀 Lancer l'import (${slots.filter(s => s && s.typeInfo).length} fichier${slots.filter(s => s && s.typeInfo).length > 1 ? 's' : ''})`}
         </button>
       </div>
+
+      {/* Panneau Non Reconnus */}
+      {showNonRec && nonReconnus.length > 0 && (
+        <div style={{ marginTop: 28, background: '#fff', borderRadius: 14, border: '1.5px solid rgba(224,123,48,0.3)', overflow: 'hidden' }}>
+          <div style={{ padding: '14px 20px', background: 'rgba(224,123,48,0.06)', borderBottom: '1px solid rgba(224,123,48,0.15)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#a05a1a' }}>⚠ Visites / Ventes sans commercial ({nonReconnus.length} lignes)</div>
+              <div style={{ fontSize: 11, color: '#8A8A7A', marginTop: 2 }}>Assigne chaque ligne à Sale ou Kenitra avant injection</div>
+            </div>
+            <button onClick={() => injecterNonReconnus()}
+              style={{ padding: '8px 18px', borderRadius: 8, background: '#C9A84C', color: '#fff', border: 'none', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+              Injecter les assignées
+            </button>
+          </div>
+          <div style={{ padding: '12px 20px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>{['Date','Conseillère','Nb','Type','Équipe'].map(h => (
+                  <th key={h} style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '6px 8px', borderBottom: '1px solid rgba(201,168,76,0.15)', textTransform: 'uppercase', fontWeight: 500 }}>{h}</th>
+                ))}</tr>
+              </thead>
+              <tbody>
+                {nonReconnus.map((row, i) => {
+                  const key = `${row.date}|||${row.nomConseillere}`
+                  const equipe = nonRecEquipes[key]
+                  return (
+                    <tr key={i} style={{ borderBottom: '1px solid rgba(201,168,76,0.06)' }}>
+                      <td style={{ padding: '8px', fontSize: 12, color: '#C9A84C', fontWeight: 500 }}>{row.date}</td>
+                      <td style={{ padding: '8px', fontSize: 12 }}>{row.nomConseillere}</td>
+                      <td style={{ padding: '8px', fontSize: 12, fontWeight: 600 }}>{row.count}</td>
+                      <td style={{ padding: '8px', fontSize: 11, color: row.fileType === 'visites_cc' ? '#2E9455' : '#1a6b3c' }}>{row.fileType === 'visites_cc' ? 'Visite' : 'Vente'}</td>
+                      <td style={{ padding: '8px' }}>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          {['sale','kenitra'].map(eq => (
+                            <button key={eq} onClick={() => setNonRecEquipes(p => ({ ...p, [key]: eq }))}
+                              style={{ padding: '4px 12px', borderRadius: 8, fontSize: 11, fontWeight: equipe === eq ? 600 : 400, cursor: 'pointer', border: `1.5px solid ${eq === 'sale' ? 'rgba(201,168,76,0.4)' : 'rgba(83,74,183,0.4)'}`, background: equipe === eq ? (eq === 'sale' ? '#C9A84C' : '#534AB7') : '#fff', color: equipe === eq ? '#fff' : eq === 'sale' ? '#C9A84C' : '#534AB7' }}>
+                              {eq === 'sale' ? 'Sale' : 'Kenitra'}
+                            </button>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
