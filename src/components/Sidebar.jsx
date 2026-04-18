@@ -20,12 +20,10 @@ const NAV_STRUCTURE = [
   {
     section: 'Tableaux de bord',
     items: [
-      {
-        path: '/centre-appel', label: 'Call Center', permKey: 'centre_appel',
-        children: [{ path: '/flux-rdv', label: 'Flux RDV', permKey: 'flux_rdv' }]
-      },
-      { path: '/marketing',  label: 'Performance Marketing', permKey: 'marketing' },
-      { path: '/analyse-cv', label: 'Analyse Capabilité',    permKey: 'analyse_cv' },
+      { path: '/centre-appel', label: 'Call Center',            permKey: 'centre_appel' },
+      { path: '/flux-rdv',     label: 'Flux RDV',               permKey: 'flux_rdv' },
+      { path: '/marketing',    label: 'Performance Marketing',   permKey: 'marketing' },
+      { path: '/analyse-cv',   label: 'Analyse Capabilité',      permKey: 'analyse_cv' },
     ]
   },
   {
