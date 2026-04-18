@@ -243,6 +243,7 @@ function parseCohort(rows, month, year) {
 
 // ─── Résolution ID conseillère ─────────────────────────────────────────────
 function resolveConseillere(nom) {
+  if (!nom || typeof nom !== 'string') return null
   const key = nom.trim().toUpperCase()
   return CONSEILLERE_MAP[key] || CONSEILLERE_MAP[nom.trim()] || null
 }
