@@ -1001,7 +1001,8 @@ export default function FluxRDV({ conseilleres }) {
       </div>}
 
       {/* Comparaison equipes - masquée si 1 seule équipe */}
-      {canSeeSale && canSeeKenitra && <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, marginTop: 8 }}>
+      {canSeeSale && canSeeKenitra && <>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, marginTop: 8 }}>
         <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C' }}>Comparaison inter-équipes</div>
         <div style={{ display: 'flex', gap: 6 }}>
           {[['bars','Barres'],['graph','Graphe'],['pct','%'],['num','123']].map(([m,l]) => (
@@ -1097,7 +1098,8 @@ export default function FluxRDV({ conseilleres }) {
             </tbody>
           </table>
         )}
-      </div>}
+      </div>
+      </>}
 
       {/* Historique saisies */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showHistorique ? 12 : 0, marginTop: 8 }}>
