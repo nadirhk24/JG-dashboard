@@ -325,29 +325,32 @@ async function injectData(parsed, fileType, modeInfo, dryRun = false) {
 
       // Visites/Ventes CC avec commerciaux → flux_rdv
       if (['visites_cc','ventes_cc'].includes(type) && !row.isCohort) {
-        // Les lignes normales ont nomCommercial — chercher l'ID du commercial
         if (row.nomCommercial) {
           const consId = resolveConseillere(row.nomConseillere || row.nom)
           if (!consId) { results.errors.push(`Conseillère non reconnue: ${row.nomConseillere}`); continue }
-          // Chercher commercial par nom dans Supabase
-          const { data: comm } = await supabase.from('commerciaux')
-            .select('id').ilike('nom', `%${row.nomCommercial}%`).maybeSingle()
-          if (!comm) { results.errors.push(`Commercial non reconnu: ${row.nomCommercial}`); continue }
           const fluxField = type === 'visites_cc' ? 'visites' : 'ventes'
-          const { data: existing } = await supabase.from('flux_rdv')
-            .select('id').eq('conseillere_id', consId).eq('commercial_id', comm.id)
-            .eq('date_debut', row.date).maybeSingle()
-          if (existing) {
-            const { data: cur } = await supabase.from('flux_rdv').select(fluxField).eq('id', existing.id).maybeSingle()
-            await supabase.from('flux_rdv').update({ [fluxField]: (cur?.[fluxField] || 0) + row.count }).eq('id', existing.id)
-            results.updated++
-          } else {
-            await supabase.from('flux_rdv').insert({
-              conseillere_id: consId, commercial_id: comm.id,
-              date_debut: row.date, date_fin: row.date, type_saisie: 'jour',
-              rdv: 0, visites: type === 'visites_cc' ? row.count : 0, ventes: type === 'ventes_cc' ? row.count : 0,
-            })
+          if (dryRun) {
+            results.preview.push({ date: row.date, conseillere: `${row.nomConseillere} / ${row.nomCommercial}`, field: fluxField, value: row.count, table: 'flux_rdv', action: 'upsert' })
             results.inserted++
+          } else {
+            const { data: comm } = await supabase.from('commerciaux')
+              .select('id').ilike('nom', `%${row.nomCommercial}%`).maybeSingle()
+            if (!comm) { results.errors.push(`Commercial non reconnu: ${row.nomCommercial}`); continue }
+            const { data: existing } = await supabase.from('flux_rdv')
+              .select('id').eq('conseillere_id', consId).eq('commercial_id', comm.id)
+              .eq('date_debut', row.date).maybeSingle()
+            if (existing) {
+              const { data: cur } = await supabase.from('flux_rdv').select(fluxField).eq('id', existing.id).maybeSingle()
+              await supabase.from('flux_rdv').update({ [fluxField]: (cur?.[fluxField] || 0) + row.count }).eq('id', existing.id)
+              results.updated++
+            } else {
+              await supabase.from('flux_rdv').insert({
+                conseillere_id: consId, commercial_id: comm.id,
+                date_debut: row.date, date_fin: row.date, type_saisie: 'jour',
+                rdv: 0, visites: type === 'visites_cc' ? row.count : 0, ventes: type === 'ventes_cc' ? row.count : 0,
+              })
+              results.inserted++
+            }
           }
         }
         continue
