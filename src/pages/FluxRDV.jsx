@@ -946,38 +946,50 @@ export default function FluxRDV({ conseilleres }) {
       })()}
 
       {/* Listes ranking séparées */}
-      {viewMode === 'separated' && <div style={{ display: 'grid', gridTemplateColumns: filterEquipe==='all'?'1fr 1fr':'1fr', gap: 16, marginBottom: 24 }}>
+      {viewMode === 'separated' && <div style={{ display: 'grid', gridTemplateColumns: (canSeeSale && canSeeKenitra) ? (filterEquipe==='all'?'1fr 1fr':'1fr') : '1fr', gap: 16, marginBottom: 24 }}>
         {equipes.map(eq => {
           const ranking = getRanking(eq)
           const stats = statsParEquipe[eq] || {}
           const maxVal = Math.max(...ranking.map(c=>c.val), 1)
+          const singleEquipe = !(canSeeSale && canSeeKenitra)
           return (
             <div key={eq} style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(201,168,76,0.15)', overflow: 'hidden' }}>
-              <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(201,168,76,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: `4px solid ${EQUIPES[eq].color}` }}>
+              {/* Header */}
+              <div style={{ padding: singleEquipe ? '16px 24px' : '14px 18px', borderBottom: '1px solid rgba(201,168,76,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: `4px solid ${EQUIPES[eq].color}` }}>
                 <div>
-                  <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 17, fontWeight: 600, color: EQUIPES[eq].color }}>{EQUIPES[eq].label}</div>
-                  <div style={{ fontSize: 11, color: '#5A5A5A' }}>Resp: {EQUIPES[eq].responsable} · CV: <span style={{ color: stats.cv>30?'#E05C5C':'#4CAF7D', fontWeight: 500 }}>{stats.cv||0}%</span></div>
+                  <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: singleEquipe ? 22 : 17, fontWeight: 600, color: EQUIPES[eq].color }}>{EQUIPES[eq].label}</div>
+                  <div style={{ fontSize: 12, color: '#5A5A5A', marginTop: 2 }}>
+                    Resp: {EQUIPES[eq].responsable} · {ranking.length} commerciaux · CV: <span style={{ color: stats.cv>30?'#E05C5C':'#4CAF7D', fontWeight: 500 }}>{stats.cv||0}%</span>
+                  </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase' }}>Total {selectedKpi?.label}</div>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: EQUIPES[eq].color }}>{getKpiValFromTotaux(stats, kpi)}{selectedKpi?.unit}</div>
+                  <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: 1 }}>Total {selectedKpi?.label}</div>
+                  <div style={{ fontSize: singleEquipe ? 28 : 22, fontWeight: 700, color: EQUIPES[eq].color }}>{getKpiValFromTotaux(stats, kpi)}{selectedKpi?.unit}</div>
                 </div>
               </div>
+              {/* Lignes commerciaux */}
               <div>
                 {ranking.map((c, i) => {
                   const rankColor = getRankColor(i, ranking.length)
                   const pct = maxVal > 0 ? (c.val / maxVal) * 100 : 0
                   return (
-                    <div key={c.id} onClick={() => setSelectedCommercial(c)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', cursor: 'pointer', borderBottom: '1px solid rgba(201,168,76,0.05)', transition: 'background 0.15s' }}
+                    <div key={c.id} onClick={() => {
+                        if (selected.type === 'day') { setJourDetailCommercial(c); loadJourDetail(c.id, selected.value) }
+                        else setSelectedCommercial(c)
+                      }}
+                      style={{ display: 'flex', alignItems: 'center', gap: singleEquipe ? 16 : 10, padding: singleEquipe ? '13px 24px' : '10px 18px', cursor: 'pointer', borderBottom: '1px solid rgba(201,168,76,0.05)', transition: 'background 0.15s' }}
                       onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'}
                       onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                      <div style={{ width: 22, fontSize: 14, fontWeight: 700, color: rankColor, textAlign: 'center', flexShrink: 0 }}>{i+1}</div>
-                      <div style={{ width: 130, fontSize: 13, fontWeight: 500, color: '#2C2C2C', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 0 }}>{c.nom}</div>
-                      <div style={{ flex: 1, height: 7, background: 'rgba(201,168,76,0.1)', borderRadius: 4, overflow: 'hidden', minWidth: 40 }}>
-                        <div style={{ height: '100%', width: `${pct}%`, background: rankColor, borderRadius: 4, transition: 'width 0.3s' }}></div>
+                      {/* Rang */}
+                      <div style={{ width: singleEquipe ? 32 : 22, fontSize: singleEquipe ? 16 : 14, fontWeight: 700, color: rankColor, textAlign: 'center', flexShrink: 0 }}>{i+1}</div>
+                      {/* Nom */}
+                      <div style={{ width: singleEquipe ? 200 : 130, fontSize: singleEquipe ? 14 : 13, fontWeight: 500, color: '#2C2C2C', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 0 }}>{c.nom}</div>
+                      {/* Barre */}
+                      <div style={{ flex: 1, height: singleEquipe ? 10 : 7, background: 'rgba(201,168,76,0.1)', borderRadius: 5, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${pct}%`, background: rankColor, borderRadius: 5, transition: 'width 0.4s' }}></div>
                       </div>
-                      <div style={{ width: 44, fontSize: 13, fontWeight: 700, color: rankColor, textAlign: 'right', flexShrink: 0 }}>{c.val}{selectedKpi?.unit}</div>
+                      {/* Valeur */}
+                      <div style={{ width: singleEquipe ? 60 : 44, fontSize: singleEquipe ? 15 : 13, fontWeight: 700, color: rankColor, textAlign: 'right', flexShrink: 0 }}>{c.val}{selectedKpi?.unit}</div>
                       <StarRank rank={i} total={ranking.length} maxDisplay={ranking.length} />
                     </div>
                   )
@@ -988,8 +1000,8 @@ export default function FluxRDV({ conseilleres }) {
         })}
       </div>}
 
-      {/* Comparaison equipes */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, marginTop: 8 }}>
+      {/* Comparaison equipes - masquée si 1 seule équipe */}
+      {canSeeSale && canSeeKenitra && <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, marginTop: 8 }}>
         <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C' }}>Comparaison inter-équipes</div>
         <div style={{ display: 'flex', gap: 6 }}>
           {[['bars','Barres'],['graph','Graphe'],['pct','%'],['num','123']].map(([m,l]) => (
@@ -1085,7 +1097,7 @@ export default function FluxRDV({ conseilleres }) {
             </tbody>
           </table>
         )}
-      </div>
+      </div>}
 
       {/* Historique saisies */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showHistorique ? 12 : 0, marginTop: 8 }}>
