@@ -480,6 +480,14 @@ export default function FluxRDV({ conseilleres }) {
   const btnStyle = (active, color='#C9A84C') => ({ padding: '6px 14px', borderRadius: 16, border: `1.5px solid ${active?color:'rgba(201,168,76,0.2)'}`, background: active?color:'#fff', color: active?'#fff':'#5A5A5A', fontSize: 12, fontWeight: active?500:400, cursor: 'pointer', transition: 'all 0.15s' })
 
   // Équipes visibles selon permissions
+  // Si accès à 1 seule équipe, forcer vue séparée
+  useEffect(() => {
+    if (!(canSeeSale && canSeeKenitra)) {
+      setViewMode('separated')
+      setFilterEquipe('all')
+    }
+  }, [canSeeSale, canSeeKenitra])
+
   const equipesAutorisees = useMemo(() => {
     const all = []
     if (canSeeSale) all.push('sale')
@@ -850,17 +858,31 @@ export default function FluxRDV({ conseilleres }) {
       {/* Filtres */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ fontSize: 13, fontWeight: 500, color: '#C9A84C', padding: '6px 14px', borderRadius: 20, border: '1.5px solid rgba(201,168,76,0.25)', background: '#F8F7F4' }}>{selected?.label || 'Global'}</div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button onClick={()=>setViewMode('separated')} style={btnStyle(viewMode==='separated')}>Vue séparée</button>
-          <button onClick={()=>setViewMode('all')} style={btnStyle(viewMode==='all')}>Vue All</button>
-        </div>
-        {viewMode === 'separated' && (
+
+        {/* Vue séparée/All : seulement si accès aux 2 équipes */}
+        {canSeeSale && canSeeKenitra && (
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button onClick={()=>setViewMode('separated')} style={btnStyle(viewMode==='separated')}>Vue séparée</button>
+            <button onClick={()=>setViewMode('all')} style={btnStyle(viewMode==='all')}>Vue All</button>
+          </div>
+        )}
+
+        {/* Filtre équipe : seulement si accès aux 2 équipes et vue séparée */}
+        {canSeeSale && canSeeKenitra && viewMode === 'separated' && (
           <div style={{ display: 'flex', gap: 6 }}>
             {[['all','Toutes'],['sale','Sale'],['kenitra','Kenitra']].map(([k,l]) => (
               <button key={k} onClick={()=>setFilterEquipe(k)} style={btnStyle(filterEquipe===k)}>{l}</button>
             ))}
           </div>
         )}
+
+        {/* Si 1 seule équipe : badge informatif */}
+        {!(canSeeSale && canSeeKenitra) && (
+          <div style={{ padding: '5px 12px', borderRadius: 20, background: canSeeSale ? 'rgba(201,168,76,0.1)' : 'rgba(83,74,183,0.1)', color: canSeeSale ? '#C9A84C' : '#534AB7', fontSize: 12, fontWeight: 500, border: `1px solid ${canSeeSale ? 'rgba(201,168,76,0.3)' : 'rgba(83,74,183,0.3)'}` }}>
+            {canSeeSale ? 'Équipe Sale' : 'Équipe Kenitra'}
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {KPIS.map(k => (
             <button key={k.key} onClick={()=>setKpi(k.key)} style={btnStyle(kpi===k.key, k.color)}>{k.label}</button>
