@@ -19,6 +19,8 @@ const FALLBACK_MAP = {
 }
 let CONSEILLERE_MAP = { ...FALLBACK_MAP }
 
+let COMMERCIAL_MAP = {} // chargé dynamiquement depuis odoo_mapping
+
 const NON_RECONNU_IDS = {
   sale:    '1b9201a1-9333-4725-8e38-e9297777745b',
   kenitra: 'e87e531e-820e-4f39-8fd7-5fa00cf0671e',
@@ -351,9 +353,15 @@ async function injectData(parsed, fileType, modeInfo, dryRun = false) {
             results.preview.push({ date: row.date, conseillere: `${nomCons} / ${row.nomCommercial}`, field: fluxField, value: row.count, table: 'flux_rdv', action: 'upsert' })
             results.inserted++
           } else {
-            const { data: comm } = await supabase.from('commerciaux')
-              .select('id').ilike('nom', `%${row.nomCommercial}%`).maybeSingle()
-            if (!comm) { results.errors.push(`Commercial non reconnu: ${row.nomCommercial}`); continue }
+            // Chercher d'abord dans le mapping, sinon ilike
+            let commId = COMMERCIAL_MAP[row.nomCommercial?.trim().toUpperCase()] || COMMERCIAL_MAP[row.nomCommercial?.trim()]
+            if (!commId) {
+              const { data: comm } = await supabase.from('commerciaux')
+                .select('id').ilike('nom', `%${row.nomCommercial}%`).maybeSingle()
+              commId = comm?.id
+            }
+            if (!commId) { results.errors.push(`COMM_NON_RECONNU:${row.nomCommercial}`); continue }
+            const comm = { id: commId }
             const { data: existing } = await supabase.from('flux_rdv')
               .select('id').eq('conseillere_id', consId).eq('commercial_id', comm.id)
               .eq('date_debut', row.date).maybeSingle()
@@ -464,6 +472,10 @@ const NB_SLOTS = 6
 export default function ImportAgent() {
   const [mappingLoaded, setMappingLoaded] = useState(false)
   const [conseilleresList, setConseilleresList] = useState([])
+  const [commerciauxList, setCommerciauxList] = useState([])
+  const [unmappedCommerciaux, setUnmappedCommerciaux] = useState([])
+  const [pendingCommerciauxMapping, setPendingCommerciauxMapping] = useState({})
+  const [showCommerciauxModal, setShowCommerciauxModal] = useState(false)
   const [unmappedNoms, setUnmappedNoms] = useState([]) // noms Odoo non reconnus
   const [pendingMapping, setPendingMapping] = useState({}) // { nomOdoo: conseillereId }
   const [showMappingModal, setShowMappingModal] = useState(false)
@@ -486,9 +498,16 @@ export default function ImportAgent() {
           CONSEILLERE_MAP = { ...FALLBACK_MAP, ...map }
         }
       } catch(e) { console.warn('odoo_mapping non disponible, fallback utilisé') }
-      // Charger liste conseillères pour le sélecteur
+      // Charger liste conseillères + commerciaux pour les sélecteurs
       const { data: cons } = await supabase.from('conseilleres').select('id, nom').order('nom')
       setConseilleresList(cons || [])
+      const { data: comms } = await supabase.from('commerciaux').select('id, nom, equipe').eq('actif', true).order('nom')
+      setCommerciauxList(comms || [])
+      // Charger mapping commerciaux depuis Supabase
+      try {
+        const { data: mappingComm } = await supabase.from('odoo_mapping').select('nom_odoo, conseillere_id').eq('type', 'commercial')
+        if (mappingComm) mappingComm.forEach(r => { COMMERCIAL_MAP[r.nom_odoo] = r.conseillere_id })
+      } catch(e) {}
       setMappingLoaded(true)
     }
     loadMapping()
@@ -597,7 +616,16 @@ export default function ImportAgent() {
         totalInserted += result.inserted
         totalUpdated += result.updated
         totalErrors += result.errors.length
-        setStatus(p => ({ ...p, [index]: { state: result.errors.length > 0 ? 'error' : 'done', result } }))
+        // Collecter commerciaux non reconnus
+      const commNonReconnus = result.errors
+        .filter(e => e.startsWith('COMM_NON_RECONNU:'))
+        .map(e => e.replace('COMM_NON_RECONNU:', ''))
+      if (commNonReconnus.length > 0) {
+        setUnmappedCommerciaux(prev => [...new Set([...prev, ...commNonReconnus])])
+        setShowCommerciauxModal(true)
+      }
+      const realErrors = result.errors.filter(e => !e.startsWith('COMM_NON_RECONNU:'))
+      setStatus(p => ({ ...p, [index]: { state: realErrors.length > 0 ? 'error' : 'done', result: { ...result, errors: realErrors } } }))
       } catch(err) {
         setStatus(p => ({ ...p, [index]: { state: 'error', result: { errors: [err.message] } } }))
         totalErrors++
@@ -612,6 +640,20 @@ export default function ImportAgent() {
   }
 
   const hasValidFiles = slots.some(s => s && s.typeInfo)
+  async function sauvegarderMappingCommerciaux() {
+    const entries = Object.entries(pendingCommerciauxMapping).filter(([,v]) => v)
+    if (entries.length === 0) return
+    await supabase.from('odoo_mapping').upsert(
+      entries.map(([nom_odoo, conseillere_id]) => ({ nom_odoo, conseillere_id, type: 'commercial' })),
+      { onConflict: 'nom_odoo' }
+    )
+    entries.forEach(([nom, id]) => { COMMERCIAL_MAP[nom.toUpperCase()] = id; COMMERCIAL_MAP[nom] = id })
+    setUnmappedCommerciaux([])
+    setPendingCommerciauxMapping({})
+    setShowCommerciauxModal(false)
+    setGlobalMsg({ type: 'success', text: `${entries.length} commercial(aux) mappé(s) — relance l'import` })
+  }
+
   async function sauvegarderMapping() {
     const entries = Object.entries(pendingMapping).filter(([,v]) => v)
     if (entries.length === 0) return
@@ -832,6 +874,44 @@ export default function ImportAgent() {
                 >
                   <option value=''>Sélectionner une conseillère...</option>
                   {conseilleresList.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
+                </select>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Modal Mapping commerciaux non reconnus */}
+      {showCommerciauxModal && unmappedCommerciaux.length > 0 && (
+        <div style={{ marginTop: 20, background: '#fff', borderRadius: 14, border: '1.5px solid rgba(83,74,183,0.3)', overflow: 'hidden' }}>
+          <div style={{ padding: '14px 20px', background: 'rgba(83,74,183,0.06)', borderBottom: '1px solid rgba(83,74,183,0.15)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#534AB7' }}>🔗 Commerciaux non reconnus ({unmappedCommerciaux.length})</div>
+              <div style={{ fontSize: 11, color: '#8A8A7A', marginTop: 2 }}>Associe chaque nom Odoo au bon commercial — sauvegardé pour les prochains imports</div>
+            </div>
+            <button onClick={sauvegarderMappingCommerciaux}
+              style={{ padding: '8px 18px', borderRadius: 8, background: '#534AB7', color: '#fff', border: 'none', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+              Sauvegarder et relancer
+            </button>
+          </div>
+          <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {unmappedCommerciaux.map(nom => (
+              <div key={nom} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ flex: 1, padding: '8px 14px', borderRadius: 8, background: '#F8F7F4', border: '1px solid rgba(83,74,183,0.2)', fontSize: 13, fontWeight: 500, color: '#534AB7' }}>{nom}</div>
+                <span style={{ color: '#8A8A7A', fontSize: 16 }}>→</span>
+                <select
+                  value={pendingCommerciauxMapping[nom] || ''}
+                  onChange={e => setPendingCommerciauxMapping(p => ({ ...p, [nom]: e.target.value }))}
+                  style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1.5px solid rgba(201,168,76,0.3)', fontSize: 13, background: '#F8F7F4', outline: 'none', color: '#2C2C2C' }}
+                >
+                  <option value=''>Sélectionner un commercial...</option>
+                  {['sale','kenitra'].map(eq => (
+                    <optgroup key={eq} label={eq === 'sale' ? 'Équipe Sale' : 'Équipe Kenitra'}>
+                      {commerciauxList.filter(c => c.equipe === eq && !c.nom.includes('Non reconnu')).map(c => (
+                        <option key={c.id} value={c.id}>{c.nom}</option>
+                      ))}
+                    </optgroup>
+                  ))}
                 </select>
               </div>
             ))}
