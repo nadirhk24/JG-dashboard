@@ -48,7 +48,8 @@ function detectFileType(filename) {
   if (n.includes('rdv') && n.includes('market'))                 return { type: 'rdv_mkt',         label: 'RDV Marketing',            dest: 'Marketing',      color: '#C9A84C' }
   if (n.includes('vente') && n.includes('market'))               return { type: 'ventes_mkt',      label: 'Ventes Marketing',         dest: 'Marketing',      color: '#1a6b3c' }
   if (n.includes('visite') && n.includes('market'))              return { type: 'visites_mkt',     label: 'Visites Marketing',        dest: 'Marketing',      color: '#2E9455' }
-  if (n.includes('rdv') || n.includes('calendrier'))             return { type: 'rdv_calendrier',  label: 'RDV Calendrier',           dest: 'Flux RDV',       color: '#534AB7' }
+  if ((n.includes('rdv') && n.includes('cc')) || n.includes('calendrier')) return { type: 'rdv_calendrier', label: 'RDV Calendrier CC', dest: 'Flux RDV + CC', color: '#534AB7' }
+  if (n.includes('rdv') && !n.includes('market')) return { type: 'rdv_calendrier', label: 'RDV Calendrier CC', dest: 'Flux RDV + CC', color: '#534AB7' }
   return null
 }
 
@@ -229,6 +230,80 @@ function parseVisitesVentesCC(rows) {
   })
 
   return { normal: normalAgg, nonReconnus: nonRecAgg }
+}
+
+function parseRdvCalendrier(rows) {
+  // Format: col0=datetime, col1=organisateur (conseillère), col2=participant (commercial ou à ignorer)
+  // Chaque RDV peut avoir plusieurs lignes de participants
+  const CONSEILLERS_NOMS = [
+    'IBNTABET SIHAM','SIHAM IBNTABET','KAOUTAR HRARTI','GHIZLANE ELBAKARI',
+    'FATIMA ZAHRAA','FATIMA ZAHRAA AAKIBA','Hala ELAOUAD','HALA ELAOUAD',
+    'Rajaa ELKHANCHAR','RAJAA ELKHANCHAR','NADIR HADRAK','N.HADRAK',
+  ]
+  function isConseillere(nom) {
+    if (!nom) return true
+    const n = nom.trim().toUpperCase()
+    return CONSEILLERS_NOMS.some(c => c.toUpperCase() === n)
+  }
+
+  const results = []
+  let currentDate = null
+  let currentConseillere = null
+  let currentCommercial = null
+
+  for (const row of rows) {
+    const val0 = row[0], val1 = row[1], val2 = row[2]
+
+    // Ligne date groupe: "17 avr. 2026 (46)"
+    if (val0 && typeof val0 === 'string') {
+      const MONTHS = { 'janv':1,'févr':2,'fevr':2,'mars':3,'avr':4,'mai':5,'juin':6,'juil':7,'août':8,'aout':8,'sept':9,'oct':10,'nov':11,'déc':12,'dec':12 }
+      const dateMatch = val0.trim().match(/^(\d+)\s+(\w+)\.?\s+(\d{4})/)
+      if (dateMatch && val0.includes('(')) {
+        const m = MONTHS[dateMatch[2].toLowerCase().replace('.','')]
+        if (m) currentDate = `${dateMatch[3]}-${String(m).padStart(2,'0')}-${String(dateMatch[1]).padStart(2,'0')}`
+        continue
+      }
+      // Ligne sous-groupe conseillère: "    FATIMA ZAHRAA (7)"
+      if (val0.startsWith('    ') && val0.includes('(')) continue
+    }
+
+    // Ligne avec datetime = nouveau RDV
+    if (val0 instanceof Date) {
+      // Sauvegarder le RDV précédent si complet
+      if (currentDate && currentConseillere && currentCommercial) {
+        results.push({ date: currentDate, nomConseillere: currentConseillere, nomCommercial: currentCommercial, count: 1 })
+      }
+      currentDate = val0.toISOString().split('T')[0]
+      currentConseillere = val1 ? String(val1).trim() : null
+      // Participant sur la même ligne
+      const participant = val2 ? String(val2).trim() : null
+      currentCommercial = (participant && !isConseillere(participant)) ? participant : null
+      continue
+    }
+
+    // Ligne participant supplémentaire (col0=null)
+    if (val0 === null && val2) {
+      const participant = String(val2).trim()
+      if (!isConseillere(participant) && !currentCommercial) {
+        currentCommercial = participant
+      }
+    }
+  }
+  // Dernier RDV
+  if (currentDate && currentConseillere && currentCommercial) {
+    results.push({ date: currentDate, nomConseillere: currentConseillere, nomCommercial: currentCommercial, count: 1 })
+  }
+
+  // Agréger par date + conseillère + commercial
+  const agg = {}
+  for (const r of results) {
+    const key = `${r.date}|||${r.nomConseillere}|||${r.nomCommercial}`
+    agg[key] = (agg[key] || 0) + r.count
+  }
+  return Object.entries(agg).map(([key, count]) => {
+    const [date, nomConseillere, nomCommercial] = key.split('|||')
+    return { date, nomConseillere, nomCommercial, count }
+  })
 }
 
 function parseTextDateGlobal(rows) {
@@ -419,6 +494,49 @@ async function injectData(parsed, fileType, modeInfo, dryRun = false, importId =
               visites: totalVisites, ventes: totalVentes, rdv: totalRdv,
             })
           }
+        }
+        continue
+      }
+
+      // ── RDV Calendrier → flux_rdv + sync CC ──────────────────────────────
+      if (type === 'rdv_calendrier') {
+        const nomCons = row.nomConseillere || row.nom
+        if (!nomCons || !row.nomCommercial) continue
+        const consId = resolveConseillere(nomCons)
+        if (!consId) { results.errors.push(`Conseillère non reconnue: ${nomCons}`); continue }
+        if (dryRun) {
+          results.preview.push({ date: row.date, conseillere: `${nomCons} / ${row.nomCommercial}`, field: 'rdv', value: row.count, table: 'flux_rdv', action: 'upsert' })
+          results.inserted++
+          continue
+        }
+        let commId = COMMERCIAL_MAP[row.nomCommercial?.trim().toUpperCase()] || COMMERCIAL_MAP[row.nomCommercial?.trim()]
+        if (!commId) {
+          const { data: comm } = await supabase.from('commerciaux').select('id').ilike('nom', `%${row.nomCommercial}%`).maybeSingle()
+          commId = comm?.id
+        }
+        if (!commId) { results.errors.push(`COMM_NON_RECONNU:${row.nomCommercial}`); continue }
+        const { data: ex } = await supabase.from('flux_rdv').select('id,rdv').eq('conseillere_id', consId).eq('commercial_id', commId).eq('date_debut', row.date).maybeSingle()
+        if (importId) await supabase.from('import_historique').insert({ import_id: importId, fichier: fileName, type, table_cible: 'flux_rdv', row_id: ex?.id || null, champ: 'rdv', valeur_avant: ex?.rdv ?? null, valeur_apres: row.count })
+        if (ex) {
+          await supabase.from('flux_rdv').update({ rdv: (ex.rdv || 0) + row.count }).eq('id', ex.id)
+          results.updated++
+        } else {
+          await supabase.from('flux_rdv').insert({ conseillere_id: consId, commercial_id: commId, date_debut: row.date, date_fin: row.date, type_saisie: 'jour', rdv: row.count, visites: 0, ventes: 0 })
+          results.inserted++
+        }
+        // Sync CC
+        const fluxSaisies = await supabase.from('flux_rdv').select('rdv, visites, ventes').eq('conseillere_id', consId).eq('date_debut', row.date)
+        const fluxRows = fluxSaisies.data || []
+        const totalVisitesRaw = fluxRows.reduce((s,x) => s + parseFloat(x.visites||0), 0)
+        const totalVentes = fluxRows.reduce((s,x) => s + parseFloat(x.ventes||0), 0)
+        const totalRdvRaw = fluxRows.reduce((s,x) => s + parseFloat(x.rdv||0), 0)
+        const totalVisites = totalVisitesRaw + totalVentes
+        const totalRdv = totalRdvRaw + totalVisites
+        const { data: saisieCC } = await supabase.from('saisies').select('id').eq('conseillere_id', consId).eq('date', row.date).maybeSingle()
+        if (saisieCC) {
+          await supabase.from('saisies').update({ rdv: totalRdv, visites: totalVisites, ventes: totalVentes }).eq('id', saisieCC.id)
+        } else {
+          await supabase.from('saisies').insert({ conseillere_id: consId, date: row.date, date_debut: row.date, date_fin: row.date, type_saisie: 'jour', leads_bruts: 0, indispos: 0, echanges: 0, rdv: totalRdv, visites: totalVisites, ventes: totalVentes })
         }
         continue
       }
@@ -628,6 +746,8 @@ export default function ImportAgent() {
             parsed = parseWithDatetime(rows2.slice(1))
           } else if (['rdv_mkt','ventes_mkt','visites_mkt'].includes(type)) {
             parsed = parseTextDateGlobal(rows2.slice(1))
+          } else if (type === 'rdv_calendrier') {
+            parsed = parseRdvCalendrier(rows2.slice(1))
           } else if (['visites_cc','ventes_cc'].includes(type)) {
             parsed = parseVisitesVentesCC(rows2.slice(1))
           } else {
@@ -866,6 +986,7 @@ export default function ImportAgent() {
           { nom: 'echanges [mois]',        dest: 'Échanges bruts CC',               color: '#378ADD' },
           { nom: 'visites cc [mois]',      dest: 'Visites CC → Flux RDV',           color: '#2E9455' },
           { nom: 'ventes cc [mois]',       dest: 'Ventes CC → Flux RDV',            color: '#1a6b3c' },
+          { nom: 'rdv [mois]',               dest: 'RDV Calendrier → Flux RDV + CC',  color: '#534AB7' },
         ]
         const mkt = [
           { nom: 'non expl marketing [mois]', dest: 'Non exploitables Marketing (cohort)', color: '#534AB7' },
