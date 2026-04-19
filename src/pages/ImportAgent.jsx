@@ -233,8 +233,9 @@ function parseVisitesVentesCC(rows) {
 }
 
 function parseRdvCalendrier(rows) {
-  // Format: col0=datetime, col1=organisateur (conseillère), col2=participant (commercial ou à ignorer)
-  // Chaque RDV peut avoir plusieurs lignes de participants
+  // Format: col0=datetime, col1=organisateur(conseillère), col2=participant
+  // Chaque RDV a une ligne principale + lignes participants (col0=null)
+  // Un RDV est créé par commercial participant non-conseillère
   const CONSEILLERS_NOMS = [
     'IBNTABET SIHAM','SIHAM IBNTABET','KAOUTAR HRARTI','GHIZLANE ELBAKARI',
     'FATIMA ZAHRAA','FATIMA ZAHRAA AAKIBA','Hala ELAOUAD','HALA ELAOUAD',
@@ -246,52 +247,52 @@ function parseRdvCalendrier(rows) {
     return CONSEILLERS_NOMS.some(c => c.toUpperCase() === n)
   }
 
+  const MONTHS = { 'janv':1,'févr':2,'fevr':2,'mars':3,'avr':4,'mai':5,'juin':6,'juil':7,'août':8,'aout':8,'sept':9,'oct':10,'nov':11,'déc':12,'dec':12 }
   const results = []
-  let currentDate = null
-  let currentConseillere = null
-  let currentCommercial = null
+  let i = 0
 
-  for (const row of rows) {
-    const val0 = row[0], val1 = row[1], val2 = row[2]
+  while (i < rows.length) {
+    const row = rows[i]
+    const val0 = row[0], val1 = row[1] ?? null, val2 = row[2] ?? null
 
-    // Ligne date groupe: "17 avr. 2026 (46)"
+    // Ligne date groupe texte
     if (val0 && typeof val0 === 'string') {
-      const MONTHS = { 'janv':1,'févr':2,'fevr':2,'mars':3,'avr':4,'mai':5,'juin':6,'juil':7,'août':8,'aout':8,'sept':9,'oct':10,'nov':11,'déc':12,'dec':12 }
-      const dateMatch = val0.trim().match(/^(\d+)\s+(\w+)\.?\s+(\d{4})/)
-      if (dateMatch && val0.includes('(')) {
-        const m = MONTHS[dateMatch[2].toLowerCase().replace('.','')]
-        if (m) currentDate = `${dateMatch[3]}-${String(m).padStart(2,'0')}-${String(dateMatch[1]).padStart(2,'0')}`
-        continue
-      }
-      // Ligne sous-groupe conseillère: "    FATIMA ZAHRAA (7)"
-      if (val0.startsWith('    ') && val0.includes('(')) continue
+      const dm = val0.trim().match(/^(\d+)\s+(\w+)\.?\s+(\d{4})/)
+      if (dm && val0.includes('(')) { i++; continue }
+      if (val0.startsWith('    ') && val0.includes('(')) { i++; continue }
     }
 
-    // Ligne avec datetime = nouveau RDV
+    // Ligne RDV principale (datetime)
     if (val0 instanceof Date) {
-      // Sauvegarder le RDV précédent si complet
-      if (currentDate && currentConseillere && currentCommercial) {
-        results.push({ date: currentDate, nomConseillere: currentConseillere, nomCommercial: currentCommercial, count: 1 })
+      const dateStr = val0.toISOString().split('T')[0]
+      const conseillere = val1 ? String(val1).trim() : null
+
+      // Collecter tous les participants commerciaux (ligne principale + lignes suivantes)
+      const commerciaux = []
+      const firstParticipant = val2 ? String(val2).trim() : null
+      if (firstParticipant && !isConseillere(firstParticipant)) commerciaux.push(firstParticipant)
+
+      let j = i + 1
+      while (j < rows.length && rows[j][0] === null) {
+        const participant = rows[j][2] ? String(rows[j][2]).trim() : null
+        if (participant && !isConseillere(participant)) commerciaux.push(participant)
+        j++
       }
-      currentDate = val0.toISOString().split('T')[0]
-      currentConseillere = val1 ? String(val1).trim() : null
-      // Participant sur la même ligne
-      const participant = val2 ? String(val2).trim() : null
-      currentCommercial = (participant && !isConseillere(participant)) ? participant : null
+
+      // Créer 1 entrée par commercial
+      if (conseillere && commerciaux.length > 0) {
+        for (const comm of commerciaux) {
+          results.push({ date: dateStr, nomConseillere: conseillere, nomCommercial: comm, count: 1 })
+        }
+      } else if (conseillere && commerciaux.length === 0) {
+        // Pas de commercial → RDV non reconnu
+        results.push({ date: dateStr, nomConseillere: conseillere, nomCommercial: 'NON_RECONNU', count: 1 })
+      }
+
+      i = j
       continue
     }
-
-    // Ligne participant supplémentaire (col0=null)
-    if (val0 === null && val2) {
-      const participant = String(val2).trim()
-      if (!isConseillere(participant) && !currentCommercial) {
-        currentCommercial = participant
-      }
-    }
-  }
-  // Dernier RDV
-  if (currentDate && currentConseillere && currentCommercial) {
-    results.push({ date: currentDate, nomConseillere: currentConseillere, nomCommercial: currentCommercial, count: 1 })
+    i++
   }
 
   // Agréger par date + conseillère + commercial
