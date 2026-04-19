@@ -360,6 +360,16 @@ async function injectData(parsed, fileType, modeInfo, dryRun = false, importId =
             await supabase.from('flux_rdv').insert({ conseillere_id: consId, commercial_id: commId, date_debut: row.date, date_fin: row.date, type_saisie: 'jour', rdv: 0, visites: type === 'visites_cc' ? row.count : 0, ventes: type === 'ventes_cc' ? row.count : 0 })
             results.inserted++
           }
+          // Sync flux_rdv → saisies CC : recalculer totaux visites/ventes pour cette conseillère ce jour
+          const fluxSaisies = await supabase.from('flux_rdv')
+            .select('visites, ventes').eq('conseillere_id', consId).eq('date_debut', row.date)
+          const totalVisites = (fluxSaisies.data || []).reduce((s,x) => s + parseFloat(x.visites||0), 0)
+          const totalVentes = (fluxSaisies.data || []).reduce((s,x) => s + parseFloat(x.ventes||0), 0)
+          const { data: saisieCC } = await supabase.from('saisies')
+            .select('id').eq('conseillere_id', consId).eq('date', row.date).maybeSingle()
+          if (saisieCC) {
+            await supabase.from('saisies').update({ visites: totalVisites, ventes: totalVentes }).eq('id', saisieCC.id)
+          }
         }
         continue
       }
