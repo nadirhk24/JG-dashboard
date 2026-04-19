@@ -269,7 +269,7 @@ async function injectData(parsed, fileType, modeInfo, dryRun = false) {
     visites_mkt:   'visites',
   }
 
-  const isCC = ['injections','indispos','non_expl_cc','echanges','ventes_cc','visites_cc'].includes(type)
+  const isCC = ['injections','indispos','non_expl_cc','echanges'].includes(type)
   const isMkt = ['non_expl_mkt','suivis_mkt','rdv_mkt','ventes_mkt','visites_mkt'].includes(type)
   const isBoth = ['injections','indispos'].includes(type)
   const field = fieldMap[type]
@@ -341,12 +341,14 @@ async function injectData(parsed, fileType, modeInfo, dryRun = false) {
 
       // Visites/Ventes CC avec commerciaux → flux_rdv
       if (['visites_cc','ventes_cc'].includes(type) && !row.isCohort) {
+        const nomCons = row.nomConseillere || row.nom
+        if (!nomCons) { results.errors.push(`Ligne sans conseillère ignorée: ${row.date}`); continue }
         if (row.nomCommercial) {
-          const consId = resolveConseillere(row.nomConseillere || row.nom)
-          if (!consId) { results.errors.push(`Conseillère non reconnue: ${row.nomConseillere}`); continue }
+          const consId = resolveConseillere(nomCons)
+          if (!consId) { results.errors.push(`Conseillère non reconnue: ${nomCons}`); continue }
           const fluxField = type === 'visites_cc' ? 'visites' : 'ventes'
           if (dryRun) {
-            results.preview.push({ date: row.date, conseillere: `${row.nomConseillere} / ${row.nomCommercial}`, field: fluxField, value: row.count, table: 'flux_rdv', action: 'upsert' })
+            results.preview.push({ date: row.date, conseillere: `${nomCons} / ${row.nomCommercial}`, field: fluxField, value: row.count, table: 'flux_rdv', action: 'upsert' })
             results.inserted++
           } else {
             const { data: comm } = await supabase.from('commerciaux')
