@@ -508,8 +508,13 @@ export default function ImportAgent() {
       setCommerciauxList(comms || [])
       // Charger mapping commerciaux depuis Supabase
       try {
-        const { data: mappingComm } = await supabase.from('odoo_mapping').select('nom_odoo, conseillere_id').eq('type', 'commercial')
-        if (mappingComm) mappingComm.forEach(r => { COMMERCIAL_MAP[r.nom_odoo] = r.conseillere_id })
+        const { data: mappingComm } = await supabase.from('odoo_mapping').select('nom_odoo, commercial_id').eq('type', 'commercial')
+        if (mappingComm) mappingComm.forEach(r => { 
+          if (r.commercial_id) {
+            COMMERCIAL_MAP[r.nom_odoo.toUpperCase()] = r.commercial_id
+            COMMERCIAL_MAP[r.nom_odoo] = r.commercial_id
+          }
+        })
       } catch(e) {}
       setMappingLoaded(true)
       // Charger historique des imports
@@ -694,10 +699,11 @@ export default function ImportAgent() {
   async function sauvegarderMappingCommerciaux() {
     const entries = Object.entries(pendingCommerciauxMapping).filter(([,v]) => v)
     if (entries.length === 0) return
-    await supabase.from('odoo_mapping').upsert(
-      entries.map(([nom_odoo, conseillere_id]) => ({ nom_odoo, conseillere_id, type: 'commercial' })),
+    const { error: saveError } = await supabase.from('odoo_mapping').upsert(
+      entries.map(([nom_odoo, commercial_id]) => ({ nom_odoo, commercial_id, type: 'commercial' })),
       { onConflict: 'nom_odoo' }
     )
+    if (saveError) console.error('Erreur sauvegarde mapping commercial:', saveError)
     entries.forEach(([nom, id]) => { COMMERCIAL_MAP[nom.toUpperCase()] = id; COMMERCIAL_MAP[nom] = id })
     setUnmappedCommerciaux([])
     setPendingCommerciauxMapping({})
