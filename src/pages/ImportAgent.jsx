@@ -369,6 +369,13 @@ async function injectData(parsed, fileType, modeInfo, dryRun = false, importId =
             .select('id').eq('conseillere_id', consId).eq('date', row.date).maybeSingle()
           if (saisieCC) {
             await supabase.from('saisies').update({ visites: totalVisites, ventes: totalVentes }).eq('id', saisieCC.id)
+          } else {
+            // Créer la ligne saisies si elle n'existe pas encore pour cette conseillère/date
+            await supabase.from('saisies').insert({
+              conseillere_id: consId, date: row.date, date_debut: row.date, date_fin: row.date,
+              type_saisie: 'jour', leads_bruts: 0, indispos: 0, echanges: 0,
+              visites: totalVisites, ventes: totalVentes,
+            })
           }
         }
         continue
@@ -695,7 +702,7 @@ export default function ImportAgent() {
     setUnmappedCommerciaux([])
     setPendingCommerciauxMapping({})
     setShowCommerciauxModal(false)
-    setGlobalMsg({ type: 'success', text: `${entries.length} commercial(aux) mappé(s) — relance l'import` })
+    setGlobalMsg({ type: 'success', text: `${entries.length} commercial(aux) mappé(s) — relance l'import pour injecter les lignes manquantes` })
   }
 
   async function sauvegarderMapping() {
