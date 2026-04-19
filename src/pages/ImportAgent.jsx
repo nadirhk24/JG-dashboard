@@ -617,19 +617,19 @@ export default function ImportAgent() {
       if (dryRun && result.preview.length > 0) {
         setDryRunResults(prev => [...prev, { fileName: slot.file.name, typeInfo: slot.typeInfo, rows: result.preview }])
       }
+        // Collecter commerciaux non reconnus
+        const commNonReconnus = result.errors
+          .filter(e => e.startsWith('COMM_NON_RECONNU:'))
+          .map(e => e.replace('COMM_NON_RECONNU:', ''))
+        if (commNonReconnus.length > 0) {
+          setUnmappedCommerciaux(prev => [...new Set([...prev, ...commNonReconnus])])
+          setShowCommerciauxModal(true)
+        }
+        const realErrors = result.errors.filter(e => !e.startsWith('COMM_NON_RECONNU:'))
         totalInserted += result.inserted
         totalUpdated += result.updated
-        totalErrors += result.errors.length
-        // Collecter commerciaux non reconnus
-      const commNonReconnus = result.errors
-        .filter(e => e.startsWith('COMM_NON_RECONNU:'))
-        .map(e => e.replace('COMM_NON_RECONNU:', ''))
-      if (commNonReconnus.length > 0) {
-        setUnmappedCommerciaux(prev => [...new Set([...prev, ...commNonReconnus])])
-        setShowCommerciauxModal(true)
-      }
-      const realErrors = result.errors.filter(e => !e.startsWith('COMM_NON_RECONNU:'))
-      setStatus(p => ({ ...p, [index]: { state: realErrors.length > 0 ? 'error' : 'done', result: { ...result, errors: realErrors } } }))
+        totalErrors += realErrors.length
+        setStatus(p => ({ ...p, [index]: { state: realErrors.length > 0 ? 'error' : 'done', result: { ...result, errors: realErrors } } }))
       } catch(err) {
         setStatus(p => ({ ...p, [index]: { state: 'error', result: { errors: [err.message] } } }))
         totalErrors++
