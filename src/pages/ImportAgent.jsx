@@ -359,11 +359,7 @@ async function injectData(parsed, fileType, modeInfo, dryRun = false, importId =
           if (dryRun) {
             results.preview.push({ date: row.date, conseillere: `${nomCons} / ${row.nomCommercial}`, field: fluxField, value: row.count, table: 'flux_rdv', action: 'upsert' })
             results.inserted++
-          } else { if (importId) {
-              const { data: ex } = await supabase.from('flux_rdv').select('id, ' + fluxField).eq('conseillere_id', consId).eq('commercial_id', comm.id).eq('date_debut', row.date).maybeSingle()
-              await supabase.from('import_historique').insert({ import_id: importId, fichier: fileName, type: fileType.type, table_cible: 'flux_rdv', row_id: ex?.id || null, champ: fluxField, valeur_avant: ex?.[fluxField] ?? null, valeur_apres: row.count })
-            }
-          if (true) {
+          } else {
             // Chercher d'abord dans le mapping, sinon ilike
             let commId = COMMERCIAL_MAP[row.nomCommercial?.trim().toUpperCase()] || COMMERCIAL_MAP[row.nomCommercial?.trim()]
             if (!commId) {
@@ -373,8 +369,13 @@ async function injectData(parsed, fileType, modeInfo, dryRun = false, importId =
             }
             if (!commId) { results.errors.push(`COMM_NON_RECONNU:${row.nomCommercial}`); continue }
             const comm = { id: commId }
+            // Sauvegarder avant injection
+            const { data: ex } = await supabase.from('flux_rdv').select('id, ' + fluxField).eq('conseillere_id', consId).eq('commercial_id', commId).eq('date_debut', row.date).maybeSingle()
+            if (importId) {
+              await supabase.from('import_historique').insert({ import_id: importId, fichier: fileName, type: fileType.type, table_cible: 'flux_rdv', row_id: ex?.id || null, champ: fluxField, valeur_avant: ex?.[fluxField] ?? null, valeur_apres: row.count })
+            }
             const { data: existing } = await supabase.from('flux_rdv')
-              .select('id').eq('conseillere_id', consId).eq('commercial_id', comm.id)
+              .select('id').eq('conseillere_id', consId).eq('commercial_id', commId)
               .eq('date_debut', row.date).maybeSingle()
             if (existing) {
               const { data: cur } = await supabase.from('flux_rdv').select(fluxField).eq('id', existing.id).maybeSingle()
@@ -382,14 +383,13 @@ async function injectData(parsed, fileType, modeInfo, dryRun = false, importId =
               results.updated++
             } else {
               await supabase.from('flux_rdv').insert({
-                conseillere_id: consId, commercial_id: comm.id,
+                conseillere_id: consId, commercial_id: commId,
                 date_debut: row.date, date_fin: row.date, type_saisie: 'jour',
                 rdv: 0, visites: type === 'visites_cc' ? row.count : 0, ventes: type === 'ventes_cc' ? row.count : 0,
               })
               results.inserted++
             }
           }
-        }
         continue
       }
 
