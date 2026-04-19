@@ -683,15 +683,75 @@ export default function ImportAgent() {
       )}
 
       {/* Instructions */}
-      <div style={{ background: 'rgba(201,168,76,0.06)', borderRadius: 12, padding: '14px 18px', marginBottom: 24, border: '1px solid rgba(201,168,76,0.15)', fontSize: 12, color: '#5A5A5A', lineHeight: 1.8 }}>
-        <strong style={{ color: '#2C2C2C', display: 'block', marginBottom: 6 }}>Comment nommer tes fichiers :</strong>
-        <span style={{ marginRight: 16 }}>📥 <strong>injections avril</strong> → Leads bruts CC + Marketing</span>
-        <span style={{ marginRight: 16 }}>📥 <strong>indispos avril</strong> → Indispos CC + Marketing</span>
-        <span style={{ marginRight: 16 }}>📥 <strong>non expl cc avril</strong> → Non exploitables CC</span>
-        <span style={{ marginRight: 16 }}>📥 <strong>echanges avril</strong> → Échanges bruts</span>
-        <span style={{ marginRight: 16 }}>📥 <strong>ventes cc avril</strong> → Ventes CC</span>
-        <span style={{ marginRight: 16 }}>📥 <strong>mise a jour RDV marketing janvier</strong> → cohort mois</span>
-      </div>
+      {(() => {
+        const [showGuide, setShowGuide] = React.useState(false)
+        const cc = [
+          { nom: 'injections [mois]',     dest: 'Leads bruts CC + sync Marketing', color: '#C9A84C' },
+          { nom: 'indispos [mois]',        dest: 'Indispos CC + sync Marketing',    color: '#E07B30' },
+          { nom: 'non expl cc [mois]',     dest: 'Non exploitables CC',             color: '#E05C5C' },
+          { nom: 'echanges [mois]',        dest: 'Échanges bruts CC',               color: '#378ADD' },
+          { nom: 'visites cc [mois]',      dest: 'Visites CC → Flux RDV',           color: '#2E9455' },
+          { nom: 'ventes cc [mois]',       dest: 'Ventes CC → Flux RDV',            color: '#1a6b3c' },
+        ]
+        const mkt = [
+          { nom: 'non expl marketing [mois]', dest: 'Non exploitables Marketing (cohort)', color: '#534AB7' },
+          { nom: 'suivis marketing [mois]',    dest: 'Suivis Marketing (cohort)',           color: '#534AB7' },
+          { nom: 'rdv marketing [mois]',       dest: 'RDV Marketing (cohort)',              color: '#534AB7' },
+          { nom: 'visites marketing [mois]',   dest: 'Visites Marketing (cohort)',          color: '#534AB7' },
+          { nom: 'ventes marketing [mois]',    dest: 'Ventes Marketing (cohort)',           color: '#534AB7' },
+        ]
+        return (
+          <div style={{ marginBottom: 24 }}>
+            <button onClick={() => setShowGuide(p => !p)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 10, border: '1px solid rgba(201,168,76,0.2)', background: showGuide ? 'rgba(201,168,76,0.08)' : '#F8F7F4', color: '#C9A84C', fontSize: 13, fontWeight: 500, cursor: 'pointer', width: '100%', justifyContent: 'space-between' }}>
+              <span>📋 Guide de nommage des fichiers</span>
+              <span style={{ fontSize: 11 }}>{showGuide ? '▲ Fermer' : '▼ Ouvrir'}</span>
+            </button>
+            {showGuide && (
+              <div style={{ background: '#fff', borderRadius: '0 0 12px 12px', border: '1px solid rgba(201,168,76,0.15)', borderTop: 'none', padding: '20px 20px 16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                  {/* CC */}
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: '#2C2C2C', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
+                      📞 Call Center — jour par jour
+                    </div>
+                    <div style={{ fontSize: 11, color: '#8A8A7A', marginBottom: 10, fontStyle: 'italic' }}>
+                      Le mois dans le nom est ignoré — c'est la date dans le fichier qui compte
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                      {cc.map(r => (
+                        <div key={r.nom} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <code style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: r.color+'15', color: r.color, fontWeight: 600, whiteSpace: 'nowrap', border: `1px solid ${r.color}30` }}>{r.nom}</code>
+                          <span style={{ fontSize: 11, color: '#5A5A5A', flex: 1 }}>→ {r.dest}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Marketing */}
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: '#2C2C2C', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
+                      📊 Marketing — cohort mensuel
+                    </div>
+                    <div style={{ fontSize: 11, color: '#8A8A7A', marginBottom: 10, fontStyle: 'italic' }}>
+                      Le mois dans le nom identifie la période de la cohort
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                      {mkt.map(r => (
+                        <div key={r.nom} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <code style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: 'rgba(83,74,183,0.1)', color: '#534AB7', fontWeight: 600, whiteSpace: 'nowrap', border: '1px solid rgba(83,74,183,0.2)' }}>{r.nom}</code>
+                          <span style={{ fontSize: 11, color: '#5A5A5A', flex: 1 }}>→ {r.dest}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 8, background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.15)', fontSize: 11, color: '#8a6a1a' }}>
+                  💡 Remplace <strong>[mois]</strong> par le mois concerné — ex: <em>injections avril</em>, <em>non expl marketing janvier</em>
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Grille de slots */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 24 }}>
