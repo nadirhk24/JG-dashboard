@@ -251,7 +251,7 @@ function resolveConseillere(nom) {
 }
 
 // ─── Injection Supabase ────────────────────────────────────────────────────
-async function injectData(parsed, fileType, modeInfo, dryRun = false) {
+async function injectData(parsed, fileType, modeInfo, dryRun = false, importId = null, fileName = '') {
   const results = { inserted: 0, updated: 0, errors: [], preview: [] }
   const { type } = fileType
   const { mode, month, year } = modeInfo
@@ -307,15 +307,22 @@ async function injectData(parsed, fileType, modeInfo, dryRun = false) {
           results.inserted++
         } else {
           const { data: existing } = await supabase.from('saisies')
-            .select('id').eq('conseillere_id', consId).eq('date', row.date).maybeSingle()
+            .select('id, ' + field).eq('conseillere_id', consId).eq('date', row.date).maybeSingle()
+          if (importId) {
+            await supabase.from('import_historique').insert({
+              import_id: importId, fichier: fileName, type: fileType.type,
+              table_cible: 'saisies', row_id: existing?.id || null,
+              champ: field, valeur_avant: existing?.[field] ?? null, valeur_apres: row.count,
+            })
+          }
           if (existing) {
             await supabase.from('saisies').update({ [field]: row.count }).eq('id', existing.id)
             results.updated++
           } else {
-            await supabase.from('saisies').insert({
+            const { data: newRow } = await supabase.from('saisies').insert({
               conseillere_id: consId, date: row.date, date_debut: row.date, date_fin: row.date,
               type_saisie: 'jour', [field]: row.count,
-            })
+            }).select('id').single()
             results.inserted++
           }
         }
@@ -352,7 +359,11 @@ async function injectData(parsed, fileType, modeInfo, dryRun = false) {
           if (dryRun) {
             results.preview.push({ date: row.date, conseillere: `${nomCons} / ${row.nomCommercial}`, field: fluxField, value: row.count, table: 'flux_rdv', action: 'upsert' })
             results.inserted++
-          } else {
+          } else { if (importId) {
+              const { data: ex } = await supabase.from('flux_rdv').select('id, ' + fluxField).eq('conseillere_id', consId).eq('commercial_id', comm.id).eq('date_debut', row.date).maybeSingle()
+              await supabase.from('import_historique').insert({ import_id: importId, fichier: fileName, type: fileType.type, table_cible: 'flux_rdv', row_id: ex?.id || null, champ: fluxField, valeur_avant: ex?.[fluxField] ?? null, valeur_apres: row.count })
+            }
+          if (true) {
             // Chercher d'abord dans le mapping, sinon ilike
             let commId = COMMERCIAL_MAP[row.nomCommercial?.trim().toUpperCase()] || COMMERCIAL_MAP[row.nomCommercial?.trim()]
             if (!commId) {
@@ -388,15 +399,24 @@ async function injectData(parsed, fileType, modeInfo, dryRun = false) {
         if (dryRun) {
           results.preview.push({ date: row.date, conseillere: 'Marketing', field, value: row.count, table: 'marketing_saisies', action: 'upsert' })
           results.inserted++
-        } else if (existing) {
-          await supabase.from('marketing_saisies').update({ [field]: row.count }).eq('id', existing.id)
-          results.updated++
         } else {
-          await supabase.from('marketing_saisies').insert({
-            date: row.date, date_debut: row.date, date_fin: row.date, type_saisie: 'jour',
-            [field]: row.count, injections: 0, non_exploitables: 0, indispos: 0, suivis: 0, rdv: 0, visites: 0, ventes: 0,
-          })
-          results.inserted++
+          if (importId) {
+            await supabase.from('import_historique').insert({
+              import_id: importId, fichier: fileName, type: fileType.type,
+              table_cible: 'marketing_saisies', row_id: existing?.id || null,
+              champ: field, valeur_avant: existing?.[field] ?? null, valeur_apres: row.count,
+            })
+          }
+          if (existing) {
+            await supabase.from('marketing_saisies').update({ [field]: row.count }).eq('id', existing.id)
+            results.updated++
+          } else {
+            await supabase.from('marketing_saisies').insert({
+              date: row.date, date_debut: row.date, date_fin: row.date, type_saisie: 'jour',
+              [field]: row.count, injections: 0, non_exploitables: 0, indispos: 0, suivis: 0, rdv: 0, visites: 0, ventes: 0,
+            })
+            results.inserted++
+          }
         }
       }
     } catch(e) {
@@ -476,6 +496,9 @@ export default function ImportAgent() {
   const [unmappedCommerciaux, setUnmappedCommerciaux] = useState([])
   const [pendingCommerciauxMapping, setPendingCommerciauxMapping] = useState({})
   const [showCommerciauxModal, setShowCommerciauxModal] = useState(false)
+  const [historique, setHistorique] = useState([])
+  const [showHistorique, setShowHistorique] = useState(false)
+  const [annulationEnCours, setAnnulationEnCours] = useState(null)
   const [unmappedNoms, setUnmappedNoms] = useState([]) // noms Odoo non reconnus
   const [pendingMapping, setPendingMapping] = useState({}) // { nomOdoo: conseillereId }
   const [showMappingModal, setShowMappingModal] = useState(false)
@@ -509,6 +532,20 @@ export default function ImportAgent() {
         if (mappingComm) mappingComm.forEach(r => { COMMERCIAL_MAP[r.nom_odoo] = r.conseillere_id })
       } catch(e) {}
       setMappingLoaded(true)
+      // Charger historique des imports
+      const { data: hist } = await supabase.from('import_historique')
+        .select('import_id, fichier, type, date_import')
+        .order('date_import', { ascending: false })
+        .limit(100)
+      if (hist) {
+        // Grouper par import_id
+        const grouped = {}
+        hist.forEach(r => {
+          if (!grouped[r.import_id]) grouped[r.import_id] = { import_id: r.import_id, fichier: r.fichier, type: r.type, date_import: r.date_import, count: 0 }
+          grouped[r.import_id].count++
+        })
+        setHistorique(Object.values(grouped).sort((a,b) => new Date(b.date_import) - new Date(a.date_import)))
+      }
     }
     loadMapping()
   }, [])
@@ -609,7 +646,11 @@ export default function ImportAgent() {
         setStatus(p => ({ ...p, [index]: { state: 'error', result: { errors: [`${unknown.length} nom(s) non reconnu(s) — définis le mapping d'abord`] } } }))
         continue
       }
-      const result = await injectData(parsedNormal, slot.typeInfo, slot.modeInfo, dryRun)
+      const importId = dryRun ? null : crypto.randomUUID()
+      const result = await injectData(parsedNormal, slot.typeInfo, slot.modeInfo, dryRun, importId, slot.file.name)
+      if (!dryRun && importId) {
+        setHistorique(prev => [{ import_id: importId, fichier: slot.file.name, type: slot.typeInfo.type, date_import: new Date().toISOString(), count: result.inserted + result.updated }, ...prev].slice(0, 50))
+      }
       if (dryRun && result.preview.length > 0) {
         setDryRunResults(prev => [...prev, { fileName: slot.file.name, typeInfo: slot.typeInfo, rows: result.preview }])
       }
@@ -640,6 +681,36 @@ export default function ImportAgent() {
   }
 
   const hasValidFiles = slots.some(s => s && s.typeInfo)
+  async function annulerImport(importId) {
+    setAnnulationEnCours(importId)
+    try {
+      const { data: rows } = await supabase.from('import_historique')
+        .select('*').eq('import_id', importId)
+      if (!rows || rows.length === 0) { setGlobalMsg({ type: 'error', text: 'Historique introuvable' }); return }
+
+      for (const row of rows) {
+        if (row.valeur_avant === null) {
+          // Ligne créée par l'import → supprimer si row_id connu
+          if (row.row_id) {
+            await supabase.from(row.table_cible).delete().eq('id', row.row_id)
+          }
+        } else {
+          // Ligne existante → remettre la valeur d'avant
+          if (row.row_id) {
+            await supabase.from(row.table_cible).update({ [row.champ]: row.valeur_avant }).eq('id', row.row_id)
+          }
+        }
+      }
+      // Supprimer l'historique de cet import
+      await supabase.from('import_historique').delete().eq('import_id', importId)
+      setHistorique(prev => prev.filter(h => h.import_id !== importId))
+      setGlobalMsg({ type: 'success', text: 'Import annulé — données restaurées ✓' })
+    } catch(e) {
+      setGlobalMsg({ type: 'error', text: 'Erreur annulation: ' + e.message })
+    }
+    setAnnulationEnCours(null)
+  }
+
   async function sauvegarderMappingCommerciaux() {
     const entries = Object.entries(pendingCommerciauxMapping).filter(([,v]) => v)
     if (entries.length === 0) return
@@ -1010,6 +1081,55 @@ export default function ImportAgent() {
           ))}
         </div>
       )}
+
+      {/* Historique des imports */}
+      <div style={{ marginTop: 28 }}>
+        <button onClick={() => setShowHistorique(p => !p)}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '12px 18px', borderRadius: showHistorique ? '12px 12px 0 0' : 12, border: '1px solid rgba(201,168,76,0.2)', background: showHistorique ? 'rgba(201,168,76,0.08)' : '#F8F7F4', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: '#2C2C2C' }}>
+          <span>🕓 Historique des imports ({historique.length})</span>
+          <span style={{ fontSize: 11, color: '#8A8A7A' }}>{showHistorique ? '▲ Fermer' : '▼ Ouvrir'}</span>
+        </button>
+        {showHistorique && (
+          <div style={{ background: '#fff', border: '1px solid rgba(201,168,76,0.15)', borderTop: 'none', borderRadius: '0 0 12px 12px', overflow: 'hidden' }}>
+            {historique.length === 0 ? (
+              <div style={{ padding: '24px', textAlign: 'center', fontSize: 13, color: '#8A8A7A' }}>Aucun import enregistré</div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>{['Date','Fichier','Type','Lignes','Action'].map(h => (
+                    <th key={h} style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '8px 14px', borderBottom: '1px solid rgba(201,168,76,0.15)', textTransform: 'uppercase', fontWeight: 500 }}>{h}</th>
+                  ))}</tr>
+                </thead>
+                <tbody>
+                  {historique.map(h => (
+                    <tr key={h.import_id} onMouseEnter={e => e.currentTarget.style.background='#FAFAF8'} onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                      <td style={{ padding: '10px 14px', fontSize: 12, color: '#C9A84C', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                        {new Date(h.date_import).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                      <td style={{ padding: '10px 14px', fontSize: 12, fontWeight: 500, color: '#2C2C2C' }}>{h.fichier}</td>
+                      <td style={{ padding: '10px 14px' }}>
+                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 8, background: 'rgba(201,168,76,0.1)', color: '#C9A84C', fontWeight: 500 }}>{h.type}</span>
+                      </td>
+                      <td style={{ padding: '10px 14px', fontSize: 12, fontWeight: 600, color: '#2C2C2C' }}>{h.count}</td>
+                      <td style={{ padding: '10px 14px' }}>
+                        <button
+                          onClick={() => annulerImport(h.import_id)}
+                          disabled={annulationEnCours === h.import_id}
+                          style={{ padding: '5px 14px', borderRadius: 8, border: '1.5px solid rgba(224,92,92,0.3)', background: 'transparent', color: '#E05C5C', fontSize: 11, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                        >
+                          {annulationEnCours === h.import_id ? (
+                            <><span style={{ width: 12, height: 12, border: '2px solid rgba(224,92,92,0.3)', borderTopColor: '#E05C5C', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />Annulation...</>
+                          ) : '↩ Annuler'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+      </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
