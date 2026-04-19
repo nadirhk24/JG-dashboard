@@ -62,21 +62,26 @@ function detectMode(filename) {
   const isCC = ['injections','indispos','non_expl_cc','echanges','visites_cc','ventes_cc'].includes(type)
   if (isCC) return { mode: 'jour', label: 'Jour par jour' }
 
-  // Marketing → toujours cohort mensuel, mois détecté depuis le nom
+  // Marketing → mode détecté depuis le nom du fichier
+  // Si "cohort" dans le nom → cohort, sinon → jour par jour
   const isMkt = ['non_expl_mkt','suivis_mkt','rdv_mkt','ventes_mkt','visites_mkt'].includes(type)
   if (isMkt) {
     const months = { 'janvier':1,'février':2,'fevrier':2,'mars':3,'avril':4,'mai':5,'juin':6,
                      'juillet':7,'août':8,'aout':8,'septembre':9,'octobre':10,'novembre':11,'décembre':12,'decembre':12 }
-    for (const [m, num] of Object.entries(months)) {
-      if (n.includes(m)) {
-        const yearMatch = n.match(/20\d\d/)
-        const year = yearMatch ? parseInt(yearMatch[0]) : new Date().getFullYear()
-        return { mode: 'cohort', month: num, year, label: `${m.charAt(0).toUpperCase()+m.slice(1)} ${year}` }
+    // Mode cohort si le nom contient "cohort" ou "par mois"
+    if (n.includes('cohort') || n.includes('par mois')) {
+      for (const [m, num] of Object.entries(months)) {
+        if (n.includes(m)) {
+          const yearMatch = n.match(/20\d\d/)
+          const year = yearMatch ? parseInt(yearMatch[0]) : new Date().getFullYear()
+          return { mode: 'cohort', month: num, year, label: `${m.charAt(0).toUpperCase()+m.slice(1)} ${year}` }
+        }
       }
+      const now = new Date()
+      return { mode: 'cohort', month: now.getMonth()+1, year: now.getFullYear(), label: 'Mois courant' }
     }
-    // Pas de mois trouvé → mois courant par défaut
-    const now = new Date()
-    return { mode: 'cohort', month: now.getMonth()+1, year: now.getFullYear(), label: 'Mois courant' }
+    // Sinon → jour par jour
+    return { mode: 'jour', label: 'Jour par jour' }
   }
 
   return { mode: 'jour', label: 'Jour par jour' }
@@ -385,16 +390,19 @@ async function injectData(parsed, fileType, modeInfo, dryRun = false, importId =
         continue
       }
 
-      // ── Marketing standard ───────────────────────────────────────────────
+      // ── Marketing standard (jour par jour — agrégat global par date) ───────
       if (isMkt) {
+        // row.nom = nom conseillère (from parseWithDatetime), on additionne toutes les lignes de la même date
+        // L'agrégation par date est déjà faite dans parsed via parseWithDatetime qui compte par date+nom
+        // Ici on accumule dans marketing_saisies en additionnant
         const { data: existing } = await supabase.from('marketing_saisies').select('id,' + field).eq('date_debut', row.date).maybeSingle()
         if (dryRun) {
-          results.preview.push({ date: row.date, conseillere: 'Marketing', field, value: row.count, table: 'marketing_saisies', action: 'upsert' })
+          results.preview.push({ date: row.date, conseillere: 'Marketing global', field, value: row.count, table: 'marketing_saisies', action: 'upsert' })
           results.inserted++
         } else {
-          if (importId) await supabase.from('import_historique').insert({ import_id: importId, fichier: fileName, type, table_cible: 'marketing_saisies', row_id: existing?.id || null, champ: field, valeur_avant: existing?.[field] ?? null, valeur_apres: row.count })
+          if (importId) await supabase.from('import_historique').insert({ import_id: importId, fichier: fileName, type, table_cible: 'marketing_saisies', row_id: existing?.id || null, champ: field, valeur_avant: existing?.[field] ?? null, valeur_apres: (existing?.[field] || 0) + row.count })
           if (existing) {
-            await supabase.from('marketing_saisies').update({ [field]: row.count }).eq('id', existing.id)
+            await supabase.from('marketing_saisies').update({ [field]: (existing[field] || 0) + row.count }).eq('id', existing.id)
             results.updated++
           } else {
             await supabase.from('marketing_saisies').insert({ date: row.date, date_debut: row.date, date_fin: row.date, type_saisie: 'jour', [field]: row.count, injections: 0, non_exploitables: 0, indispos: 0, suivis: 0, rdv: 0, visites: 0, ventes: 0 })
