@@ -591,7 +591,7 @@ export default function ImportAgent() {
 
           if (mode === 'cohort') {
             parsed = parseCohort(rows2.slice(1), month, year)
-          } else if (['injections','indispos','non_expl_mkt'].includes(type)) {
+          } else if (['injections','indispos','non_expl_mkt','suivis_mkt','rdv_mkt','ventes_mkt','visites_mkt'].includes(type)) {
             parsed = parseWithDatetime(rows2.slice(1))
           } else if (['visites_cc','ventes_cc'].includes(type)) {
             parsed = parseVisitesVentesCC(rows2.slice(1))
