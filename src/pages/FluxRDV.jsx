@@ -174,7 +174,14 @@ export default function FluxRDV({ conseilleres }) {
   const canSeeSale = isSuperAdmin || profil?.permissions?.flux_rdv_sale === true
   const canSeeKenitra = isSuperAdmin || profil?.permissions?.flux_rdv_kenitra === true
 
-  const [selected, setSelected] = React.useState({ type: 'global', label: 'Global' })
+  const [selected, setSelected] = React.useState(() => {
+    const now = new Date()
+    const saved = localStorage.getItem('jg_selected_flux')
+    if (saved) try { return JSON.parse(saved) } catch(e) {}
+    const mKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
+    const MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
+    return { type: 'month', value: mKey, label: `${MOIS[now.getMonth()]} ${now.getFullYear()}` }
+  })
   const [commerciaux, setCommerciaux] = useState([])
   const [fluxData, setFluxData] = useState([])
   const [loading, setLoading] = useState(true)
@@ -482,6 +489,10 @@ export default function FluxRDV({ conseilleres }) {
   // Équipes visibles selon permissions
   // Si accès à 1 seule équipe, forcer vue séparée
   useEffect(() => {
+    localStorage.setItem('jg_selected_flux', JSON.stringify(selected))
+  }, [selected])
+
+  useEffect(() => {
     if (!(canSeeSale && canSeeKenitra)) {
       setViewMode('separated')
       setFilterEquipe('all')
@@ -501,9 +512,9 @@ export default function FluxRDV({ conseilleres }) {
   return (
     <div>
       <PageHeader title="Flux de Rendez-vous" subtitle="Performance commerciale par équipe et commercial">
-        <button onClick={() => setShowSaisie(p=>!p)} style={{ padding: '8px 18px', borderRadius: 20, border: '1.5px solid #C9A84C', background: showSaisie?'#C9A84C':'#fff', color: showSaisie?'#fff':'#C9A84C', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+        {isSuperAdmin && <button onClick={() => setShowSaisie(p=>!p)} style={{ padding: '8px 18px', borderRadius: 20, border: '1.5px solid #C9A84C', background: showSaisie?'#C9A84C':'#fff', color: showSaisie?'#fff':'#C9A84C', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
           {showSaisie ? '✕ Fermer' : '+ Saisir données'}
-        </button>
+        </button>}
       </PageHeader>
 
       {/* Modal detail commercial */}
@@ -698,7 +709,7 @@ export default function FluxRDV({ conseilleres }) {
       )}
 
       {/* Saisie */}
-      {showSaisie && (
+      {isSuperAdmin && showSaisie && (
         <div style={{ background: '#fff', borderRadius: 14, padding: 24, border: '1.5px solid #C9A84C', marginBottom: 24 }}>
           {msg && <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 14, fontSize: 12, fontWeight: 500, background: msg.type==='success'?'rgba(76,175,125,0.1)':'rgba(224,92,92,0.1)', color: msg.type==='success'?'#2d7a54':'#a03030' }}>{msg.text}</div>}
 
@@ -1101,7 +1112,8 @@ export default function FluxRDV({ conseilleres }) {
       </div>
       </>}
 
-      {/* Historique saisies */}
+      {/* Historique saisies - super_admin uniquement */}
+      {isSuperAdmin && <>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showHistorique ? 12 : 0, marginTop: 8 }}>
         <div onClick={() => setShowHistorique(p=>!p)} style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
           Historique des saisies
@@ -1175,6 +1187,7 @@ export default function FluxRDV({ conseilleres }) {
           </div>
         </div>
       )}
+      </>}
     </div>
   )
 }

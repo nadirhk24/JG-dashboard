@@ -131,7 +131,14 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   // Mon propre ID conseillère (pour vue restreinte)
   const myConseillereId = profil?.conseillere_id || null
 
-  const [selected, setSelected] = useState({ type: 'global', label: 'Global' })
+  const [selected, setSelected] = useState(() => {
+    const now = new Date()
+    const saved = localStorage.getItem('jg_selected_cc')
+    if (saved) try { return JSON.parse(saved) } catch(e) {}
+    const mKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
+    const MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
+    return { type: 'month', value: mKey, label: `${MOIS[now.getMonth()]} ${now.getFullYear()}` }
+  })
   const [filtreConseillere, setFiltreConseillere] = useState('all')
   const [drillConseillere, setDrillConseillere] = useState(null)
   const [objectifs, setObjectifs] = useState({})
@@ -147,7 +154,10 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   const today = new Date().toISOString().split('T')[0]
   const [form, setForm] = useState({ conseillere_id: '', date: today, date_debut: '', date_fin: '', leads_bruts: '', indispos: '', non_exploitables: '', echanges: '', rdv: '', visites: '', ventes: '' })
 
-  useEffect(() => { loadObjectifsPeriode() }, [selected])
+  useEffect(() => {
+    loadObjectifsPeriode()
+    localStorage.setItem('jg_selected_cc', JSON.stringify(selected))
+  }, [selected])
 
   async function loadObjectifsPeriode() {
     clearObjectifsCache()
@@ -449,12 +459,12 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
 
       <PageHeader title="Call Center" subtitle={selected.label}>
         <ConseillereFilter conseilleres={conseilleres} value={filtreConseillere} onChange={setFiltreConseillere} />
-        <button onClick={() => setShowSaisie(p => !p)} style={{ padding: '8px 18px', borderRadius: 20, border: '1.5px solid #C9A84C', background: showSaisie ? '#C9A84C' : '#fff', color: showSaisie ? '#fff' : '#C9A84C', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+        {isSuperAdmin && <button onClick={() => setShowSaisie(p => !p)} style={{ padding: '8px 18px', borderRadius: 20, border: '1.5px solid #C9A84C', background: showSaisie ? '#C9A84C' : '#fff', color: showSaisie ? '#fff' : '#C9A84C', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
           {showSaisie ? '✕ Fermer' : '+ Saisir données'}
-        </button>
+        </button>}
       </PageHeader>
 
-      {showSaisie && (
+      {isSuperAdmin && showSaisie && (
         <div style={{ ...cardStyle, borderColor: '#C9A84C' }}>
           <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
             {[['jour','Par jour'],['periode','Par période']].map(([k,l]) => (
@@ -595,7 +605,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
                   <td style={{...tdStyle,color:'#3a3480',fontSize:10}}>{row.cv_efficacite}%</td>
                 </tr>
               ))}
-              {tableData.length===0 && <tr><td colSpan={15} style={{textAlign:'center',padding:'32px',color:'#5A5A5A',fontSize:13}}>Aucune donnée — cliquez sur "+ Saisir données"</td></tr>}
+              {tableData.length===0 && <tr><td colSpan={15} style={{textAlign:'center',padding:'32px',color:'#5A5A5A',fontSize:13}}>Aucune donnée pour la période sélectionnée</td></tr>}
             </tbody>
           </table>
         </div>

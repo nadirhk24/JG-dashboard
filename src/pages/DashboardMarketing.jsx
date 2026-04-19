@@ -189,7 +189,14 @@ export default function DashboardMarketing() {
   const [showSaisie, setShowSaisie] = useState(false)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState(null)
-  const [selected, setSelected] = useState({ type: 'global', value: 'all', label: 'Global' })
+  const [selected, setSelected] = useState(() => {
+    const now = new Date()
+    const saved = localStorage.getItem('jg_selected_mkt')
+    if (saved) try { return JSON.parse(saved) } catch(e) {}
+    const mKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
+    const MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
+    return { type: 'month', value: mKey, label: `${MOIS[now.getMonth()]} ${now.getFullYear()}` }
+  })
   const [hiddenKpis, setHiddenKpis] = useState({})
   const [confirmModal, setConfirmModal] = useState(null)
   const [zoomedChart, setZoomedChart] = useState(null)
@@ -202,6 +209,8 @@ export default function DashboardMarketing() {
   const [saisieMode, setSaisieMode] = useState('jour')
   const today = new Date().toISOString().split('T')[0]
   const [form, setForm] = useState({ date: today, date_debut: '', date_fin: '', non_exploitables: '', suivis: '', rdv: '', visites: '', ventes: '' })
+
+  useEffect(() => { localStorage.setItem('jg_selected_mkt', JSON.stringify(selected)) }, [selected])
 
   useEffect(() => { loadMarketing() }, [])
 

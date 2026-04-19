@@ -183,9 +183,9 @@ export default function AnalyseCV({ conseilleres, saisies }) {
 
   // Segment par défaut : premier autorisé
   const defaultSegment = canSeeCC ? 'callcenter' : canSeeMkt ? 'marketing' : 'flux'
-  const [segment, setSegment] = useState(defaultSegment)
+  const [segment, setSegment] = useState(() => localStorage.getItem('jg_segment_cv') || defaultSegment)
   const [kpiKey, setKpiKey] = useState('conversion_tel')
-  const [periode, setPeriode] = useState('mois')
+  const [periode, setPeriode] = useState(() => localStorage.getItem('jg_periode_cv') || 'mois')
   const [marketingData, setMarketingData] = useState([])
   const [fluxData, setFluxData] = useState([])
   const [fluxCommerciaux, setFluxCommerciaux] = useState([])
@@ -213,6 +213,9 @@ export default function AnalyseCV({ conseilleres, saisies }) {
     else if (segment === 'marketing') setKpiKey('taux_rdv')
     else setKpiKey('flux_rdv')
   }, [segment])
+  useEffect(() => { localStorage.setItem('jg_periode_cv', periode) }, [periode])
+  useEffect(() => { localStorage.setItem('jg_segment_cv', segment) }, [segment])
+
   const kpis = segment === 'callcenter' ? CC_KPIS : segment === 'marketing' ? MKT_KPIS : FLUX_KPIS
   const selectedKpi = kpis.find(k => k.key === kpiKey) || kpis[0]
   const groupFn = useMemo(() => getGroupFunction(periode), [periode])
@@ -554,7 +557,12 @@ export default function AnalyseCV({ conseilleres, saisies }) {
                   <td style={{ padding: '9px 10px', fontSize: 12, fontWeight: 500, color: '#C9A84C', borderBottom: '1px solid rgba(201,168,76,0.06)' }}>{row.label}</td>
                   <td style={{ padding: '9px 10px', fontSize: 12, fontWeight: 500, color: selectedKpi.color, borderBottom: '1px solid rgba(201,168,76,0.06)' }}>{displayVal}{displayUnit}</td>
                   <td style={{ padding: '9px 10px', fontSize: 12, color: statut.color, fontWeight: 500, borderBottom: '1px solid rgba(201,168,76,0.06)' }}>{cvVal > 0 ? cvVal + '%' : '-'}</td>
-                  <td style={{ padding: '9px 10px', fontSize: 12, color: statut.color, borderBottom: '1px solid rgba(201,168,76,0.06)' }}>{statut.label}</td>
+                  <td style={{ padding: '9px 10px', fontSize: 12, borderBottom: '1px solid rgba(201,168,76,0.06)' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: statut.color, flexShrink: 0 }} />
+                      <span style={{ color: statut.color, fontWeight: 500 }}>{statut.label}</span>
+                    </div>
+                  </td>
                 </tr>
               )
             })}
