@@ -231,6 +231,39 @@ function parseVisitesVentesCC(rows) {
   return { normal: normalAgg, nonReconnus: nonRecAgg }
 }
 
+function parseTextDateGlobal(rows) {
+  // Compte les lignes par date uniquement (sans considérer le vendeur)
+  const MONTHS = { 'janv':1,'févr':2,'fevr':2,'mars':3,'avr':4,'mai':5,'juin':6,
+                   'juil':7,'août':8,'aout':8,'sept':9,'oct':10,'nov':11,'déc':12,'dec':12 }
+  const counts = {}
+  let currentDate = null
+
+  for (const row of rows) {
+    const val0 = row[0]
+    if (val0 === null || val0 === undefined) continue
+    const str0 = String(val0).trim()
+    if (!str0) continue
+
+    // Ligne date groupe
+    const dateMatch = str0.match(/^(\d+)\s+(\w+)\.?\s+(\d{4})/)
+    if (dateMatch && str0.includes('(')) {
+      const day = parseInt(dateMatch[1])
+      const monthKey = dateMatch[2].toLowerCase().replace('.','')
+      const month = MONTHS[monthKey]
+      const year = parseInt(dateMatch[3])
+      if (month) currentDate = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`
+      continue
+    }
+    // Ligne sous-groupe
+    if (str0.startsWith('    ') && str0.includes('(')) continue
+    // Ligne individuelle
+    if (currentDate && !str0.includes('(')) {
+      counts[currentDate] = (counts[currentDate] || 0) + 1
+    }
+  }
+  return Object.entries(counts).map(([date, count]) => ({ date, nom: 'GLOBAL', count }))
+}
+
 function parseCohort(rows, month, year) {
   // Mode cohort: 1 seule valeur globale pour le mois
   let total = 0
@@ -591,8 +624,10 @@ export default function ImportAgent() {
 
           if (mode === 'cohort') {
             parsed = parseCohort(rows2.slice(1), month, year)
-          } else if (['injections','indispos','non_expl_mkt','suivis_mkt','rdv_mkt','ventes_mkt','visites_mkt'].includes(type)) {
+          } else if (['injections','indispos','non_expl_mkt','suivis_mkt'].includes(type)) {
             parsed = parseWithDatetime(rows2.slice(1))
+          } else if (['rdv_mkt','ventes_mkt','visites_mkt'].includes(type)) {
+            parsed = parseTextDateGlobal(rows2.slice(1))
           } else if (['visites_cc','ventes_cc'].includes(type)) {
             parsed = parseVisitesVentesCC(rows2.slice(1))
           } else {
