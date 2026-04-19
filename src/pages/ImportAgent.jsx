@@ -360,21 +360,25 @@ async function injectData(parsed, fileType, modeInfo, dryRun = false, importId =
             await supabase.from('flux_rdv').insert({ conseillere_id: consId, commercial_id: commId, date_debut: row.date, date_fin: row.date, type_saisie: 'jour', rdv: 0, visites: type === 'visites_cc' ? row.count : 0, ventes: type === 'ventes_cc' ? row.count : 0 })
             results.inserted++
           }
-          // Sync flux_rdv → saisies CC : recalculer totaux visites/ventes pour cette conseillère ce jour
+          // Sync flux_rdv → saisies CC : recalculer totaux visites/ventes/rdv pour cette conseillère ce jour
           const fluxSaisies = await supabase.from('flux_rdv')
-            .select('visites, ventes').eq('conseillere_id', consId).eq('date_debut', row.date)
-          const totalVisites = (fluxSaisies.data || []).reduce((s,x) => s + parseFloat(x.visites||0), 0)
-          const totalVentes = (fluxSaisies.data || []).reduce((s,x) => s + parseFloat(x.ventes||0), 0)
+            .select('rdv, visites, ventes').eq('conseillere_id', consId).eq('date_debut', row.date)
+          const fluxRows = fluxSaisies.data || []
+          // Même logique que calcTotaux du FluxRDV : 1 vente = 1 visite, 1 visite = 1 rdv
+          let totalVisitesRaw = fluxRows.reduce((s,x) => s + parseFloat(x.visites||0), 0)
+          let totalVentes = fluxRows.reduce((s,x) => s + parseFloat(x.ventes||0), 0)
+          let totalRdvRaw = fluxRows.reduce((s,x) => s + parseFloat(x.rdv||0), 0)
+          const totalVisites = totalVisitesRaw + totalVentes
+          const totalRdv = totalRdvRaw + totalVisites
           const { data: saisieCC } = await supabase.from('saisies')
             .select('id').eq('conseillere_id', consId).eq('date', row.date).maybeSingle()
           if (saisieCC) {
-            await supabase.from('saisies').update({ visites: totalVisites, ventes: totalVentes }).eq('id', saisieCC.id)
+            await supabase.from('saisies').update({ visites: totalVisites, ventes: totalVentes, rdv: totalRdv }).eq('id', saisieCC.id)
           } else {
-            // Créer la ligne saisies si elle n'existe pas encore pour cette conseillère/date
             await supabase.from('saisies').insert({
               conseillere_id: consId, date: row.date, date_debut: row.date, date_fin: row.date,
               type_saisie: 'jour', leads_bruts: 0, indispos: 0, echanges: 0,
-              visites: totalVisites, ventes: totalVentes,
+              visites: totalVisites, ventes: totalVentes, rdv: totalRdv,
             })
           }
         }
@@ -750,10 +754,38 @@ export default function ImportAgent() {
         })
       }
     }
+    // Sync CC pour chaque conseillère/date injectée
+    const synced = new Set()
+    for (const row of nonReconnus) {
+      const key = `${row.date}|||${row.nomConseillere}`
+      if (!nonRecEquipes[key] || synced.has(key)) continue
+      synced.add(key)
+      const consId = resolveConseillere(row.nomConseillere)
+      if (!consId) continue
+      const fluxSaisies = await supabase.from('flux_rdv')
+        .select('rdv, visites, ventes').eq('conseillere_id', consId).eq('date_debut', row.date)
+      const fluxRows = fluxSaisies.data || []
+      const totalVisitesRaw = fluxRows.reduce((s,x) => s + parseFloat(x.visites||0), 0)
+      const totalVentes = fluxRows.reduce((s,x) => s + parseFloat(x.ventes||0), 0)
+      const totalRdvRaw = fluxRows.reduce((s,x) => s + parseFloat(x.rdv||0), 0)
+      const totalVisites = totalVisitesRaw + totalVentes
+      const totalRdv = totalRdvRaw + totalVisites
+      const { data: saisieCC } = await supabase.from('saisies')
+        .select('id').eq('conseillere_id', consId).eq('date', row.date).maybeSingle()
+      if (saisieCC) {
+        await supabase.from('saisies').update({ visites: totalVisites, ventes: totalVentes, rdv: totalRdv }).eq('id', saisieCC.id)
+      } else {
+        await supabase.from('saisies').insert({
+          conseillere_id: consId, date: row.date, date_debut: row.date, date_fin: row.date,
+          type_saisie: 'jour', leads_bruts: 0, indispos: 0, echanges: 0,
+          visites: totalVisites, ventes: totalVentes, rdv: totalRdv,
+        })
+      }
+    }
     setNonReconnus([])
     setNonRecEquipes({})
     setShowNonRec(false)
-    setGlobalMsg({ type: 'success', text: 'Non reconnus injectés !' })
+    setGlobalMsg({ type: 'success', text: 'Non reconnus injectés + sync CC !' })
   }
 
   const allDone = hasValidFiles && slots.every((s, i) => !s || !s.typeInfo || (status[i] && (status[i].state === 'done' || status[i].state === 'error')))
