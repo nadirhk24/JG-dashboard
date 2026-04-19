@@ -256,7 +256,6 @@ async function injectData(parsed, fileType, modeInfo, dryRun = false, importId =
   const { type } = fileType
   const { mode, month, year } = modeInfo
 
-  // Champ cible selon le type
   const fieldMap = {
     injections:    'leads_bruts',
     indispos:      'indispos',
@@ -271,22 +270,24 @@ async function injectData(parsed, fileType, modeInfo, dryRun = false, importId =
     visites_mkt:   'visites',
   }
 
-  const isCC = ['injections','indispos','non_expl_cc','echanges'].includes(type)
-  const isMkt = ['non_expl_mkt','suivis_mkt','rdv_mkt','ventes_mkt','visites_mkt'].includes(type)
+  const isCC   = ['injections','indispos','non_expl_cc','echanges'].includes(type)
+  const isMkt  = ['non_expl_mkt','suivis_mkt','rdv_mkt','ventes_mkt','visites_mkt'].includes(type)
   const isBoth = ['injections','indispos'].includes(type)
-  const field = fieldMap[type]
+  const field  = fieldMap[type]
 
   for (const row of parsed) {
     try {
+
+      // ── Cohort marketing ────────────────────────────────────────────────
       if (row.isCohort) {
-        // Mode cohort marketing : upsert global par mois
         const dateDebut = `${year}-${String(month).padStart(2,'0')}-01`
         if (dryRun) {
           results.preview.push({ date: dateDebut, conseillere: 'GLOBAL', field, value: row.count, table: 'marketing_saisies', action: 'cohort' })
           results.inserted++
         } else {
           const { data: existing } = await supabase.from('marketing_saisies')
-            .select('id').eq('date_debut', dateDebut).maybeSingle()
+            .select('id,' + field).eq('date_debut', dateDebut).maybeSingle()
+          if (importId) await supabase.from('import_historique').insert({ import_id: importId, fichier: fileName, type, table_cible: 'marketing_saisies', row_id: existing?.id || null, champ: field, valeur_avant: existing?.[field] ?? null, valeur_apres: row.count })
           if (existing) {
             await supabase.from('marketing_saisies').update({ [field]: row.count }).eq('id', existing.id)
             results.updated++
@@ -298,129 +299,91 @@ async function injectData(parsed, fileType, modeInfo, dryRun = false, importId =
         continue
       }
 
+      // ── CC standard (injections, indispos, non_expl_cc, echanges) ───────
       if (isCC || isBoth) {
         const consId = resolveConseillere(row.nom)
         if (!consId) { results.errors.push(`Nom non reconnu: ${row.nom}`); continue }
-
         if (dryRun) {
           results.preview.push({ date: row.date, conseillere: row.nom, field, value: row.count, table: 'saisies', action: 'upsert' })
           results.inserted++
         } else {
           const { data: existing } = await supabase.from('saisies')
-            .select('id, ' + field).eq('conseillere_id', consId).eq('date', row.date).maybeSingle()
-          if (importId) {
-            await supabase.from('import_historique').insert({
-              import_id: importId, fichier: fileName, type: fileType.type,
-              table_cible: 'saisies', row_id: existing?.id || null,
-              champ: field, valeur_avant: existing?.[field] ?? null, valeur_apres: row.count,
-            })
-          }
+            .select('id,' + field).eq('conseillere_id', consId).eq('date', row.date).maybeSingle()
+          if (importId) await supabase.from('import_historique').insert({ import_id: importId, fichier: fileName, type, table_cible: 'saisies', row_id: existing?.id || null, champ: field, valeur_avant: existing?.[field] ?? null, valeur_apres: row.count })
           if (existing) {
             await supabase.from('saisies').update({ [field]: row.count }).eq('id', existing.id)
             results.updated++
           } else {
-            const { data: newRow } = await supabase.from('saisies').insert({
-              conseillere_id: consId, date: row.date, date_debut: row.date, date_fin: row.date,
-              type_saisie: 'jour', [field]: row.count,
-            }).select('id').single()
+            await supabase.from('saisies').insert({ conseillere_id: consId, date: row.date, date_debut: row.date, date_fin: row.date, type_saisie: 'jour', [field]: row.count })
             results.inserted++
           }
         }
       }
 
-      if (isBoth) {
-        // Sync vers marketing_saisies pour injections et indispos
-        const mktField = type === 'injections' ? 'injections' : 'indispos'
-        // Calculer le total CC pour ce jour
-        const { data: saisiesJour } = await supabase.from('saisies')
-          .select('leads_bruts, indispos').eq('date', row.date)
+      // ── Sync CC → Marketing pour injections et indispos ─────────────────
+      if (isBoth && !dryRun) {
+        const { data: saisiesJour } = await supabase.from('saisies').select('leads_bruts, indispos').eq('date', row.date)
         const totalLeads = (saisiesJour || []).reduce((s,x) => s + (x.leads_bruts||0), 0)
         const totalIndispos = (saisiesJour || []).reduce((s,x) => s + (x.indispos||0), 0)
-        const { data: mktLine } = await supabase.from('marketing_saisies')
-          .select('id').eq('date_debut', row.date).maybeSingle()
+        const { data: mktLine } = await supabase.from('marketing_saisies').select('id').eq('date_debut', row.date).maybeSingle()
         if (mktLine) {
           await supabase.from('marketing_saisies').update({ injections: totalLeads, indispos: totalIndispos }).eq('id', mktLine.id)
         } else {
-          await supabase.from('marketing_saisies').insert({
-            date: row.date, date_debut: row.date, date_fin: row.date, type_saisie: 'jour',
-            injections: totalLeads, indispos: totalIndispos, non_exploitables: 0, suivis: 0, rdv: 0, visites: 0, ventes: 0,
-          })
+          await supabase.from('marketing_saisies').insert({ date: row.date, date_debut: row.date, date_fin: row.date, type_saisie: 'jour', injections: totalLeads, indispos: totalIndispos, non_exploitables: 0, suivis: 0, rdv: 0, visites: 0, ventes: 0 })
         }
       }
 
-      // Visites/Ventes CC avec commerciaux → flux_rdv
-      if (['visites_cc','ventes_cc'].includes(type) && !row.isCohort) {
+      // ── Visites / Ventes CC → flux_rdv ───────────────────────────────────
+      if (['visites_cc','ventes_cc'].includes(type)) {
         const nomCons = row.nomConseillere || row.nom
-        if (!nomCons) { results.errors.push(`Ligne sans conseillère ignorée: ${row.date}`); continue }
-        if (row.nomCommercial) {
-          const consId = resolveConseillere(nomCons)
-          if (!consId) { results.errors.push(`Conseillère non reconnue: ${nomCons}`); continue }
-          const fluxField = type === 'visites_cc' ? 'visites' : 'ventes'
-          if (dryRun) {
-            results.preview.push({ date: row.date, conseillere: `${nomCons} / ${row.nomCommercial}`, field: fluxField, value: row.count, table: 'flux_rdv', action: 'upsert' })
-            results.inserted++
-          } else {
-            // Chercher d'abord dans le mapping, sinon ilike
-            let commId = COMMERCIAL_MAP[row.nomCommercial?.trim().toUpperCase()] || COMMERCIAL_MAP[row.nomCommercial?.trim()]
-            if (!commId) {
-              const { data: comm } = await supabase.from('commerciaux')
-                .select('id').ilike('nom', `%${row.nomCommercial}%`).maybeSingle()
-              commId = comm?.id
-            }
-            if (!commId) { results.errors.push(`COMM_NON_RECONNU:${row.nomCommercial}`); continue }
-            const comm = { id: commId }
-            // Sauvegarder avant injection
-            const { data: ex } = await supabase.from('flux_rdv').select('id, ' + fluxField).eq('conseillere_id', consId).eq('commercial_id', commId).eq('date_debut', row.date).maybeSingle()
-            if (importId) {
-              await supabase.from('import_historique').insert({ import_id: importId, fichier: fileName, type: fileType.type, table_cible: 'flux_rdv', row_id: ex?.id || null, champ: fluxField, valeur_avant: ex?.[fluxField] ?? null, valeur_apres: row.count })
-            }
-            const { data: existing } = await supabase.from('flux_rdv')
-              .select('id').eq('conseillere_id', consId).eq('commercial_id', commId)
-              .eq('date_debut', row.date).maybeSingle()
-            if (existing) {
-              const { data: cur } = await supabase.from('flux_rdv').select(fluxField).eq('id', existing.id).maybeSingle()
-              await supabase.from('flux_rdv').update({ [fluxField]: (cur?.[fluxField] || 0) + row.count }).eq('id', existing.id)
-              results.updated++
-            } else {
-              await supabase.from('flux_rdv').insert({
-                conseillere_id: consId, commercial_id: commId,
-                date_debut: row.date, date_fin: row.date, type_saisie: 'jour',
-                rdv: 0, visites: type === 'visites_cc' ? row.count : 0, ventes: type === 'ventes_cc' ? row.count : 0,
-              })
-              results.inserted++
-            }
+        if (!nomCons) { results.errors.push(`Ligne sans conseillère: ${row.date}`); continue }
+        if (!row.nomCommercial) continue
+        const consId = resolveConseillere(nomCons)
+        if (!consId) { results.errors.push(`Conseillère non reconnue: ${nomCons}`); continue }
+        const fluxField = type === 'visites_cc' ? 'visites' : 'ventes'
+        if (dryRun) {
+          results.preview.push({ date: row.date, conseillere: `${nomCons} / ${row.nomCommercial}`, field: fluxField, value: row.count, table: 'flux_rdv', action: 'upsert' })
+          results.inserted++
+        } else {
+          let commId = COMMERCIAL_MAP[row.nomCommercial?.trim().toUpperCase()] || COMMERCIAL_MAP[row.nomCommercial?.trim()]
+          if (!commId) {
+            const { data: comm } = await supabase.from('commerciaux').select('id').ilike('nom', `%${row.nomCommercial}%`).maybeSingle()
+            commId = comm?.id
           }
+          if (!commId) { results.errors.push(`COMM_NON_RECONNU:${row.nomCommercial}`); continue }
+          const { data: ex } = await supabase.from('flux_rdv').select(`id,${fluxField}`).eq('conseillere_id', consId).eq('commercial_id', commId).eq('date_debut', row.date).maybeSingle()
+          if (importId) await supabase.from('import_historique').insert({ import_id: importId, fichier: fileName, type, table_cible: 'flux_rdv', row_id: ex?.id || null, champ: fluxField, valeur_avant: ex?.[fluxField] ?? null, valeur_apres: row.count })
+          if (ex) {
+            await supabase.from('flux_rdv').update({ [fluxField]: (ex[fluxField] || 0) + row.count }).eq('id', ex.id)
+            results.updated++
+          } else {
+            await supabase.from('flux_rdv').insert({ conseillere_id: consId, commercial_id: commId, date_debut: row.date, date_fin: row.date, type_saisie: 'jour', rdv: 0, visites: type === 'visites_cc' ? row.count : 0, ventes: type === 'ventes_cc' ? row.count : 0 })
+            results.inserted++
+          }
+        }
         continue
       }
 
+      // ── Marketing standard ───────────────────────────────────────────────
       if (isMkt) {
-        const { data: existing } = await supabase.from('marketing_saisies')
-          .select('id').eq('date_debut', row.date).maybeSingle()
+        const { data: existing } = await supabase.from('marketing_saisies').select('id,' + field).eq('date_debut', row.date).maybeSingle()
         if (dryRun) {
           results.preview.push({ date: row.date, conseillere: 'Marketing', field, value: row.count, table: 'marketing_saisies', action: 'upsert' })
           results.inserted++
         } else {
-          if (importId) {
-            await supabase.from('import_historique').insert({
-              import_id: importId, fichier: fileName, type: fileType.type,
-              table_cible: 'marketing_saisies', row_id: existing?.id || null,
-              champ: field, valeur_avant: existing?.[field] ?? null, valeur_apres: row.count,
-            })
-          }
+          if (importId) await supabase.from('import_historique').insert({ import_id: importId, fichier: fileName, type, table_cible: 'marketing_saisies', row_id: existing?.id || null, champ: field, valeur_avant: existing?.[field] ?? null, valeur_apres: row.count })
           if (existing) {
             await supabase.from('marketing_saisies').update({ [field]: row.count }).eq('id', existing.id)
             results.updated++
           } else {
-            await supabase.from('marketing_saisies').insert({
-              date: row.date, date_debut: row.date, date_fin: row.date, type_saisie: 'jour',
-              [field]: row.count, injections: 0, non_exploitables: 0, indispos: 0, suivis: 0, rdv: 0, visites: 0, ventes: 0,
-            })
+            await supabase.from('marketing_saisies').insert({ date: row.date, date_debut: row.date, date_fin: row.date, type_saisie: 'jour', [field]: row.count, injections: 0, non_exploitables: 0, indispos: 0, suivis: 0, rdv: 0, visites: 0, ventes: 0 })
             results.inserted++
           }
         }
       }
+
     } catch(e) {
-      results.errors.push(`Erreur ${row.date} ${row.nom}: ${e.message}`)
+      results.errors.push(`Erreur ${row.date} ${row.nom || row.nomConseillere || ''}: ${e.message}`)
     }
   }
   return results
