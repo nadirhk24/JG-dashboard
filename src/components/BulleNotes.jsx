@@ -1,7 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 
 export default function BulleNotes() {
+  const { user, profil } = useAuth()
+  const isSuperAdmin = profil?.role === 'super_admin'
+  const isResponsable = profil?.role === 'responsable_sale'
+  const canSeePlans = isSuperAdmin || isResponsable
   const [open, setOpen] = useState(false)
   const [onglet, setOnglet] = useState('notes')
   const [pos, setPos] = useState({ x: window.innerWidth - 80, y: window.innerHeight - 80 })
@@ -26,12 +31,14 @@ export default function BulleNotes() {
   useEffect(() => { loadNotes(); loadPlans() }, [])
 
   async function loadNotes() {
-    const { data } = await supabase.from('notes').select('*').order('created_at', { ascending: false })
+    if (!user) return
+    const { data } = await supabase.from('notes').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
     setNotes(data || [])
   }
 
   async function loadPlans() {
-    const { data } = await supabase.from('plans_actions').select('*').order('date_fin', { ascending: true })
+    if (!user) return
+    const { data } = await supabase.from('plans_actions').select('*').eq('user_id', user.id).order('date_fin', { ascending: true })
     setPlans(data || [])
     // Notifier les plans en retard non clôturés
     const today = new Date().toISOString().split('T')[0]
@@ -61,7 +68,7 @@ export default function BulleNotes() {
 
   async function saveNote() {
     if (!noteTexte.trim()) return
-    await supabase.from('notes').insert({ texte: noteTexte.trim() })
+    await supabase.from('notes').insert({ texte: noteTexte.trim(), user_id: user.id })
     setNoteTexte('')
     loadNotes()
   }
@@ -81,7 +88,7 @@ export default function BulleNotes() {
 
   async function savePlan() {
     if (!planTexte.trim() || !planDebut || !planFin) return
-    await supabase.from('plans_actions').insert({ texte: planTexte.trim(), responsable: planResp.trim(), date_debut: planDebut, date_fin: planFin })
+    await supabase.from('plans_actions').insert({ user_id: user.id, texte: planTexte.trim(), responsable: planResp.trim(), date_debut: planDebut, date_fin: planFin })
     setPlanTexte(''); setPlanResp(''); setPlanDebut(''); setPlanFin('')
     loadPlans()
   }
@@ -198,7 +205,7 @@ export default function BulleNotes() {
               )}
 
               {/* ── PLANS D'ACTIONS ── */}
-              {onglet === 'plans' && (
+              {onglet === 'plans' && canSeePlans && (
                 <div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
                     <input value={planTexte} onChange={e => setPlanTexte(e.target.value)} placeholder="Plan d'action..." style={inputStyle} />
