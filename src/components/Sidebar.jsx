@@ -86,15 +86,10 @@ export default function Sidebar() {
         <div style={{ padding: collapsed ? '20px 0' : '24px 20px 16px', borderBottom: '1px solid rgba(201,168,76,0.2)', display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start' }}>
           {!collapsed ? (
             <div>
-              <div style={{ width: 48, height: 48, borderRadius: '50%', border: '2px solid #C9A84C', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
-                <span style={{ fontFamily: 'Cormorant Garamond, serif', color: '#C9A84C', fontSize: 20, fontWeight: 600 }}>JG</span>
-              </div>
-              <div style={{ fontSize: 9, color: 'rgba(201,168,76,0.6)', letterSpacing: 3, textTransform: 'uppercase' }}>Promoteur Immobilier</div>
+              <img src="/App_-_logo.png" alt="Vario Logo" style={{ width: 80, height: 'auto', filter: 'drop-shadow(0 0 8px rgba(201,168,76,0.2))' }} />
             </div>
           ) : (
-            <div style={{ width: 34, height: 34, borderRadius: '50%', border: '2px solid #C9A84C', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontFamily: 'Cormorant Garamond, serif', color: '#C9A84C', fontSize: 13, fontWeight: 600 }}>JG</span>
-            </div>
+            <img src="/App_-_logo.png" alt="Vario Logo" style={{ width: 36, height: 'auto' }} />
           )}
         </div>
 
