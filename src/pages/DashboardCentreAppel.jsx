@@ -600,21 +600,17 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
         </div>
       </div>
 
-      {/* Détail par période — replié pour responsable et conseillère */}
-      <div style={{ marginBottom: 20 }}>
-        {isSuperAdmin ? (
-          <SectionTitle>Détail par période</SectionTitle>
-        ) : (
-          <div onClick={() => setShowDetail(p => !p)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: showDetail ? 16 : 0, marginTop: 8 }}>
-            <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C', display: 'flex', alignItems: 'center', gap: 12 }}>
-              Détail par période
-              <div style={{ flex: 1, height: 1, background: 'rgba(201,168,76,0.2)', width: 200 }}></div>
-            </div>
-            <span style={{ fontSize: 12, color: '#C9A84C' }}>{showDetail ? '▲ Fermer' : '▼ Ouvrir'}</span>
+      {/* Détail par période — replié par défaut pour tous */}
+      <div style={{ marginBottom: showDetail ? 16 : 0, marginTop: 8 }}>
+        <div onClick={() => setShowDetail(p => !p)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+          <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C', display: 'flex', alignItems: 'center', gap: 12 }}>
+            Détail par période
+            <div style={{ flex: 1, height: 1, background: 'rgba(201,168,76,0.2)', width: 200 }}></div>
           </div>
-        )}
+          <span style={{ fontSize: 12, color: '#C9A84C' }}>{showDetail ? '▲ Fermer' : '▼ Ouvrir'}</span>
+        </div>
       </div>
-      {(isSuperAdmin || showDetail) && <div style={cardStyle}>
+      {showDetail && <div style={cardStyle}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
             <thead>
