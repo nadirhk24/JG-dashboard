@@ -154,6 +154,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   const [confirmModal, setConfirmModal] = useState(null)
   const [selectedRows, setSelectedRows] = useState(new Set())
   const [showHistorique, setShowHistorique] = useState(false)
+  const [showDetail, setShowDetail] = useState(false)
   const [saisieMode, setSaisieMode] = useState('jour')
   const today = new Date().toISOString().split('T')[0]
   const [form, setForm] = useState({ conseillere_id: '', date: today, date_debut: '', date_fin: '', leads_bruts: '', indispos: '', non_exploitables: '', echanges: '', rdv: '', visites: '', ventes: '' })
@@ -599,15 +600,32 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
         </div>
       </div>
 
-      <SectionTitle>Détail par période</SectionTitle>
-      <div style={cardStyle}>
+      {/* Détail par période — replié pour responsable et conseillère */}
+      <div style={{ marginBottom: 20 }}>
+        {isSuperAdmin ? (
+          <SectionTitle>Détail par période</SectionTitle>
+        ) : (
+          <div onClick={() => setShowDetail(p => !p)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: showDetail ? 16 : 0, marginTop: 8 }}>
+            <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C', display: 'flex', alignItems: 'center', gap: 12 }}>
+              Détail par période
+              <div style={{ flex: 1, height: 1, background: 'rgba(201,168,76,0.2)', width: 200 }}></div>
+            </div>
+            <span style={{ fontSize: 12, color: '#C9A84C' }}>{showDetail ? '▲ Fermer' : '▼ Ouvrir'}</span>
+          </div>
+        )}
+      </div>
+      {(isSuperAdmin || showDetail) && <div style={cardStyle}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
             <thead>
               <tr>{['Période','Leads Bruts','Leads Nets','Indispos','Échanges','RDV','Visites','Ventes','Productivité','Conv. Tél.','CV Conv.','Présence','CV Prés.','Eff. Comm.','CV Eff.'].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr>
             </thead>
             <tbody>
-              {tableData.map((row,i) => (
+              {(isConseillere ? tableData.filter((_, i) => {
+                // Pour les conseillères : garder seulement les lignes mensuelles (pas jour/semaine)
+                const label = tableData[i]?.label || ''
+                return label.length <= 8 // ex: "avr. 26" = 7 chars, "janv. 26" = 8 chars
+              }) : tableData).map((row,i) => (
                 <tr key={i} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                   <td style={{...tdStyle,fontWeight:500,color:'#C9A84C'}}>{row.label}</td>
                   <td style={tdStyle}>{row.leads_bruts}</td>
@@ -630,7 +648,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
             </tbody>
           </table>
         </div>
-      </div>
+      </div>}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, marginTop: 8 }}>
         <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C' }}>
