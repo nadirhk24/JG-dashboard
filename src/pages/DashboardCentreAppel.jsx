@@ -600,52 +600,6 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
         </div>
       </div>
 
-      {/* Détail par période — replié par défaut pour tous */}
-      <div style={{ marginBottom: showDetail ? 16 : 0, marginTop: 8 }}>
-        <div onClick={() => setShowDetail(p => !p)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
-          <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C', display: 'flex', alignItems: 'center', gap: 12 }}>
-            Détail par période
-            <div style={{ flex: 1, height: 1, background: 'rgba(201,168,76,0.2)', width: 200 }}></div>
-          </div>
-          <span style={{ fontSize: 12, color: '#C9A84C' }}>{showDetail ? '▲ Fermer' : '▼ Ouvrir'}</span>
-        </div>
-      </div>
-      {showDetail && <div style={cardStyle}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
-            <thead>
-              <tr>{['Période','Leads Bruts','Leads Nets','Indispos','Échanges','RDV','Visites','Ventes','Productivité','Conv. Tél.','CV Conv.','Présence','CV Prés.','Eff. Comm.','CV Eff.'].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr>
-            </thead>
-            <tbody>
-              {(isConseillere ? tableData.filter((_, i) => {
-                // Pour les conseillères : garder seulement les lignes mensuelles (pas jour/semaine)
-                const label = tableData[i]?.label || ''
-                return label.length <= 8 // ex: "avr. 26" = 7 chars, "janv. 26" = 8 chars
-              }) : tableData).map((row,i) => (
-                <tr key={i} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                  <td style={{...tdStyle,fontWeight:500,color:'#C9A84C'}}>{row.label}</td>
-                  <td style={tdStyle}>{row.leads_bruts}</td>
-                  <td style={tdStyle}>{row.leads_nets}</td>
-                  <td style={{...tdStyle,color:'#E05C5C'}}>{row.indispos}</td>
-                  <td style={tdStyle}>{row.echanges}</td>
-                  <td style={tdStyle}>{row.rdv}</td>
-                  <td style={tdStyle}>{row.visites}</td>
-                  <td style={tdStyle}>{row.ventes}</td>
-                  <td style={{...tdStyle,fontWeight:500,color:getColorFromObjectif(row.productivite,objectifs.obj_productivite_pct)}}>{row.productivite}%</td>
-                  <td style={{...tdStyle,fontWeight:500,color:getColorFromObjectif(row.conversion_tel,objectifs.obj_conv_tel_pct)}}>{row.conversion_tel}%</td>
-                  <td style={{...tdStyle,color:'#8a6a1a',fontSize:10}}>{row.cv_conv}%</td>
-                  <td style={{...tdStyle,color:getColorFromObjectif(row.taux_presence,objectifs.obj_presence_pct)}}>{row.taux_presence}%</td>
-                  <td style={{...tdStyle,color:'#2d7a54',fontSize:10}}>{row.cv_presence}%</td>
-                  <td style={{...tdStyle,color:getColorFromObjectif(row.efficacite_comm,objectifs.obj_efficacite_pct)}}>{row.efficacite_comm}%</td>
-                  <td style={{...tdStyle,color:'#3a3480',fontSize:10}}>{row.cv_efficacite}%</td>
-                </tr>
-              ))}
-              {tableData.length===0 && <tr><td colSpan={15} style={{textAlign:'center',padding:'32px',color:'#5A5A5A',fontSize:13}}>Aucune donnée pour la période sélectionnée</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      </div>}
-
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, marginTop: 8 }}>
         <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C' }}>
           Ranking Conseillères <span style={{ fontSize: 11, color: '#5A5A5A', fontWeight: 400, fontFamily: 'DM Sans' }}>(Conv. Tél. + Présence)</span>
@@ -778,6 +732,52 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
           </>
         )
       })()}
+
+      {/* Détail par période — replié par défaut pour tous */}
+      <div style={{ marginBottom: showDetail ? 16 : 0, marginTop: 8 }}>
+        <div onClick={() => setShowDetail(p => !p)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+          <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C', display: 'flex', alignItems: 'center', gap: 12 }}>
+            Détail par période
+            <div style={{ flex: 1, height: 1, background: 'rgba(201,168,76,0.2)', width: 200 }}></div>
+          </div>
+          <span style={{ fontSize: 12, color: '#C9A84C' }}>{showDetail ? '▲ Fermer' : '▼ Ouvrir'}</span>
+        </div>
+      </div>
+      {showDetail && <div style={cardStyle}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
+            <thead>
+              <tr>{['Période','Leads Bruts','Leads Nets','Indispos','Échanges','RDV','Visites','Ventes','Productivité','Conv. Tél.','CV Conv.','Présence','CV Prés.','Eff. Comm.','CV Eff.'].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr>
+            </thead>
+            <tbody>
+              {(isConseillere ? tableData.filter((_, i) => {
+                // Pour les conseillères : garder seulement les lignes mensuelles (pas jour/semaine)
+                const label = tableData[i]?.label || ''
+                return label.length <= 8 // ex: "avr. 26" = 7 chars, "janv. 26" = 8 chars
+              }) : tableData).map((row,i) => (
+                <tr key={i} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                  <td style={{...tdStyle,fontWeight:500,color:'#C9A84C'}}>{row.label}</td>
+                  <td style={tdStyle}>{row.leads_bruts}</td>
+                  <td style={tdStyle}>{row.leads_nets}</td>
+                  <td style={{...tdStyle,color:'#E05C5C'}}>{row.indispos}</td>
+                  <td style={tdStyle}>{row.echanges}</td>
+                  <td style={tdStyle}>{row.rdv}</td>
+                  <td style={tdStyle}>{row.visites}</td>
+                  <td style={tdStyle}>{row.ventes}</td>
+                  <td style={{...tdStyle,fontWeight:500,color:getColorFromObjectif(row.productivite,objectifs.obj_productivite_pct)}}>{row.productivite}%</td>
+                  <td style={{...tdStyle,fontWeight:500,color:getColorFromObjectif(row.conversion_tel,objectifs.obj_conv_tel_pct)}}>{row.conversion_tel}%</td>
+                  <td style={{...tdStyle,color:'#8a6a1a',fontSize:10}}>{row.cv_conv}%</td>
+                  <td style={{...tdStyle,color:getColorFromObjectif(row.taux_presence,objectifs.obj_presence_pct)}}>{row.taux_presence}%</td>
+                  <td style={{...tdStyle,color:'#2d7a54',fontSize:10}}>{row.cv_presence}%</td>
+                  <td style={{...tdStyle,color:getColorFromObjectif(row.efficacite_comm,objectifs.obj_efficacite_pct)}}>{row.efficacite_comm}%</td>
+                  <td style={{...tdStyle,color:'#3a3480',fontSize:10}}>{row.cv_efficacite}%</td>
+                </tr>
+              ))}
+              {tableData.length===0 && <tr><td colSpan={15} style={{textAlign:'center',padding:'32px',color:'#5A5A5A',fontSize:13}}>Aucune donnée pour la période sélectionnée</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showHistorique ? 16 : 0, marginTop: 8 }}>
         <div onClick={() => setShowHistorique(p=>!p)} style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
