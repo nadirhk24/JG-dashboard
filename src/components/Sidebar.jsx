@@ -83,15 +83,7 @@ export default function Sidebar() {
     <>
       <aside style={{ position: 'fixed', left: 0, top: 0, width: collapsed ? 60 : 230, height: '100vh', background: '#2C2C2C', display: 'flex', flexDirection: 'column', zIndex: 100, overflowY: 'auto', overflowX: 'hidden', transition: 'width 0.25s ease' }}>
 
-        <div style={{ padding: collapsed ? '20px 0' : '24px 20px 16px', borderBottom: '1px solid rgba(201,168,76,0.2)', display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start' }}>
-          {!collapsed ? (
-            <div>
-              <img src="/App_-_logo.png" alt="Vario Logo" style={{ width: 80, height: 'auto', filter: 'drop-shadow(0 0 8px rgba(201,168,76,0.2))' }} />
-            </div>
-          ) : (
-            <img src="/App_-_logo.png" alt="Vario Logo" style={{ width: 36, height: 'auto' }} />
-          )}
-        </div>
+
 
         <nav style={{ flex: 1, paddingTop: 12 }}>
           {NAV_STRUCTURE.map(({ section, items }) => {
