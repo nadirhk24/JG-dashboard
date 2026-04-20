@@ -233,18 +233,22 @@ function parseVisitesVentesCC(rows) {
 }
 
 function parseRdvCalendrier(rows) {
-  // Format: col0=datetime, col1=organisateur(conseillère), col2=participant
-  // Chaque RDV a une ligne principale + lignes participants (col0=null)
-  // Un RDV est créé par commercial participant non-conseillère
   const CONSEILLERS_NOMS = [
     'IBNTABET SIHAM','SIHAM IBNTABET','KAOUTAR HRARTI','GHIZLANE ELBAKARI',
     'FATIMA ZAHRAA','FATIMA ZAHRAA AAKIBA','Hala ELAOUAD','HALA ELAOUAD',
-    'Rajaa ELKHANCHAR','RAJAA ELKHANCHAR','NADIR HADRAK','N.HADRAK',
+    'Rajaa ELKHANCHAR','RAJAA ELKHANCHAR','NADIR HADRAK','N.HADRAK','PARTICIPANTS',
   ]
   function isConseillere(nom) {
     if (!nom) return true
-    const n = nom.trim().toUpperCase()
-    return CONSEILLERS_NOMS.some(c => c.toUpperCase() === n)
+    return CONSEILLERS_NOMS.some(c => c.toUpperCase() === nom.trim().toUpperCase())
+  }
+  function isMainRow(val) {
+    return val instanceof Date || (val && typeof val === 'object' && val.getTime)
+  }
+  function isParticipantRow(row) {
+    // Ligne participant : col0 vide/null/undefined et col2 existe
+    const v0 = row[0]
+    return (v0 === null || v0 === undefined || v0 === '') && row[2]
   }
 
   const MONTHS = { 'janv':1,'févr':2,'fevr':2,'mars':3,'avr':4,'mai':5,'juin':6,'juil':7,'août':8,'aout':8,'sept':9,'oct':10,'nov':11,'déc':12,'dec':12 }
@@ -253,46 +257,45 @@ function parseRdvCalendrier(rows) {
 
   while (i < rows.length) {
     const row = rows[i]
-    const val0 = row[0], val1 = row[1] ?? null, val2 = row[2] ?? null
+    const val0 = row[0]
 
-    // Ligne date groupe texte
+    // Skip lignes date groupe et sous-groupe
     if (val0 && typeof val0 === 'string') {
-      const dm = val0.trim().match(/^(\d+)\s+(\w+)\.?\s+(\d{4})/)
-      if (dm && val0.includes('(')) { i++; continue }
-      if (val0.startsWith('    ') && val0.includes('(')) { i++; continue }
+      i++; continue
     }
 
     // Ligne RDV principale (datetime)
-    if (val0 instanceof Date) {
-      const dateStr = val0.toISOString().split('T')[0]
-      const conseillere = val1 ? String(val1).trim() : null
-
-      // Collecter tous les participants commerciaux (ligne principale + lignes suivantes)
+    if (isMainRow(val0)) {
+      const dateStr = new Date(val0).toISOString().split('T')[0]
+      const conseillere = row[1] ? String(row[1]).trim() : null
       const commerciaux = []
-      const firstParticipant = val2 ? String(val2).trim() : null
-      if (firstParticipant && !isConseillere(firstParticipant)) commerciaux.push(firstParticipant)
 
+      // Participant col2 de la ligne principale
+      if (row[2]) {
+        const p = String(row[2]).trim()
+        if (p && !isConseillere(p)) commerciaux.push(p)
+      }
+
+      // Lignes participants suivantes (col0 vide)
       let j = i + 1
-      while (j < rows.length && rows[j][0] === null) {
-        const participant = rows[j][2] ? String(rows[j][2]).trim() : null
-        if (participant && !isConseillere(participant)) commerciaux.push(participant)
+      while (j < rows.length && isParticipantRow(rows[j])) {
+        const p = String(rows[j][2]).trim()
+        if (p && !isConseillere(p)) commerciaux.push(p)
         j++
       }
 
-      // Créer 1 entrée par commercial (ignorer si aucun commercial = RDV interne)
       if (conseillere && commerciaux.length > 0) {
         for (const comm of commerciaux) {
           results.push({ date: dateStr, nomConseillere: conseillere, nomCommercial: comm, count: 1 })
         }
       }
-
       i = j
       continue
     }
     i++
   }
 
-  // Agréger par date + conseillère + commercial
+  // Agréger
   const agg = {}
   for (const r of results) {
     const key = `${r.date}|||${r.nomConseillere}|||${r.nomCommercial}`
