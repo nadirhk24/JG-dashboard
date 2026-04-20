@@ -188,10 +188,13 @@ export default function PerfCommercial() {
     const mid = Math.floor(chartData.length / 2)
     const first = chartData.slice(0, mid)
     const second = chartData.slice(mid)
+    // Moyenne du taux de conversion
     const m1 = first.reduce((s,r)=>s+r.moyenne,0)/first.length
     const m2 = second.reduce((s,r)=>s+r.moyenne,0)/second.length
-    const c1 = first[first.length-1]?.cv || 0
-    const c2 = second[second.length-1]?.cv || 0
+    // Moyenne du CV (pas le dernier point)
+    const c1 = first.reduce((s,r)=>s+r.cv,0)/first.length
+    const c2 = second.reduce((s,r)=>s+r.cv,0)/second.length
+    // moyenneTrend > 0 = hausse, cvTrend > 0 = hausse CV (instabilité)
     return { moyenneTrend: m2 - m1, cvTrend: c2 - c1 }
   }, [chartData])
 
