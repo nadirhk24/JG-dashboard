@@ -620,7 +620,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
           {showRankCols && (
             <div style={{ position: 'absolute', right: 0, top: '110%', background: '#fff', border: '1px solid rgba(201,168,76,0.2)', borderRadius: 10, padding: '12px', zIndex: 100, minWidth: 180, boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
               <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, fontWeight: 500 }}>Masquer / Afficher</div>
-              {ALL_RANK_COLS.filter(c => !c.hideForConseillere).map(c => (
+              {ALL_RANK_COLS.filter(c => !isConseillere || !c.hideForConseillere).map(c => (
                 <label key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', cursor: 'pointer', fontSize: 12, color: hiddenRankCols[c.key]?'#8A8A7A':'#2C2C2C' }}>
                   <input type="checkbox" checked={!hiddenRankCols[c.key]} onChange={() => setHiddenRankCols(p=>({...p,[c.key]:!p[c.key]}))} style={{ accentColor: '#C9A84C' }}/>
                   {c.label}
@@ -639,7 +639,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
                 <th style={thStyle}>#</th>
                 <th style={thStyle}>Étoiles</th>
                 <th style={thStyle}>Conseillère</th>
-                {ALL_RANK_COLS.filter(c => !hiddenRankCols[c.key] && !c.hideForConseillere).map(c => <th key={c.key} style={{...thStyle,color:c.color||'#5A5A5A'}}>{c.label}</th>)}
+                {ALL_RANK_COLS.filter(c => !hiddenRankCols[c.key] && (!isConseillere || !c.hideForConseillere)).map(c => <th key={c.key} style={{...thStyle,color:c.color||'#5A5A5A'}}>{c.label}</th>)}
                 <th style={thStyle}>Score</th>
                 <th style={thStyle}>Détail</th>
               </tr>
@@ -667,7 +667,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
                     <td style={{...tdStyle,fontSize:16,fontWeight:700,color:rankColor}}>{i+1}</td>
                     <td style={{...tdStyle,color:'#C9A84C',letterSpacing:2,fontSize:16}}>{stars}</td>
                     <td style={{...tdStyle,fontWeight:500,color:rankColor,fontSize:12}}>{c.nom}</td>
-                    {ALL_RANK_COLS.filter(col => !hiddenRankCols[col.key] && !col.hideForConseillere).map(col => {
+                    {ALL_RANK_COLS.filter(col => !hiddenRankCols[col.key] && (!isConseillere || !col.hideForConseillere)).map(col => {
                       // Pour selfOnly (visites/ventes) : masquer valeur si pas ma ligne
                       const isMine = c.id === myConseillereId || !isConseillere
                       const cv = colValues[col.key]
