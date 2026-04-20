@@ -139,7 +139,11 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
     const MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
     return { type: 'month', value: mKey, label: `${MOIS[now.getMonth()]} ${now.getFullYear()}` }
   })
-  const [filtreConseillere, setFiltreConseillere] = useState('all')
+  const [filtreConseillere, setFiltreConseillere] = useState(() => {
+    // Pour une conseillère : filtrer sur ses données dès le départ
+    const p = null // sera résolu via useEffect
+    return 'all'
+  })
   const [drillConseillere, setDrillConseillere] = useState(null)
   const [objectifs, setObjectifs] = useState({})
   const [hiddenRankCols, setHiddenRankCols] = useState({})
@@ -159,6 +163,13 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
     localStorage.setItem('jg_selected_cc', JSON.stringify(selected))
   }, [selected])
 
+  // Pour une conseillère : bloquer le filtre sur son propre ID
+  useEffect(() => {
+    if (isConseillere && myConseillereId) {
+      setFiltreConseillere(myConseillereId)
+    }
+  }, [isConseillere, myConseillereId])
+
   async function loadObjectifsPeriode() {
     clearObjectifsCache()
     const obj = await getObjectifsPourPeriode(selected)
@@ -175,7 +186,11 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
     if (isConseillere && myConseillereId) return agregerParPeriode(saisiesFiltrees, myConseillereId)
     return agregerParPeriode(saisiesFiltrees)
   }, [saisiesFiltrees, isConseillere, myConseillereId])
-  const kpisParConseillere = useMemo(() => conseilleresFiltrees.map(c => ({ ...c, ...agregerParPeriode(saisiesFiltrees, c.id) })), [conseilleresFiltrees, saisiesFiltrees])
+  // Ranking : toujours toutes les conseillères (pas de filtre pour le ranking)
+  const kpisParConseillere = useMemo(() => conseilleres.map(c => ({ ...c, ...agregerParPeriode(
+    isConseillere ? saisies.filter(s => filtrerParSelection([s], selected).length > 0) : saisiesFiltrees,
+    c.id
+  ) })), [conseilleres, saisies, saisiesFiltrees, isConseillere, selected])
   const cvConvTel = useMemo(() => calcCV(kpisParConseillere.map(c => c.conversion_tel)), [kpisParConseillere])
   const cvPresence = useMemo(() => calcCV(kpisParConseillere.map(c => c.taux_presence)), [kpisParConseillere])
   const cvEfficacite = useMemo(() => calcCV(kpisParConseillere.map(c => c.efficacite_comm)), [kpisParConseillere])
@@ -458,7 +473,13 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
       )}
 
       <PageHeader title="Call Center" subtitle={selected.label}>
-        <ConseillereFilter conseilleres={conseilleres} value={filtreConseillere} onChange={setFiltreConseillere} />
+        {isConseillere ? (
+          <div style={{ padding: '6px 16px', borderRadius: 20, background: 'rgba(201,168,76,0.1)', border: '1.5px solid rgba(201,168,76,0.3)', fontSize: 13, fontWeight: 500, color: '#C9A84C' }}>
+            {conseilleres.find(c => c.id === myConseillereId)?.nom || ''}
+          </div>
+        ) : (
+          <ConseillereFilter conseilleres={conseilleres} value={filtreConseillere} onChange={setFiltreConseillere} />
+        )}
         {isSuperAdmin && <button onClick={() => setShowSaisie(p => !p)} style={{ padding: '8px 18px', borderRadius: 20, border: '1.5px solid #C9A84C', background: showSaisie ? '#C9A84C' : '#fff', color: showSaisie ? '#fff' : '#C9A84C', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
           {showSaisie ? '✕ Fermer' : '+ Saisir données'}
         </button>}
