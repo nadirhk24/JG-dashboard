@@ -279,14 +279,11 @@ function parseRdvCalendrier(rows) {
         j++
       }
 
-      // Créer 1 entrée par commercial
+      // Créer 1 entrée par commercial (ignorer si aucun commercial = RDV interne)
       if (conseillere && commerciaux.length > 0) {
         for (const comm of commerciaux) {
           results.push({ date: dateStr, nomConseillere: conseillere, nomCommercial: comm, count: 1 })
         }
-      } else if (conseillere && commerciaux.length === 0) {
-        // Pas de commercial → RDV non reconnu
-        results.push({ date: dateStr, nomConseillere: conseillere, nomCommercial: 'NON_RECONNU', count: 1 })
       }
 
       i = j
