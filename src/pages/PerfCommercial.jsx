@@ -109,8 +109,8 @@ export default function PerfCommercial() {
     async function load() {
       setLoading(true)
       const { data } = await supabase.from('flux_rdv')
-        .select('date_debut, visites, ventes, commerciaux(nom, equipe)')
-        .eq('type_saisie', 'jour')
+        .select('date_debut, date_fin, visites, ventes, commerciaux(nom, equipe)')
+        .not('commercial_id', 'is', null)
         .order('date_debut', { ascending: true })
       setFluxData(data || [])
       setLoading(false)
