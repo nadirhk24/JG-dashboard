@@ -9,6 +9,7 @@ import Calendrier from './pages/Calendrier'
 import Responsables from './pages/Responsables'
 import Commerciaux from './pages/Commerciaux'
 import FluxRDV from './pages/FluxRDV'
+import PerfCommercial from './pages/PerfCommercial'
 import AnalyseCV from './pages/AnalyseCV'
 import GestionUsers from './pages/GestionUsers'
 import ImportAgent from './pages/ImportAgent'
@@ -101,6 +102,7 @@ function AppContent() {
               <Route path="/calendrier" element={<ProtectedRoute permKey="calendrier"><Calendrier /></ProtectedRoute>} />
               <Route path="/responsables" element={<ProtectedRoute permKey="conseilleres"><Responsables /></ProtectedRoute>} />
               <Route path="/commerciaux" element={<ProtectedRoute permKey="commerciaux"><Commerciaux /></ProtectedRoute>} />
+              <Route path="/perf-commercial" element={<ProtectedRoute permKey="flux_rdv"><PerfCommercial /></ProtectedRoute>} />
               <Route path="/flux-rdv" element={<ProtectedRoute permKey="flux_rdv"><FluxRDV conseilleres={conseilleres} /></ProtectedRoute>} />
               <Route path="/analyse-cv" element={<ProtectedRoute permKey="analyse_cv"><AnalyseCV {...sharedProps} /></ProtectedRoute>} />
               <Route path="/gestion-users" element={<ProtectedRoute permKey="gestion_users"><GestionUsers /></ProtectedRoute>} />

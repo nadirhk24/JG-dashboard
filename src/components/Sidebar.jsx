@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 
 // Mapping chemin → clé permission
 const ROUTE_PERMISSION = {
+  '/perf-commercial': 'flux_rdv',
   '/centre-appel': 'centre_appel',
   '/flux-rdv':     'flux_rdv',
   '/marketing':    'marketing',
@@ -20,8 +21,9 @@ const NAV_STRUCTURE = [
   {
     section: 'Tableaux de bord',
     items: [
-      { path: '/centre-appel', label: 'Call Center',            permKey: 'centre_appel' },
+      { path: '/perf-commercial', label: 'Perf. Commerciale',     permKey: 'flux_rdv' },
       { path: '/flux-rdv',     label: 'Flux RDV',               permKey: 'flux_rdv' },
+      { path: '/centre-appel', label: 'Call Center',             permKey: 'centre_appel' },
       { path: '/marketing',    label: 'Performance Marketing',   permKey: 'marketing' },
       { path: '/analyse-cv',   label: 'Analyse Capabilité',      permKey: 'analyse_cv' },
     ]
