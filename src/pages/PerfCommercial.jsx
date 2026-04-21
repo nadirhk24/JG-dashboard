@@ -240,11 +240,11 @@ export default function PerfCommercial() {
       </div>
 
       {/* KPIs */}
-      <div style={{ display: 'flex', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: 140 }}><KpiCard label="Total Visites" value={totalVisites} unit="" sub={selected.label} /></div>
-        <div style={{ flex: 1, minWidth: 140 }}><KpiCard label="Total Ventes" value={totalVentes} unit="" sub="sur la période" /></div>
-        <div style={{ flex: 1, minWidth: 140 }}><KpiCard label="Taux Conversion" value={txConv} sub="Ventes / Visites" objectifPct={10} /></div>
-        <div style={{ flex: 1, minWidth: 140 }}><KpiCard label="CV Global" value={cvGlobal} sub="Coefficient de variation" /></div>
+      <div style={{ display: 'flex', gap: 16, marginBottom: 20, flexWrap: 'wrap', alignItems: 'stretch' }}>
+        <div style={{ flex: 1, minWidth: 140, display: 'flex', flexDirection: 'column' }}><KpiCard label="Total Visites" value={totalVisites} unit="" sub={selected.label} /></div>
+        <div style={{ flex: 1, minWidth: 140, display: 'flex', flexDirection: 'column' }}><KpiCard label="Total Ventes" value={totalVentes} unit="" sub="sur la période" /></div>
+        <div style={{ flex: 1, minWidth: 140, display: 'flex', flexDirection: 'column' }}><KpiCard label="Taux Conversion" value={txConv} sub="Ventes / Visites" objectifPct={10} /></div>
+        <div style={{ flex: 1, minWidth: 140, display: 'flex', flexDirection: 'column' }}><KpiCard label="CV Global" value={cvGlobal} sub="Coefficient de variation" /></div>
         <div style={{ ...cardStyle, flex: 1, minWidth: 200, display: 'flex', alignItems: 'center' }}>
           <Signal moyenneTrend={moyenneTrend} cvTrend={cvTrend} />
         </div>

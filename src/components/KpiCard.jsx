@@ -26,7 +26,7 @@ export default function KpiCard({ label, value, unit = '%', sub, badge, badgeTyp
                  objectifNb && valeurNb ? Math.min((valeurNb / objectifNb) * 100, 100) : null
 
   return (
-    <div onClick={onClick} style={{ background: '#fff', borderRadius: 14, padding: '20px', border: '1px solid rgba(201,168,76,0.15)', cursor: onClick ? 'pointer' : 'default', transition: 'all 0.2s' }}
+    <div onClick={onClick} style={{ background: '#fff', borderRadius: 14, padding: '20px', border: '1px solid rgba(201,168,76,0.15)', cursor: onClick ? 'pointer' : 'default', transition: 'all 0.2s', height: '100%', boxSizing: 'border-box' }}
       onMouseEnter={e => onClick && (e.currentTarget.style.transform = 'translateY(-2px)')}
       onMouseLeave={e => onClick && (e.currentTarget.style.transform = 'translateY(0)')}
     >
