@@ -64,22 +64,38 @@ function calcCV(values) {
 // ─── Signal ────────────────────────────────────────────────────────────────────
 function Signal({ moyenneTrend, cvTrend }) {
   if (moyenneTrend === null || cvTrend === null) return null
-  let color, icon, title, desc
+  let color, dot, title, lines
+
   if (moyenneTrend >= 0 && cvTrend <= 0) {
-    color = '#2E9455'; icon = '🟢'; title = 'Bon signal'; desc = 'Performance stable et croissante'
+    color = '#2E9455'
+    dot = '🟢'
+    title = 'Performance stable'
+    lines = ['Moyenne en hausse, variabilité en baisse', 'L'équipe progresse de façon homogène']
   } else if (moyenneTrend < 0 && cvTrend <= 0) {
-    color = '#E07B30'; icon = '🟠'; title = 'Revoir le process'; desc = 'Pas de variabilité et pas de résultats'
+    color = '#E07B30'
+    dot = '🟠'
+    title = 'Effort commercial nécessaire'
+    lines = ['Résultats en baisse malgré une équipe homogène', 'Le process est stable mais insuffisant — revoir l'approche']
   } else if (moyenneTrend >= 0 && cvTrend > 0) {
-    color = '#C9A84C'; icon = '🟡'; title = 'Attention'; desc = 'Résultats de coïncidence — agir pour consolider'
+    color = '#E05C5C'
+    dot = '🔴'
+    title = 'Alerte variabilité'
+    lines = ['Bonne perf globale mais accidentelle', 'Un élément tire vers le haut ou vers le bas — action manager nécessaire']
   } else {
-    color = '#E05C5C'; icon = '🔴'; title = 'Alerte'; desc = 'Performance en chute avec instabilité'
+    color = '#9B1C1C'
+    dot = '🔴'
+    title = 'Alerte grave'
+    lines = ['Performance en chute et variabilité en hausse', 'Plusieurs actions nécessaires en urgence']
   }
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 18px', borderRadius: 12, background: `${color}15`, border: `1.5px solid ${color}40` }}>
-      <span style={{ fontSize: 20 }}>{icon}</span>
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 16px', borderRadius: 12, background: `${color}12`, border: `1.5px solid ${color}35`, width: '100%' }}>
+      <span style={{ fontSize: 18, marginTop: 2 }}>{dot}</span>
       <div>
-        <div style={{ fontSize: 13, fontWeight: 600, color, fontFamily: 'DM Sans' }}>{title}</div>
-        <div style={{ fontSize: 11, color: '#5A5A5A' }}>{desc}</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color, fontFamily: 'DM Sans', marginBottom: 4 }}>{title}</div>
+        {lines.map((l, i) => (
+          <div key={i} style={{ fontSize: 11, color: '#5A5A5A', lineHeight: 1.5 }}>{l}</div>
+        ))}
       </div>
     </div>
   )
