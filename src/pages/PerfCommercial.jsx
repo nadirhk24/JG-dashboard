@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts'
+import KpiCard from '../components/KpiCard'
 
 // ─── DrillNav ────────────────────────────────────────────────────────────────
 const MOIS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
@@ -199,13 +200,6 @@ export default function PerfCommercial() {
   }, [chartData])
 
   const cardStyle = { background: '#fff', borderRadius: 16, padding: '20px 24px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', border: '1px solid rgba(201,168,76,0.1)' }
-  const kpiCard = (label, value, sub, color='#2C2C2C') => (
-    <div style={{ ...cardStyle, flex: 1, minWidth: 140 }}>
-      <div style={{ fontSize: 11, color: '#8A8A7A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>{label}</div>
-      <div style={{ fontSize: 28, fontWeight: 700, color, fontFamily: 'Cormorant Garamond, serif' }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: '#8A8A7A', marginTop: 4 }}>{sub}</div>}
-    </div>
-  )
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null
@@ -247,10 +241,10 @@ export default function PerfCommercial() {
 
       {/* KPIs */}
       <div style={{ display: 'flex', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
-        {kpiCard('Total Visites', totalVisites.toLocaleString('fr-FR'), selected.label)}
-        {kpiCard('Total Ventes', totalVentes.toLocaleString('fr-FR'), 'sur la période')}
-        {kpiCard('Taux Conversion', `${txConv}%`, 'Ventes / Visites', txConv >= 10 ? '#2E9455' : txConv >= 5 ? '#C9A84C' : '#E05C5C')}
-        {kpiCard('CV Global', `${cvGlobal}%`, 'Coefficient de variation', cvGlobal <= 30 ? '#2E9455' : cvGlobal <= 50 ? '#C9A84C' : '#E05C5C')}
+        <div style={{ flex: 1, minWidth: 140 }}><KpiCard label="Total Visites" value={totalVisites} unit="" sub={selected.label} /></div>
+        <div style={{ flex: 1, minWidth: 140 }}><KpiCard label="Total Ventes" value={totalVentes} unit="" sub="sur la période" /></div>
+        <div style={{ flex: 1, minWidth: 140 }}><KpiCard label="Taux Conversion" value={txConv} sub="Ventes / Visites" objectifPct={10} /></div>
+        <div style={{ flex: 1, minWidth: 140 }}><KpiCard label="CV Global" value={cvGlobal} sub="Coefficient de variation" /></div>
         <div style={{ ...cardStyle, flex: 1, minWidth: 200, display: 'flex', alignItems: 'center' }}>
           <Signal moyenneTrend={moyenneTrend} cvTrend={cvTrend} />
         </div>
