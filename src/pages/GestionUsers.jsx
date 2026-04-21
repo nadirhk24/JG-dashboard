@@ -4,6 +4,7 @@ import PageHeader from '../components/PageHeader'
 import SectionTitle from '../components/SectionTitle'
 
 const VOLETS = [
+  { key: 'perf_commercial', label: 'Perf. Commerciale',   icon: '📈' },
   { key: 'centre_appel',  label: 'Call Center',           icon: '📞' },
   { key: 'flux_rdv',      label: 'Flux RDV',              icon: '📅' },
   { key: 'marketing',     label: 'Marketing',             icon: '📊' },
@@ -80,6 +81,11 @@ export default function GestionUsers() {
     savePermissions(user.id, { ...user.permissions, centre_appel_conseilleres: { ...current, [consId]: !current[consId] } })
   }
 
+  function toggleEquipePerf(user, equipe) {
+    const key = `perf_commercial_${equipe}`
+    savePermissions(user.id, { ...user.permissions, [key]: !user.permissions?.[key] })
+  }
+
   function toggleEquipeFlux(user, equipe) {
     const key = `flux_rdv_${equipe}`
     savePermissions(user.id, { ...user.permissions, [key]: !user.permissions[key] })
@@ -93,6 +99,8 @@ export default function GestionUsers() {
     newPerms.centre_appel_conseilleres = consPerms
     newPerms.flux_rdv_sale = value
     newPerms.flux_rdv_kenitra = value
+    newPerms.perf_commercial_sale = value
+    newPerms.perf_commercial_kenitra = value
     savePermissions(user.id, newPerms)
   }
 
@@ -164,7 +172,7 @@ export default function GestionUsers() {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
                     {VOLETS.map(v => {
                       const active = user.permissions?.[v.key] ?? false
-                      const hasSub = (v.key === 'centre_appel' || v.key === 'flux_rdv') && active && !isSuperAdmin
+                      const hasSub = (v.key === 'centre_appel' || v.key === 'flux_rdv' || v.key === 'perf_commercial') && active && !isSuperAdmin
                           const hasAnalyseSub = v.key === 'analyse_cv' && active && !isSuperAdmin
 
                       return (
@@ -231,6 +239,27 @@ export default function GestionUsers() {
                                           </div>
                                         )
                                       })}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Sous-niveau équipes Perf Commerciale */}
+                          {v.key === 'perf_commercial' && hasSub && (
+                            <div style={{ padding: '10px 12px', background: 'rgba(201,168,76,0.03)', border: '1.5px solid rgba(201,168,76,0.3)', borderTop: 'none', borderRadius: '0 0 10px 10px' }}>
+                              <div style={{ fontSize: 10, color: '#8A8A7A', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 500, marginBottom: 8 }}>Équipes visibles</div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                                {[{ key: 'sale', label: 'Équipe Sale', color: '#C9A84C' }, { key: 'kenitra', label: 'Équipe Kenitra', color: '#534AB7' }].map(eq => {
+                                  const on = user.permissions?.[`perf_commercial_${eq.key}`] ?? false
+                                  return (
+                                    <div key={eq.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 8px', borderRadius: 7, background: on ? `${eq.color}10` : 'transparent' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: eq.color }} />
+                                        <span style={{ fontSize: 11, color: on ? '#2C2C2C' : '#8A8A7A', fontWeight: on ? 500 : 400 }}>{eq.label}</span>
+                                      </div>
+                                      <SmallToggle value={on} onChange={() => toggleEquipePerf(user, eq.key)} />
                                     </div>
                                   )
                                 })}
