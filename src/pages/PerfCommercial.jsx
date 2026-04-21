@@ -70,7 +70,7 @@ function Signal({ moyenneTrend, cvTrend }) {
     color = '#2E9455'
     dot = '🟢'
     title = 'Performance stable'
-    lines = ['Moyenne en hausse, variabilité en baisse', 'L'équipe progresse de façon homogène']
+    lines = ['Moyenne en hausse, variabilité en baisse', 'L\'équipe progresse de façon homogène']
   } else if (moyenneTrend < 0 && cvTrend <= 0) {
     color = '#E07B30'
     dot = '🟠'
