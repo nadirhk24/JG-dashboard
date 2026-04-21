@@ -746,7 +746,9 @@ export default function ImportAgent() {
           } else if (['injections','indispos','non_expl_mkt','suivis_mkt'].includes(type)) {
             parsed = parseWithDatetime(rows2.slice(1))
           } else if (['rdv_mkt','ventes_mkt','visites_mkt'].includes(type)) {
-            parsed = parseTextDateGlobal(rows2.slice(1))
+            // Détecter la structure : si col1 contient des datetimes → parseWithDatetime, sinon parseTextDateGlobal
+            const hasDatetime = rows2.slice(1).some(r => r[0] instanceof Date)
+            parsed = hasDatetime ? parseWithDatetime(rows2.slice(1)) : parseTextDateGlobal(rows2.slice(1))
           } else if (type === 'rdv_calendrier') {
             parsed = parseRdvCalendrier(rows2.slice(1))
           } else if (['visites_cc','ventes_cc'].includes(type)) {
