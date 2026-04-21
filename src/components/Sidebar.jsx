@@ -1,10 +1,11 @@
 import React, { useState } from 'react'
 import { NavLink, useLocation, Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { signOut } from '../lib/auth'
 
 // Mapping chemin → clé permission
 const ROUTE_PERMISSION = {
-  '/perf-commercial': 'flux_rdv',
+  '/perf-commercial': 'perf_commercial',
   '/centre-appel': 'centre_appel',
   '/flux-rdv':     'flux_rdv',
   '/marketing':    'marketing',
@@ -21,7 +22,7 @@ const NAV_STRUCTURE = [
   {
     section: 'Tableaux de bord',
     items: [
-      { path: '/perf-commercial', label: 'Perf. Commerciale',     permKey: 'flux_rdv' },
+      { path: '/perf-commercial', label: 'Perf. Commerciale',     permKey: 'perf_commercial' },
       { path: '/flux-rdv',     label: 'Flux RDV',               permKey: 'flux_rdv' },
       { path: '/centre-appel', label: 'Call Center',             permKey: 'centre_appel' },
       { path: '/marketing',    label: 'Performance Marketing',   permKey: 'marketing' },
@@ -170,7 +171,17 @@ export default function Sidebar() {
           )}
         </nav>
 
-        <div style={{ padding: collapsed ? '12px 0' : '12px 14px', borderTop: '1px solid rgba(201,168,76,0.15)', display: 'flex', justifyContent: collapsed ? 'center' : 'flex-end' }}>
+        <div style={{ padding: collapsed ? '12px 0' : '12px 14px', borderTop: '1px solid rgba(201,168,76,0.15)', display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', gap: 8 }}>
+          {!collapsed && (
+            <button onClick={() => signOut()} style={{ flex: 1, background: 'rgba(224,92,92,0.08)', border: '1px solid rgba(224,92,92,0.25)', color: '#E05C5C', borderRadius: 8, padding: '7px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>⏻</span> Déconnexion
+            </button>
+          )}
+          {collapsed && (
+            <button onClick={() => signOut()} style={{ background: 'rgba(224,92,92,0.08)', border: '1px solid rgba(224,92,92,0.25)', color: '#E05C5C', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 14 }} title="Déconnexion">
+              ⏻
+            </button>
+          )}
           <button onClick={() => setCollapsed(p => !p)} style={{ background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.25)', color: '#C9A84C', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 14 }}>
             {collapsed ? '→' : '←'}
           </button>

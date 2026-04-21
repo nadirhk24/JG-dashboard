@@ -53,7 +53,7 @@ export function AuthProvider({ children }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Realtime : recharger le profil si les permissions changent
+  // Realtime : recharger le profil si les permissions changent ou forcer déconnexion
   useEffect(() => {
     if (!user) return
     const channel = supabase
@@ -63,7 +63,13 @@ export function AuthProvider({ children }) {
         schema: 'public',
         table: 'user_profils',
         filter: `id=eq.${user.id}`
-      }, () => {
+      }, async (payload) => {
+        const newProfil = payload.new
+        // Si force_logout a changé → déconnecter
+        if (newProfil.force_logout) {
+          await signOut()
+          return
+        }
         getProfil(user.id).then(setProfil)
       })
       .subscribe()

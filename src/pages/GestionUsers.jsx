@@ -39,6 +39,7 @@ function SmallToggle({ value, onChange, disabled }) {
 }
 
 export default function GestionUsers() {
+  const [globalMsg, setGlobalMsg] = useState(null)
   const [users, setUsers] = useState([])
   const [conseilleres, setConseilleres] = useState([])
   const [loading, setLoading] = useState(true)
@@ -79,6 +80,16 @@ export default function GestionUsers() {
   function toggleConseillere(user, consId) {
     const current = user.permissions?.centre_appel_conseilleres || {}
     savePermissions(user.id, { ...user.permissions, centre_appel_conseilleres: { ...current, [consId]: !current[consId] } })
+  }
+
+  async function deconnecterTous() {
+    if (!window.confirm('Déconnecter tous les utilisateurs connectés ?')) return
+    // Mettre à jour un champ "force_logout" dans user_profils pour déclencher le realtime
+    const { data: myUser } = await supabase.auth.getUser()
+    await supabase.from('user_profils')
+      .update({ force_logout: new Date().toISOString() })
+      .neq('id', myUser?.user?.id || '')
+    setGlobalMsg({ type: 'success', text: 'Signal de déconnexion envoyé à tous les utilisateurs ✓' })
   }
 
   function toggleEquipePerf(user, equipe) {
