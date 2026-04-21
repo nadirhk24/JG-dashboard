@@ -779,7 +779,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
         </div>
       </div>}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showHistorique ? 16 : 0, marginTop: 8 }}>
+      {isSuperAdmin && <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showHistorique ? 16 : 0, marginTop: 8 }}>
         <div onClick={() => setShowHistorique(p=>!p)} style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
           Historique des saisies
           <span style={{ fontSize: 12, color: '#C9A84C', fontFamily: 'DM Sans' }}>{showHistorique ? '▲ Fermer' : '▼ Ouvrir'}</span>
@@ -805,8 +805,8 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
             Supprimer la sélection ({selectedRows.size})
           </button>
         )}
-      </div>
-      {showHistorique && <div style={cardStyle}>
+      </div>}
+      {isSuperAdmin && showHistorique && <div style={cardStyle}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
