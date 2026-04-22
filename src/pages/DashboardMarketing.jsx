@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react'
-import DrillNav from '../components/DrillNav'
+import DrillNav, { MOIS_SHORT } from '../components/DrillNav'
 import { supabase } from '../lib/supabase'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import PageHeader from '../components/PageHeader'

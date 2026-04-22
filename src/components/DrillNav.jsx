@@ -49,7 +49,6 @@ export default function DrillNav({ data, onSelect, selected, dateField = 'date' 
     setExpandedYear(null)
     setExpandedQ(null)
     setExpandedMonth(null)
-    setShowCustom(false)
   }
 
   const isCustomActive = selected?.type === 'custom'
@@ -121,7 +120,7 @@ export default function DrillNav({ data, onSelect, selected, dateField = 'date' 
         {/* Bouton période personnalisée */}
         <button
           style={btnStyle(isCustomActive || showCustom, '#E07B30')}
-          onClick={() => { setShowCustom(p => !p); resetDrill() }}>
+          onClick={() => setShowCustom(p => !p)}>
           📅 Personnalisé {isCustomActive ? `(${selected.from} → ${selected.to})` : ''}
         </button>
       </div>

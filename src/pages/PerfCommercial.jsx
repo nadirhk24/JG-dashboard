@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import DrillNav from '../components/DrillNav'
+import DrillNav, { MOIS_SHORT } from '../components/DrillNav'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts'
