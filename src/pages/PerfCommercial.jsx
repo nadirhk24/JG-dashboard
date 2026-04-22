@@ -115,8 +115,8 @@ export default function PerfCommercial() {
   })
   const [equipe, setEquipe] = useState('toutes')
 
-  const canSeeSale = profil?.role === 'super_admin' || profil?.permissions?.flux_rdv_sale
-  const canSeeKenitra = profil?.role === 'super_admin' || profil?.permissions?.flux_rdv_kenitra
+  const canSeeSale = profil?.role === 'super_admin' || profil?.permissions?.perf_commercial_sale || profil?.permissions?.flux_rdv_sale
+  const canSeeKenitra = profil?.role === 'super_admin' || profil?.permissions?.perf_commercial_kenitra || profil?.permissions?.flux_rdv_kenitra
 
   useEffect(() => {
     localStorage.setItem('jg_selected_perf', JSON.stringify(selected))
@@ -189,7 +189,8 @@ export default function PerfCommercial() {
       const label = isJour
         ? new Date(key).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
         : `${MOIS_SHORT[new Date(key+'-01').getMonth()]} ${new Date(key+'-01').getFullYear()}`
-      return { key, label, visites: g.visites, ventes: g.ventes, moyenne: parseFloat(moyenne.toFixed(1)), cv: parseFloat(cv.toFixed(1)) }
+      const txJour = g.visites > 0 ? parseFloat(((g.ventes / g.visites) * 100).toFixed(1)) : 0
+      return { key, label, visites: g.visites, ventes: g.ventes, moyenne: parseFloat(moyenne.toFixed(1)), cv: parseFloat(cv.toFixed(1)), txJour }
     })
   }, [fluxFiltres, selected])
 
@@ -287,7 +288,8 @@ export default function PerfCommercial() {
               <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#8A8A7A' }} unit="%" domain={[0, 'auto']} />
               <Tooltip content={<CustomTooltip />} />
               <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
-              <Line yAxisId="left" type="monotone" dataKey="moyenne" name="Moyenne Tx Conv. (cumulée)" stroke="#C9A84C" strokeWidth={2.5} dot={{ r: 3, fill: '#C9A84C' }} activeDot={{ r: 5 }} />
+              <Line yAxisId="left" type="monotone" dataKey="txJour" name="Tx Conv. (période)" stroke="#C9A84C" strokeWidth={2.5} dot={{ r: 3, fill: '#C9A84C' }} activeDot={{ r: 5 }} />
+              <Line yAxisId="left" type="monotone" dataKey="moyenne" name="Moyenne cumulée" stroke="#2E9455" strokeWidth={2} strokeDasharray="5 3" dot={{ r: 3, fill: '#2E9455' }} activeDot={{ r: 5 }} />
               <Line yAxisId="right" type="monotone" dataKey="cv" name="CV Cumulatif" stroke="#534AB7" strokeWidth={2} strokeDasharray="5 3" dot={{ r: 3, fill: '#534AB7' }} activeDot={{ r: 5 }} />
             </LineChart>
           </ResponsiveContainer>
