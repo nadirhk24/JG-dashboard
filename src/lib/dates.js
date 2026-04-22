@@ -23,6 +23,9 @@ export function filtrerParSelection(saisies, selected) {
   return saisies.filter(s => {
     const sDebut = s.date_debut || s.date
     const sFin = s.date_fin || s.date
+    if (selected.type === 'custom') {
+      return sDebut <= selected.to && sFin >= selected.from
+    }
     if (selected.type === 'year') {
       return sDebut.startsWith(selected.value) || sFin.startsWith(selected.value) ||
              (sDebut <= selected.value + '-12-31' && sFin >= selected.value + '-01-01')
@@ -114,6 +117,7 @@ export function getGroupFunction(periode) {
     case 'jour': return groupByDay
     case 'semaine': return groupByWeek
     case 'trimestre': return groupByQuarter
+    case 'custom': return groupByDay
     case 'mois':
     default: return groupByMonth
   }

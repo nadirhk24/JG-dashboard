@@ -20,7 +20,7 @@ function filterBySelected(items, selected, dateField = 'date') {
     const startM = (parseInt(q)-1)*3
     return items.filter(s => { const d = new Date(s[dateField] || s.date || s.date_debut); return d.getFullYear() === parseInt(y) && Math.floor(d.getMonth()/3) === parseInt(q)-1 })
   }
-  if (selected.type === 'month') return items.filter(s => { const d = s[dateField] || s.date || s.date_debut; return d && d.startsWith(selected.value) })
+  if (selected.type === 'month' || selected.type === 'custom') return items.filter(s => { const d = s[dateField] || s.date || s.date_debut; return d && d.startsWith(selected.value) })
   if (selected.type === 'day') return items.filter(s => { const d = s[dateField] || s.date || s.date_debut; return d && d.startsWith(selected.value) })
   return items
 }
@@ -195,7 +195,7 @@ export default function DashboardMarketing() {
         const d = new Date(s.date)
         return d.getFullYear() === parseInt(y) && getQuarter(d.getMonth()) === parseInt(q)
       }
-      if (selected.type === 'month') return s.date.startsWith(selected.value)
+      if (selected.type === 'month' || selected.type === 'custom') return s.date.startsWith(selected.value)
       if (selected.type === 'day') return s.date === selected.value
       return true
     })
@@ -215,7 +215,7 @@ export default function DashboardMarketing() {
         const endM = parseInt(q) * 3
         return d.startsWith(y) && mois >= startM && mois <= endM
       }
-      if (selected.type === 'month') return d.substring(0, 7) === selected.value
+      if (selected.type === 'month' || selected.type === 'custom') return d.substring(0, 7) === selected.value
       if (selected.type === 'day') return d === selected.value
       return true
     }).reduce((sum, s) => sum + (s.leads_bruts || 0), 0)
@@ -235,7 +235,7 @@ export default function DashboardMarketing() {
         const endM = parseInt(q) * 3
         return d.startsWith(y) && mois >= startM && mois <= endM
       }
-      if (selected.type === 'month') return d.substring(0, 7) === selected.value
+      if (selected.type === 'month' || selected.type === 'custom') return d.substring(0, 7) === selected.value
       if (selected.type === 'day') return d === selected.value
       return true
     }).reduce((sum, s) => sum + (s.indispos || 0), 0)
@@ -264,7 +264,7 @@ export default function DashboardMarketing() {
     saisiesCC.forEach(s => {
       const d = s.date_debut
       if (!d) return
-      const key = (selected.type === 'day' || selected.type === 'month') ? d : d.substring(0, 7)
+      const key = (selected.type === 'day' || selected.type === 'month' || selected.type === 'custom') ? d : d.substring(0, 7)
       if (!map[key]) map[key] = { injections: 0, indispos: 0 }
       map[key].injections += s.leads_bruts || 0
       map[key].indispos += s.indispos || 0
@@ -277,7 +277,7 @@ export default function DashboardMarketing() {
     const groups = {}
     dataFiltree.forEach(s => {
       let key, label
-      if (selected.type === 'day' || selected.type === 'month') {
+      if (selected.type === 'day' || selected.type === 'month' || selected.type === 'custom') {
         key = s.date; label = s.date.substring(8) + '/' + s.date.substring(5, 7)
       } else {
         key = s.date.substring(0, 7)

@@ -155,12 +155,12 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   const cvEfficacite = useMemo(() => calcCV(kpisParConseillere.map(c => c.efficacite_comm)), [kpisParConseillere])
 
   const groupFn = useMemo(() => {
-    if (selected.type === 'day' || selected.type === 'month') return getGroupFunction('jour')
+    if (selected.type === 'day' || selected.type === 'month' || selected.type === 'custom') return getGroupFunction('jour')
     return getGroupFunction('mois')
   }, [selected])
 
   const periodeForLabel = useMemo(() => {
-    if (selected.type === 'day' || selected.type === 'month') return 'jour'
+    if (selected.type === 'day' || selected.type === 'month' || selected.type === 'custom') return 'jour'
     return 'mois'
   }, [selected])
 

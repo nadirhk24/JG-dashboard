@@ -21,7 +21,7 @@ function filterBySelected(items, selected, dateField = 'date') {
     const startM = (parseInt(q)-1)*3
     return items.filter(s => { const d = new Date(s[dateField] || s.date || s.date_debut); return d.getFullYear() === parseInt(y) && Math.floor(d.getMonth()/3) === parseInt(q)-1 })
   }
-  if (selected.type === 'month') return items.filter(s => { const d = s[dateField] || s.date || s.date_debut; return d && d.startsWith(selected.value) })
+  if (selected.type === 'month' || selected.type === 'custom') return items.filter(s => { const d = s[dateField] || s.date || s.date_debut; return d && d.startsWith(selected.value) })
   if (selected.type === 'day') return items.filter(s => { const d = s[dateField] || s.date || s.date_debut; return d && d.startsWith(selected.value) })
   return items
 }
@@ -255,7 +255,7 @@ export default function FluxRDV({ conseilleres }) {
         const mois = parseInt(mD?.split('-')[1] || 0)
         return dd.startsWith(y) && mois >= startM && mois <= endM
       }
-      if (selected.type === 'month') return mD === selected.value
+      if (selected.type === 'month' || selected.type === 'custom') return mD === selected.value
       if (selected.type === 'day') return dd === selected.value
       return true
     })
