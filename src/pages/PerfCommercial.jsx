@@ -1,55 +1,28 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import DrillNav from '../components/DrillNav'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts'
 import KpiCard from '../components/KpiCard'
 
-// ─── DrillNav ────────────────────────────────────────────────────────────────
-const MOIS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
-
-function DrillNav({ data, onSelect, selected }) {
-  const [expandedYear, setExpandedYear] = useState(null)
-  const [expandedQ, setExpandedQ] = useState(null)
-  const [expandedMonth, setExpandedMonth] = useState(null)
-
-  const years = useMemo(() => {
-    const s = new Set(data.map(r => new Date(r.date_debut).getFullYear()))
-    return [...s].sort((a,b) => b-a)
-  }, [data])
-
-  const btnStyle = (active, color='#C9A84C') => ({
-    padding: '4px 12px', borderRadius: 16, border: `1.5px solid ${active ? color : 'rgba(201,168,76,0.2)'}`,
-    background: active ? color : 'transparent', color: active ? '#fff' : '#5A5A5A',
-    fontSize: 11, cursor: 'pointer', fontWeight: active ? 600 : 400, whiteSpace: 'nowrap'
-  })
-
-  return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-      <button style={btnStyle(!selected || selected.type === 'global')} onClick={() => { onSelect({ type: 'global', label: 'Global' }); setExpandedYear(null); setExpandedQ(null); setExpandedMonth(null) }}>Global</button>
-      {years.map(year => (
-        <React.Fragment key={year}>
-          <button style={btnStyle(selected?.type === 'year' && selected?.value === year)} onClick={() => { setExpandedYear(expandedYear === year ? null : year); setExpandedQ(null); setExpandedMonth(null); onSelect({ type: 'year', value: year, label: `${year}` }) }}>{year}</button>
-          {expandedYear === year && [1,2,3,4].map(q => {
-            const qKey = `${year}-Q${q}`
-            return (
-              <React.Fragment key={qKey}>
-                <button style={btnStyle(selected?.type === 'quarter' && selected?.value === qKey, '#8a6a1a')} onClick={() => { setExpandedQ(expandedQ === qKey ? null : qKey); setExpandedMonth(null); onSelect({ type: 'quarter', value: qKey, label: `T${q} ${year}` }) }}>T{q}</button>
-                {expandedQ === qKey && [0,1,2].map(mi => {
-                  const m = (q-1)*3 + mi
-                  const mKey = `${year}-${String(m+1).padStart(2,'0')}`
-                  return (
-                    <React.Fragment key={mKey}>
-                      <button style={btnStyle(selected?.type === 'month' && selected?.value === mKey, '#4CAF7D')} onClick={() => { setExpandedMonth(expandedMonth === mKey ? null : mKey); onSelect({ type: 'month', value: mKey, label: `${MOIS_SHORT[m]} ${year}` }) }}>{MOIS_SHORT[m]}</button>
-                    </React.Fragment>
-                  )
-                })}
-              </React.Fragment>
-            )
-          })}
-        </React.Fragment>
-      ))}
-    </div>
-  )
+// Filtrer les données selon la sélection DrillNav (inclut période custom)
+function filterBySelected(items, selected, dateField = 'date') {
+  if (!selected || selected.type === 'global') return items
+  if (selected.type === 'custom') {
+    return items.filter(s => {
+      const d = s[dateField] || s.date || s.date_debut
+      return d && d >= selected.from && d <= selected.to
+    })
+  }
+  if (selected.type === 'year') return items.filter(s => { const d = s[dateField] || s.date || s.date_debut; return d && d.startsWith(String(selected.value)) })
+  if (selected.type === 'quarter') {
+    const [y, q] = selected.value.split('-Q')
+    const startM = (parseInt(q)-1)*3
+    return items.filter(s => { const d = new Date(s[dateField] || s.date || s.date_debut); return d.getFullYear() === parseInt(y) && Math.floor(d.getMonth()/3) === parseInt(q)-1 })
+  }
+  if (selected.type === 'month') return items.filter(s => { const d = s[dateField] || s.date || s.date_debut; return d && d.startsWith(selected.value) })
+  if (selected.type === 'day') return items.filter(s => { const d = s[dateField] || s.date || s.date_debut; return d && d.startsWith(selected.value) })
+  return items
 }
 
 // ─── Calcul CV ────────────────────────────────────────────────────────────────

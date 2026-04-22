@@ -8,7 +8,28 @@ import { getColorFromObjectif, getObjectifsPourPeriode, clearObjectifsCache } fr
 import SectionTitle from '../components/SectionTitle'
 import { getGroupFunction, formatGroupLabel, filtrerParSelection } from '../lib/dates'
 import { agregerParPeriode, calcCV, calcConversionTel, calcTauxPresence, calcEfficaciteComm } from '../lib/kpi'
+import DrillNav from '../components/DrillNav'
 import { supabase } from '../lib/supabase'
+
+// Filtrer les données selon la sélection DrillNav (inclut période custom)
+function filterBySelected(items, selected, dateField = 'date') {
+  if (!selected || selected.type === 'global') return items
+  if (selected.type === 'custom') {
+    return items.filter(s => {
+      const d = s[dateField] || s.date || s.date_debut
+      return d && d >= selected.from && d <= selected.to
+    })
+  }
+  if (selected.type === 'year') return items.filter(s => { const d = s[dateField] || s.date || s.date_debut; return d && d.startsWith(String(selected.value)) })
+  if (selected.type === 'quarter') {
+    const [y, q] = selected.value.split('-Q')
+    const startM = (parseInt(q)-1)*3
+    return items.filter(s => { const d = new Date(s[dateField] || s.date || s.date_debut); return d.getFullYear() === parseInt(y) && Math.floor(d.getMonth()/3) === parseInt(q)-1 })
+  }
+  if (selected.type === 'month') return items.filter(s => { const d = s[dateField] || s.date || s.date_debut; return d && d.startsWith(selected.value) })
+  if (selected.type === 'day') return items.filter(s => { const d = s[dateField] || s.date || s.date_debut; return d && d.startsWith(selected.value) })
+  return items
+}
 
 function getStars(rank, total) {
   const stars = Math.max(0, Math.min(5, total) - rank)
@@ -40,69 +61,6 @@ function getMoisCourant() {
 }
 
 const MOIS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
-function getQuarter(m) { return Math.floor(m / 3) + 1 }
-
-function DrillNav({ data, onSelect, selected }) {
-  const [expandedYear, setExpandedYear] = useState(null)
-  const [expandedQ, setExpandedQ] = useState(null)
-  const [expandedMonth, setExpandedMonth] = useState(null)
-
-  const years = useMemo(() => {
-    const ys = {}
-    data.forEach(s => {
-      const d = new Date(s.date)
-      const y = d.getFullYear(), m = d.getMonth(), q = getQuarter(m)
-      if (!ys[y]) ys[y] = {}
-      if (!ys[y][q]) ys[y][q] = new Set()
-      ys[y][q].add(m)
-    })
-    return ys
-  }, [data])
-
-  const btnStyle = (active, color = '#C9A84C') => ({
-    padding: '5px 12px', borderRadius: 14, fontSize: 12, cursor: 'pointer',
-    border: `1.5px solid ${active ? color : 'rgba(201,168,76,0.2)'}`,
-    background: active ? color : '#fff', color: active ? '#fff' : '#5A5A5A',
-    fontWeight: active ? 500 : 400, transition: 'all 0.15s', whiteSpace: 'nowrap'
-  })
-
-  return (
-    <div style={{ background: '#fff', borderRadius: 12, padding: '12px 16px', border: '1px solid rgba(201,168,76,0.15)', marginBottom: 20 }}>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-        <button style={btnStyle(!selected || selected.type === 'global')} onClick={() => { onSelect({ type: 'global', label: 'Global' }); setExpandedYear(null); setExpandedQ(null); setExpandedMonth(null) }}>Global</button>
-        {Object.keys(years).sort().reverse().map(year => (
-          <React.Fragment key={year}>
-            <button style={btnStyle(selected?.type === 'year' && selected?.value === year)} onClick={() => { setExpandedYear(expandedYear === year ? null : year); setExpandedQ(null); setExpandedMonth(null); onSelect({ type: 'year', value: year, label: year }) }}>
-              {year} {expandedYear === year ? '▼' : '▶'}
-            </button>
-            {expandedYear === year && Object.keys(years[year]).sort((a,b)=>a-b).map(q => (
-              <React.Fragment key={q}>
-                <button style={btnStyle(selected?.type === 'quarter' && selected?.value === `${year}-Q${q}`, '#534AB7')} onClick={() => { setExpandedQ(expandedQ === `${year}-Q${q}` ? null : `${year}-Q${q}`); setExpandedMonth(null); onSelect({ type: 'quarter', value: `${year}-Q${q}`, label: `T${q} ${year}` }) }}>
-                  T{q} {expandedQ === `${year}-Q${q}` ? '▼' : '▶'}
-                </button>
-                {expandedQ === `${year}-Q${q}` && [...years[year][q]].sort((a,b)=>a-b).map(m => {
-                  const mKey = `${year}-${String(m+1).padStart(2,'0')}`
-                  return (
-                    <React.Fragment key={m}>
-                      <button style={btnStyle(selected?.type === 'month' && selected?.value === mKey, '#4CAF7D')} onClick={() => { setExpandedMonth(expandedMonth === mKey ? null : mKey); onSelect({ type: 'month', value: mKey, label: `${MOIS_SHORT[m]} ${year}` }) }}>
-                        {MOIS_SHORT[m]} {expandedMonth === mKey ? '▼' : '▶'}
-                      </button>
-                      {expandedMonth === mKey && [...new Set(data.filter(s => s.date.startsWith(mKey)).map(s => s.date))].sort().map(date => (
-                        <button key={date} style={btnStyle(selected?.type === 'day' && selected?.value === date, '#E07B30')} onClick={() => onSelect({ type: 'day', value: date, label: date.substring(8) + '/' + date.substring(5,7) })}>
-                          {date.substring(8)}/{date.substring(5,7)}
-                        </button>
-                      ))}
-                    </React.Fragment>
-                  )
-                })}
-              </React.Fragment>
-            ))}
-          </React.Fragment>
-        ))}
-      </div>
-    </div>
-  )
-}
 
 const ALL_RANK_COLS = [
   { key: 'leads_bruts', label: 'Leads Bruts', hideForConseillere: true },
