@@ -114,6 +114,8 @@ export default function PerfCommercial() {
     return { type: 'month', value: mKey, label: `${MOIS_SHORT[now.getMonth()]} ${now.getFullYear()}` }
   })
   const [equipe, setEquipe] = useState('toutes')
+  const [visibleLines, setVisibleLines] = useState({ txJour: true, moyenne: true, cv: true })
+  const toggleLine = (key) => setVisibleLines(p => ({ ...p, [key]: !p[key] }))
 
   const canSeeSale = profil?.role === 'super_admin' || profil?.permissions?.perf_commercial_sale || profil?.permissions?.flux_rdv_sale
   const canSeeKenitra = profil?.role === 'super_admin' || profil?.permissions?.perf_commercial_kenitra || profil?.permissions?.flux_rdv_kenitra
@@ -269,11 +271,29 @@ export default function PerfCommercial() {
 
       {/* Graphe */}
       <div style={{ ...cardStyle }}>
-        <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C' }}>
             Tendance Conversion & Stabilité
           </div>
-          <div style={{ fontSize: 11, color: '#8A8A7A' }}>CV cumulatif · Moyenne cumulée</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {[
+              { key: 'txJour',  label: 'Tx Conv. (période)', color: '#C9A84C' },
+              { key: 'moyenne', label: 'Moyenne cumulée',    color: '#2E9455' },
+              { key: 'cv',      label: 'CV Cumulatif',       color: '#534AB7' },
+            ].map(l => (
+              <button key={l.key} onClick={() => toggleLine(l.key)} style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 16, cursor: 'pointer', fontSize: 11, fontWeight: 500,
+                border: `1.5px solid ${visibleLines[l.key] ? l.color : 'rgba(0,0,0,0.1)'}`,
+                background: visibleLines[l.key] ? `${l.color}15` : '#F8F7F4',
+                color: visibleLines[l.key] ? l.color : '#8A8A7A',
+                opacity: visibleLines[l.key] ? 1 : 0.6,
+                transition: 'all 0.2s'
+              }}>
+                <span style={{ width: 20, height: 2, background: visibleLines[l.key] ? l.color : '#ccc', display: 'inline-block', borderRadius: 1 }} />
+                {l.label}
+              </button>
+            ))}
+          </div>
         </div>
         {loading ? (
           <div style={{ height: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8A8A7A', fontSize: 13 }}>Chargement...</div>
@@ -288,9 +308,9 @@ export default function PerfCommercial() {
               <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#8A8A7A' }} unit="%" domain={[0, 'auto']} />
               <Tooltip content={<CustomTooltip />} />
               <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
-              <Line yAxisId="left" type="monotone" dataKey="txJour" name="Tx Conv. (période)" stroke="#C9A84C" strokeWidth={2.5} dot={{ r: 3, fill: '#C9A84C' }} activeDot={{ r: 5 }} />
-              <Line yAxisId="left" type="monotone" dataKey="moyenne" name="Moyenne cumulée" stroke="#2E9455" strokeWidth={2} strokeDasharray="5 3" dot={{ r: 3, fill: '#2E9455' }} activeDot={{ r: 5 }} />
-              <Line yAxisId="right" type="monotone" dataKey="cv" name="CV Cumulatif" stroke="#534AB7" strokeWidth={2} strokeDasharray="5 3" dot={{ r: 3, fill: '#534AB7' }} activeDot={{ r: 5 }} />
+              {visibleLines.txJour && <Line yAxisId="left" type="monotone" dataKey="txJour" name="Tx Conv. (période)" stroke="#C9A84C" strokeWidth={2.5} dot={{ r: 3, fill: '#C9A84C' }} activeDot={{ r: 5 }} />}
+              {visibleLines.moyenne && <Line yAxisId="left" type="monotone" dataKey="moyenne" name="Moyenne cumulée" stroke="#2E9455" strokeWidth={2} strokeDasharray="5 3" dot={{ r: 3, fill: '#2E9455' }} activeDot={{ r: 5 }} />}
+              {visibleLines.cv && <Line yAxisId="right" type="monotone" dataKey="cv" name="CV Cumulatif" stroke="#534AB7" strokeWidth={2} strokeDasharray="5 3" dot={{ r: 3, fill: '#534AB7' }} activeDot={{ r: 5 }} />}
             </LineChart>
           </ResponsiveContainer>
         )}
