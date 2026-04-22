@@ -135,10 +135,12 @@ export default function PerfCommercial() {
       })
     } else if (selected.type === 'month') {
       filtered = filtered.filter(r => r.date_debut.startsWith(selected.value))
+    } else if (selected.type === 'custom') {
+      filtered = filtered.filter(r => r.date_debut >= selected.from && r.date_debut <= selected.to)
     }
 
     // Grouper par jour ou par mois selon le niveau
-    const isJour = selected.type === 'month'
+    const isJour = selected.type === 'month' || selected.type === 'custom'
     const groups = {}
     for (const r of filtered) {
       const d = new Date(r.date_debut)

@@ -197,6 +197,7 @@ export default function DashboardMarketing() {
       }
       if (selected.type === 'month') return s.date.startsWith(selected.value)
       if (selected.type === 'day') return s.date === selected.value
+      if (selected.type === 'custom') return s.date >= selected.from && s.date <= selected.to
       return true
     })
   }, [marketingData, selected])
