@@ -176,7 +176,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   }, [saisiesFiltrees, groupFn, conseilleres, periodeForLabel])
 
   const chartData = useMemo(() => [...tableData].reverse().map(r => ({ label: r.label, conv: r.conversion_tel, presence: r.taux_presence, efficacite: r.efficacite_comm })), [tableData])
-  const rankingSorted = useMemo(() => [...kpisParConseillere].sort((a,b) => ((b.conversion_tel+b.taux_presence)/2) - ((a.conversion_tel+a.taux_presence)/2)), [kpisParConseillere])
+  const rankingSorted = useMemo(() => [...kpisParConseillere].sort((a,b) => (b.conversion_tel*0.6+b.taux_presence*0.4) - (a.conversion_tel*0.6+a.taux_presence*0.4)), [kpisParConseillere])
 
   const leadsNetsForm = Math.max(0, (parseFloat(form.leads_bruts)||0) - (parseFloat(form.indispos)||0))
   const echangesNetsForm = Math.max(0, (parseFloat(form.echanges)||0) - (parseFloat(form.non_exploitables)||0))
@@ -560,7 +560,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, marginTop: 8 }}>
         <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C' }}>
-          Ranking Conseillères <span style={{ fontSize: 11, color: '#5A5A5A', fontWeight: 400, fontFamily: 'DM Sans' }}>(Conv. Tél. + Présence)</span>
+          Ranking Conseillères <span style={{ fontSize: 11, color: '#5A5A5A', fontWeight: 400, fontFamily: 'DM Sans' }}>(Conv. Tél. 60% · Présence 40%)</span>
         </div>
         <div style={{ position: 'relative' }}>
           <button onClick={() => setShowRankCols(p=>!p)} style={{ padding: '6px 16px', borderRadius: 16, border: '1.5px solid rgba(201,168,76,0.3)', background: '#fff', color: '#C9A84C', fontSize: 12, cursor: 'pointer', fontWeight: 500 }}>Colonnes ▾</button>
@@ -595,7 +595,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
               {rankingSorted.map((c,i) => {
                 const rankColor = getRankColor(i, rankingSorted.length)
                 const stars = getStars(i, rankingSorted.length)
-                const score = parseFloat(((c.conversion_tel+c.taux_presence)/2).toFixed(1))
+                const score = parseFloat((c.conversion_tel*0.6+c.taux_presence*0.4).toFixed(1))
                 const colValues = {
                   leads_bruts: { val: c.leads_bruts, style: tdStyle },
                   leads_nets: { val: c.leads_nets, style: tdStyle },
