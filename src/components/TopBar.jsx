@@ -133,16 +133,19 @@ function StockPopup({ onClose }) {
   const [selectedProjet, setSelectedProjet] = useState(null)
   const [selectedRegion, setSelectedRegion] = useState('all')
   const [loading, setLoading] = useState(true)
+  const [projetsCommerciaux, setProjetsCommerciaux] = useState([])
 
   useEffect(() => {
     async function load() {
-      const [r, p, s, n] = await Promise.all([
+      const [r, p, s, n, pc] = await Promise.all([
         supabase.from('regions').select('*').order('nom'),
-        supabase.from('projets').select('*, regions(nom)').order('nom'),
+        supabase.from('projets').select('*, regions(nom)').order('ordre').order('nom'),
         supabase.from('stock').select('*').order('type_bien'),
         supabase.from('stock_notes').select('*, user_profils(nom)').order('created_at', { ascending: false }),
+        supabase.from('projets_commerciaux').select('projet_id, commercial_id, commerciaux(id, nom, equipe)'),
       ])
       setRegions(r.data || [])
+      setProjetsCommerciaux(pc.data || [])
       setProjets(p.data || [])
       setStock(s.data || [])
       setNotes(n.data || [])
@@ -265,6 +268,23 @@ function StockPopup({ onClose }) {
                   ))}
                 </div>
               )}
+
+              {/* Commerciaux */}
+              {(() => {
+                const comms = projetsCommerciaux.filter(pc => pc.projet_id === selectedProjet.id)
+                return comms.length > 0 ? (
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ fontSize: 10, color: '#8A8A7A', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600, marginBottom: 6 }}>Commerciaux</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                      {comms.map(pc => (
+                        <span key={pc.commercial_id} style={{ fontSize: 11, padding: '3px 9px', borderRadius: 10, background: 'rgba(83,74,183,0.08)', color: '#534AB7', border: '1px solid rgba(83,74,183,0.15)' }}>
+                          👤 {pc.commerciaux?.nom}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null
+              })()}
 
               {/* Notes */}
               {notesProjet.length > 0 && (
