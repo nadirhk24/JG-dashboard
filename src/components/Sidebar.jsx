@@ -24,7 +24,6 @@ const NAV_STRUCTURE = [
     section: 'Tableaux de bord',
     items: [
       { path: '/perf-commercial', label: 'Perf. Commerciale',     permKey: 'perf_commercial' },
-      { path: '/stock',           label: '🏗️ Stock',                permKey: 'stock' },
       { path: '/flux-rdv',     label: 'Flux RDV',               permKey: 'flux_rdv' },
       { path: '/centre-appel', label: 'Call Center',             permKey: 'centre_appel' },
       { path: '/marketing',    label: 'Performance Marketing',   permKey: 'marketing' },
@@ -34,6 +33,7 @@ const NAV_STRUCTURE = [
   {
     section: 'Gestion',
     items: [
+      { path: '/stock',     label: '🏗️ Stock',  permKey: 'stock' },
       { path: '/objectifs', label: 'Objectifs', permKey: 'objectifs' },
     ]
   },
