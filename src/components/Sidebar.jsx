@@ -5,6 +5,7 @@ import { signOut } from '../lib/auth'
 
 // Mapping chemin → clé permission
 const ROUTE_PERMISSION = {
+  '/stock': 'stock',
   '/perf-commercial': 'perf_commercial',
   '/centre-appel': 'centre_appel',
   '/flux-rdv':     'flux_rdv',
@@ -23,6 +24,7 @@ const NAV_STRUCTURE = [
     section: 'Tableaux de bord',
     items: [
       { path: '/perf-commercial', label: 'Perf. Commerciale',     permKey: 'perf_commercial' },
+      { path: '/stock',           label: '🏗️ Stock',                permKey: 'stock' },
       { path: '/flux-rdv',     label: 'Flux RDV',               permKey: 'flux_rdv' },
       { path: '/centre-appel', label: 'Call Center',             permKey: 'centre_appel' },
       { path: '/marketing',    label: 'Performance Marketing',   permKey: 'marketing' },

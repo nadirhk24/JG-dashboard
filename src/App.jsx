@@ -16,6 +16,8 @@ import ImportAgent from './pages/ImportAgent'
 import Login from './pages/Login'
 import { supabase } from './lib/supabase'
 import BulleNotes from './components/BulleNotes'
+import TopBar from './components/TopBar'
+import Stock from './pages/Stock'
 import { AuthProvider, useAuth } from './context/AuthContext'
 
 
@@ -102,7 +104,8 @@ function AppContent() {
               <Route path="/calendrier" element={<ProtectedRoute permKey="calendrier"><Calendrier /></ProtectedRoute>} />
               <Route path="/responsables" element={<ProtectedRoute permKey="conseilleres"><Responsables /></ProtectedRoute>} />
               <Route path="/commerciaux" element={<ProtectedRoute permKey="commerciaux"><Commerciaux /></ProtectedRoute>} />
-              <Route path="/perf-commercial" element={<ProtectedRoute permKey="flux_rdv"><PerfCommercial /></ProtectedRoute>} />
+              <Route path="/stock" element={<ProtectedRoute permKey="stock"><Stock /></ProtectedRoute>} />
+              <Route path="/perf-commercial" element={<ProtectedRoute permKey="perf_commercial"><PerfCommercial /></ProtectedRoute>} />
               <Route path="/flux-rdv" element={<ProtectedRoute permKey="flux_rdv"><FluxRDV conseilleres={conseilleres} /></ProtectedRoute>} />
               <Route path="/analyse-cv" element={<ProtectedRoute permKey="analyse_cv"><AnalyseCV {...sharedProps} /></ProtectedRoute>} />
               <Route path="/gestion-users" element={<ProtectedRoute permKey="gestion_users"><GestionUsers /></ProtectedRoute>} />

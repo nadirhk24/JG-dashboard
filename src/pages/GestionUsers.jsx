@@ -5,6 +5,7 @@ import SectionTitle from '../components/SectionTitle'
 
 const VOLETS = [
   { key: 'perf_commercial', label: 'Perf. Commerciale',   icon: '📈' },
+  { key: 'stock',           label: 'Stock',               icon: '🏗️' },
   { key: 'centre_appel',  label: 'Call Center',           icon: '📞' },
   { key: 'flux_rdv',      label: 'Flux RDV',              icon: '📅' },
   { key: 'marketing',     label: 'Marketing',             icon: '📊' },
