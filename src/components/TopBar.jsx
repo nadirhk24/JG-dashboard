@@ -2,6 +2,11 @@ import React, { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
+function formatPrix(val) {
+  if (!val && val !== 0) return '—'
+  return parseInt(val).toLocaleString('fr-FR').replace(/\u202f/g, ' ') + ' MAD'
+}
+
 // ─── TopBar ───────────────────────────────────────────────────────────────────
 export default function TopBar() {
   const { user, profil } = useAuth()
@@ -153,7 +158,8 @@ function StockPopup({ onClose }) {
 
   const statutColor = { actif: '#2E9455', liquide: '#C9A84C', rupture: '#E05C5C' }
   const statutLabel = { actif: 'Actif', liquide: 'Liquide', rupture: 'Rupture' }
-  const typeLabel = { appt: 'Appartement', magasin: 'Magasin', bureaux: 'Bureaux', boutique: 'Boutique' }
+  const TYPE_LABELS = { appt: 'Appartement', magasin: 'Magasin', bureaux: 'Bureaux', boutique: 'Boutique' }
+  const TYPE_ICONS  = { appt: '🏠', magasin: '🏪', bureaux: '🏢', boutique: '🛍️' }
 
   return (
     <div style={{
@@ -241,11 +247,14 @@ function StockPopup({ onClose }) {
                       borderRadius: 10, background: '#F8F7F4', border: '1px solid rgba(201,168,76,0.1)'
                     }}>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 12, fontWeight: 500, color: '#2C2C2C' }}>{typeLabel[s.type_bien] || s.type_bien}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 16 }}>{TYPE_ICONS[s.type_bien] || '🏗️'}</span>
+                          <span style={{ fontSize: 12, fontWeight: 500, color: '#2C2C2C' }}>{TYPE_LABELS[s.type_bien] || s.type_bien}</span>
+                        </div>
                         <div style={{ fontSize: 11, color: '#8A8A7A', marginTop: 2 }}>
-                          {s.superficie_min ? `À partir de ${s.superficie_min}m²` : ''}
+                          {s.superficie_min ? `À partir de ${s.superficie_min} m²` : ''}
                           {s.superficie_min && s.prix_min ? ' · ' : ''}
-                          {s.prix_min ? `${(s.prix_min/1000000).toFixed(2)}M MAD` : ''}
+                          {s.prix_min ? formatPrix(s.prix_min) : ''}
                         </div>
                       </div>
                       <div style={{ textAlign: 'right' }}>
