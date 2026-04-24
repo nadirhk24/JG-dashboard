@@ -11,10 +11,12 @@ export function getColorFromObjectif(valeur, objectifPct, objectifNb = null, val
     if (!valeur || parseFloat(valeur) === 0) return '#2C2C2C'
     return '#C9A84C'
   }
-  if (ratio < 1) return '#E05C5C'
-  if (ratio < 1.1) return '#4CAF7D'
-  if (ratio < 1.2) return '#2E9455'
-  return '#1a6b3c'
+  if (ratio < 0.50) return '#9B1C1C'
+  if (ratio < 0.65) return '#E05C5C'
+  if (ratio < 0.80) return '#E07B30'
+  if (ratio < 0.95) return '#86EFAC'
+  if (ratio < 1.00) return '#4CAF7D'
+  return '#2E9455'
 }
 
 export default function KpiCard({ label, value, unit = '%', sub, badge, badgeType = 'neutral', objectifPct, objectifNb, valeurNb, onClick }) {
