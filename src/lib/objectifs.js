@@ -94,8 +94,11 @@ export function getColorFromObjectif(valeur, objectifPct, objectifNb = null, val
     if (!valeur || parseFloat(valeur) === 0) return '#2C2C2C'
     return '#C9A84C'
   }
-  if (ratio < 1) return '#E05C5C'
-  if (ratio < 1.1) return '#4CAF7D'
-  if (ratio < 1.2) return '#2E9455'
-  return '#1a6b3c'
+  // Nouvelle logique de couleur par palier
+  if (ratio < 0.50) return '#9B1C1C'      // < 50%  → rouge foncé
+  if (ratio < 0.65) return '#E05C5C'      // 50-65% → rouge clair
+  if (ratio < 0.80) return '#E07B30'      // 65-80% → orange
+  if (ratio < 0.95) return '#86EFAC'      // 80-95% → vert très clair
+  if (ratio < 1.00) return '#4CAF7D'      // 95-100%→ vert clair
+  return '#2E9455'                         // ≥ 100% → vert foncé
 }
