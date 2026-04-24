@@ -141,16 +141,24 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
     return data
   }, [saisies, selected, filtreConseillere])
 
+  const nbConseilleres = conseilleresFiltrees.length || 6
+  const objParConseillere = useMemo(() => ({
+    obj_echanges_nb: objectifs.obj_echanges_nb ? Math.round(objectifs.obj_echanges_nb / nbConseilleres) : 0,
+    obj_rdv_nb:      objectifs.obj_rdv_nb      ? Math.round(objectifs.obj_rdv_nb      / nbConseilleres) : 0,
+    obj_visites_nb:  objectifs.obj_visites_nb  ? Math.round(objectifs.obj_visites_nb  / nbConseilleres) : 0,
+    obj_ventes_nb:   objectifs.obj_ventes_nb   ? Math.round(objectifs.obj_ventes_nb   / nbConseilleres) : 0,
+  }), [objectifs, nbConseilleres])
+
   const kpisGlobal = useMemo(() => {
-    if (isConseillere && myConseillereId) return agregerParPeriode(saisiesFiltrees, myConseillereId, { objEchangesNb: objectifs.obj_echanges_nb })
+    if (isConseillere && myConseillereId) return agregerParPeriode(saisiesFiltrees, myConseillereId, { objEchangesNb: objParConseillere.obj_echanges_nb })
     return agregerParPeriode(saisiesFiltrees, null, { objEchangesNb: objectifs.obj_echanges_nb })
   }, [saisiesFiltrees, isConseillere, myConseillereId])
   // Ranking : toujours toutes les conseillères (pas de filtre pour le ranking)
   const kpisParConseillere = useMemo(() => conseilleres.map(c => ({ ...c, ...agregerParPeriode(
     isConseillere ? saisies.filter(s => filtrerParSelection([s], selected).length > 0) : saisiesFiltrees,
     c.id,
-    { objEchangesNb: objectifs.obj_echanges_nb }
-  ) })), [conseilleres, saisies, saisiesFiltrees, isConseillere, selected, objectifs])
+    { objEchangesNb: objParConseillere.obj_echanges_nb }
+  ) })), [conseilleres, saisies, saisiesFiltrees, isConseillere, selected, objectifs, objParConseillere])
   const cvConvTel = useMemo(() => calcCV(kpisParConseillere.map(c => c.conversion_tel)), [kpisParConseillere])
   const cvPresence = useMemo(() => calcCV(kpisParConseillere.map(c => c.taux_presence)), [kpisParConseillere])
   const cvEfficacite = useMemo(() => calcCV(kpisParConseillere.map(c => c.efficacite_comm)), [kpisParConseillere])
@@ -168,7 +176,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   const tableData = useMemo(() => {
     const groups = groupFn(saisiesFiltrees)
     return Object.entries(groups).sort(([a],[b]) => b.localeCompare(a)).map(([key, items]) => {
-      const agg = agregerParPeriode(items, null, { objEchangesNb: objectifs.obj_echanges_nb })
+      const agg = agregerParPeriode(items, null, { objEchangesNb: filtreConseillere !== 'all' ? objParConseillere.obj_echanges_nb : objectifs.obj_echanges_nb })
       const convParC = conseilleres.map(c => calcConversionTel(items.filter(s=>s.conseillere_id===c.id).reduce((a,s)=>a+s.rdv,0), items.filter(s=>s.conseillere_id===c.id).reduce((a,s)=>a+s.echanges,0)))
       const presParC = conseilleres.map(c => calcTauxPresence(items.filter(s=>s.conseillere_id===c.id).reduce((a,s)=>a+s.visites,0), items.filter(s=>s.conseillere_id===c.id).reduce((a,s)=>a+s.rdv,0)))
       const effParC = conseilleres.map(c => calcEfficaciteComm(items.filter(s=>s.conseillere_id===c.id).reduce((a,s)=>a+s.ventes,0), items.filter(s=>s.conseillere_id===c.id).reduce((a,s)=>a+s.visites,0)))
@@ -506,9 +514,9 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 16, marginBottom: 28 }}>
         <KpiCard label="Efficacité Commerciale" value={kpisGlobal.efficacite_comm} sub="Ventes / Visites" badge={`CV: ${cvEfficacite}%`} objectifPct={objectifs.obj_efficacite_pct} objectifNb={objectifs.obj_efficacite_nb} valeurNb={kpisGlobal.ventes} />
-        <KpiCard label="Total RDV" value={kpisGlobal.rdv} unit="" sub="Période sélectionnée" objectifNb={objectifs.obj_rdv_nb} valeurNb={kpisGlobal.rdv} />
+        <KpiCard label="Total RDV" value={kpisGlobal.rdv} unit="" sub="Période sélectionnée" objectifNb={filtreConseillere !== 'all' ? objParConseillere.obj_rdv_nb : objectifs.obj_rdv_nb} valeurNb={kpisGlobal.rdv} />
         <KpiCard label="Total Visites" value={kpisGlobal.visites} unit="" sub="Période sélectionnée" />
-        <KpiCard label="Total Ventes" value={kpisGlobal.ventes} unit="" sub="Période sélectionnée" objectifNb={objectifs.obj_ventes_nb} valeurNb={kpisGlobal.ventes} />
+        <KpiCard label="Total Ventes" value={kpisGlobal.ventes} unit="" sub="Période sélectionnée" objectifNb={filtreConseillere !== 'all' ? objParConseillere.obj_ventes_nb : objectifs.obj_ventes_nb} valeurNb={kpisGlobal.ventes} />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20, marginBottom: 28 }}>
