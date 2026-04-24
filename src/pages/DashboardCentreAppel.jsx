@@ -186,7 +186,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   }, [saisiesFiltrees, groupFn, conseilleres, periodeForLabel])
 
   const chartData = useMemo(() => [...tableData].reverse().map(r => ({ label: r.label, conv: r.conversion_tel, presence: r.taux_presence, efficacite: r.efficacite_comm })), [tableData])
-  const rankingSorted = useMemo(() => [...kpisParConseillere].sort((a,b) => (b.productivite*0.4+b.conversion_tel*0.3+b.taux_presence*0.3) - (a.productivite*0.4+a.conversion_tel*0.3+a.taux_presence*0.3)), [kpisParConseillere])
+  const rankingSorted = useMemo(() => [...kpisParConseillere].sort((a,b) => (Math.min(b.productivite,100)*0.4+b.conversion_tel*0.3+b.taux_presence*0.3) - (Math.min(a.productivite,100)*0.4+a.conversion_tel*0.3+a.taux_presence*0.3)), [kpisParConseillere])
 
   const leadsNetsForm = Math.max(0, (parseFloat(form.leads_bruts)||0) - (parseFloat(form.indispos)||0))
   const echangesNetsForm = Math.max(0, (parseFloat(form.echanges)||0) - (parseFloat(form.non_exploitables)||0))
@@ -605,7 +605,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
               {rankingSorted.map((c,i) => {
                 const rankColor = getRankColor(i, rankingSorted.length)
                 const stars = getStars(i, rankingSorted.length)
-                const score = parseFloat((c.productivite*0.4+c.conversion_tel*0.3+c.taux_presence*0.3).toFixed(1))
+                const score = parseFloat((Math.min(c.productivite,100)*0.4+c.conversion_tel*0.3+c.taux_presence*0.3).toFixed(1))
                 const colValues = {
                   leads_bruts: { val: c.leads_bruts, style: tdStyle },
                   leads_nets: { val: c.leads_nets, style: tdStyle },
