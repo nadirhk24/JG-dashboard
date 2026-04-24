@@ -53,7 +53,7 @@ export function filtrerSaisiesParDate(saisies, dateDebut, dateFin) {
   })
 }
 
-export function agregerParPeriode(saisies, conseillereId = null) {
+export function agregerParPeriode(saisies, conseillereId = null, options = {}) {
   let data = saisies
   if (conseillereId) {
     data = saisies.filter(s => s.conseillere_id === conseillereId)
