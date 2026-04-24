@@ -80,7 +80,7 @@ export function agregerParPeriode(saisies, conseillereId = null) {
     ...totaux,
     leads_nets: leadsNets,
     echanges_exploitables: echangesExpl,
-    productivite: calcProductivite(totaux.echanges, leadsNets),
+    productivite: calcProductivite(totaux.echanges, options?.objEchangesNb || leadsNets),
     joignabilite: calcJoignabilite(totaux.indispos, totaux.leads_bruts),
     conversion_tel: calcConversionTel(totaux.rdv, echangesExpl),
     taux_presence: calcTauxPresence(totaux.visites, totaux.rdv),

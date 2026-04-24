@@ -499,7 +499,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
 
       <SectionTitle>KPIs Globaux — {selected.label}</SectionTitle>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 16, marginBottom: 16 }}>
-        <KpiCard label="Productivité" value={kpisGlobal.productivite} sub="Échanges / Leads nets" badge={`Leads nets: ${kpisGlobal.leads_nets}`} objectifPct={objectifs.obj_productivite_pct} />
+        <KpiCard label="Productivité" value={kpisGlobal.productivite} sub="Échanges / Objectif" badge={`Obj: ${objectifs.obj_echanges_nb}`} objectifPct={objectifs.obj_productivite_pct} />
         <KpiCard label="Conv. Téléphonique" value={kpisGlobal.conversion_tel} sub="RDV / Échanges" badge={`CV: ${cvConvTel}%`} objectifPct={objectifs.obj_conv_tel_pct} objectifNb={objectifs.obj_conv_tel_nb} valeurNb={kpisGlobal.rdv} />
         <KpiCard label="Taux de Présence" value={kpisGlobal.taux_presence} sub="Visites / RDV" badge={`CV: ${cvPresence}%`} objectifPct={objectifs.obj_presence_pct} />
       </div>
