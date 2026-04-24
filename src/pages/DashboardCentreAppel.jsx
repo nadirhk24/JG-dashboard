@@ -142,14 +142,15 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   }, [saisies, selected, filtreConseillere])
 
   const kpisGlobal = useMemo(() => {
-    if (isConseillere && myConseillereId) return agregerParPeriode(saisiesFiltrees, myConseillereId)
-    return agregerParPeriode(saisiesFiltrees)
+    if (isConseillere && myConseillereId) return agregerParPeriode(saisiesFiltrees, myConseillereId, { objEchangesNb: objectifs.obj_echanges_nb })
+    return agregerParPeriode(saisiesFiltrees, null, { objEchangesNb: objectifs.obj_echanges_nb })
   }, [saisiesFiltrees, isConseillere, myConseillereId])
   // Ranking : toujours toutes les conseillères (pas de filtre pour le ranking)
   const kpisParConseillere = useMemo(() => conseilleres.map(c => ({ ...c, ...agregerParPeriode(
     isConseillere ? saisies.filter(s => filtrerParSelection([s], selected).length > 0) : saisiesFiltrees,
-    c.id
-  ) })), [conseilleres, saisies, saisiesFiltrees, isConseillere, selected])
+    c.id,
+    { objEchangesNb: objectifs.obj_echanges_nb }
+  ) })), [conseilleres, saisies, saisiesFiltrees, isConseillere, selected, objectifs])
   const cvConvTel = useMemo(() => calcCV(kpisParConseillere.map(c => c.conversion_tel)), [kpisParConseillere])
   const cvPresence = useMemo(() => calcCV(kpisParConseillere.map(c => c.taux_presence)), [kpisParConseillere])
   const cvEfficacite = useMemo(() => calcCV(kpisParConseillere.map(c => c.efficacite_comm)), [kpisParConseillere])
@@ -167,7 +168,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   const tableData = useMemo(() => {
     const groups = groupFn(saisiesFiltrees)
     return Object.entries(groups).sort(([a],[b]) => b.localeCompare(a)).map(([key, items]) => {
-      const agg = agregerParPeriode(items)
+      const agg = agregerParPeriode(items, null, { objEchangesNb: objectifs.obj_echanges_nb })
       const convParC = conseilleres.map(c => calcConversionTel(items.filter(s=>s.conseillere_id===c.id).reduce((a,s)=>a+s.rdv,0), items.filter(s=>s.conseillere_id===c.id).reduce((a,s)=>a+s.echanges,0)))
       const presParC = conseilleres.map(c => calcTauxPresence(items.filter(s=>s.conseillere_id===c.id).reduce((a,s)=>a+s.visites,0), items.filter(s=>s.conseillere_id===c.id).reduce((a,s)=>a+s.rdv,0)))
       const effParC = conseilleres.map(c => calcEfficaciteComm(items.filter(s=>s.conseillere_id===c.id).reduce((a,s)=>a+s.ventes,0), items.filter(s=>s.conseillere_id===c.id).reduce((a,s)=>a+s.visites,0)))
