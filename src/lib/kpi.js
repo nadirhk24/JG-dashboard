@@ -1,6 +1,6 @@
-export function calcProductivite(echanges, leadsNets) {
-  if (!leadsNets || leadsNets === 0) return 0
-  return parseFloat(((echanges / leadsNets) * 100).toFixed(1))
+export function calcProductivite(echanges, objEchangesNb) {
+  if (!objEchangesNb || objEchangesNb === 0) return 0
+  return parseFloat(((echanges / objEchangesNb) * 100).toFixed(1))
 }
 
 export function calcJoignabilite(indispos, leadsBruts) {
