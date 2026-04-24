@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import DrillNav, { MOIS_SHORT } from '../components/DrillNav'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { getObjectifsPourPeriode, clearObjectifsCache } from '../lib/objectifs'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts'
 import KpiCard from '../components/KpiCard'
 
@@ -87,6 +88,7 @@ export default function PerfCommercial() {
     return { type: 'month', value: mKey, label: `${MOIS_SHORT[now.getMonth()]} ${now.getFullYear()}` }
   })
   const [equipe, setEquipe] = useState('toutes')
+  const [objectifs, setObjectifs] = useState({})
   const [visibleLines, setVisibleLines] = useState({ txJour: true, moyenne: true, cv: true })
   const toggleLine = (key) => setVisibleLines(p => ({ ...p, [key]: !p[key] }))
 
@@ -95,6 +97,8 @@ export default function PerfCommercial() {
 
   useEffect(() => {
     localStorage.setItem('jg_selected_perf', JSON.stringify(selected))
+    clearObjectifsCache()
+    getObjectifsPourPeriode(selected).then(setObjectifs)
   }, [selected])
 
   useEffect(() => {
@@ -237,7 +241,7 @@ export default function PerfCommercial() {
       <div style={{ display: 'flex', gap: 16, marginBottom: 20, flexWrap: 'wrap', alignItems: 'stretch' }}>
         <div style={{ flex: 1, minWidth: 140, display: 'flex', flexDirection: 'column' }}><KpiCard label="Total Visites" value={totalVisites} unit="" sub={selected.label} /></div>
         <div style={{ flex: 1, minWidth: 140, display: 'flex', flexDirection: 'column' }}><KpiCard label="Total Ventes" value={totalVentes} unit="" sub="sur la période" /></div>
-        <div style={{ flex: 1, minWidth: 140, display: 'flex', flexDirection: 'column' }}><KpiCard label="Taux Conversion" value={txConv} sub="Ventes / Visites" objectifPct={10} /></div>
+        <div style={{ flex: 1, minWidth: 140, display: 'flex', flexDirection: 'column' }}><KpiCard label="Taux Conversion" value={txConv} sub="Ventes / Visites" objectifPct={objectifs.obj_efficacite_pct || 10} /></div>
         <div style={{ flex: 1, minWidth: 140, display: 'flex', flexDirection: 'column' }}><KpiCard label="CV Global" value={cvGlobal} sub="Coefficient de variation" /></div>
 
       </div>
