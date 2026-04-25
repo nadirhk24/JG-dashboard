@@ -196,9 +196,7 @@ export default function FluxRDV({ conseilleres }) {
     const { data: ligneCC } = await supabase.from('saisies')
       .select('id').eq('conseillere_id', consId)
       .eq('date_debut', jour).eq('date_fin', jour).maybeSingle()
-    if (ligneCC) {
-      await supabase.from('saisies').update({ visites: visTotal, ventes: venTotal }).eq('id', ligneCC.id)
-    }
+    await syncCC(consId, jour)
     loadData()
     loadJourDetail(jourDetailCommercial?.id, jour)
     setJourEditId(null)
@@ -219,14 +217,33 @@ export default function FluxRDV({ conseilleres }) {
     const { data: ligneCC } = await supabase.from('saisies')
       .select('id').eq('conseillere_id', consId)
       .eq('date_debut', jour).eq('date_fin', jour).maybeSingle()
-    if (ligneCC) {
-      await supabase.from('saisies').update({
-        visites: Math.round(tot.visites + tot.ventes),
-        ventes: Math.round(tot.ventes)
-      }).eq('id', ligneCC.id)
-    }
+    await syncCC(consId, jour)
     loadData()
     loadJourDetail(jourDetailCommercial?.id, jour)
+  }
+
+
+  async function syncCC(conseillereId, date) {
+    const { data: allFlux } = await supabase.from('flux_rdv')
+      .select('rdv, visites, ventes')
+      .eq('conseillere_id', conseillereId)
+      .eq('date_debut', date)
+    const rows = allFlux || []
+    const totalVisitesRaw = rows.reduce((s,x) => s + parseFloat(x.visites||0), 0)
+    const totalVentes = rows.reduce((s,x) => s + parseFloat(x.ventes||0), 0)
+    const totalRdvRaw = rows.reduce((s,x) => s + parseFloat(x.rdv||0), 0)
+    const totalVisites = totalVisitesRaw + totalVentes
+    const totalRdv = totalRdvRaw + totalVisites
+    const { data: saisie } = await supabase.from('saisies')
+      .select('id').eq('conseillere_id', conseillereId).eq('date', date).maybeSingle()
+    if (saisie) {
+      await supabase.from('saisies').update({ rdv: totalRdv, visites: totalVisites, ventes: totalVentes }).eq('id', saisie.id)
+    } else {
+      await supabase.from('saisies').insert({
+        conseillere_id: conseillereId, date, date_debut: date, date_fin: date, type_saisie: 'jour',
+        leads_bruts: 0, indispos: 0, echanges: 0, rdv: totalRdv, visites: totalVisites, ventes: totalVentes
+      })
+    }
   }
 
   async function loadData() {
