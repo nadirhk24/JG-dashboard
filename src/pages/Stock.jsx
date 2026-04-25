@@ -22,6 +22,7 @@ export default function Stock() {
   const [projetsCommerciaux, setProjetsCommerciaux] = useState([])
   const [stock, setStock] = useState([])
   const [notes, setNotes] = useState([])
+  const [refreshKey, setRefreshKey] = useState(0)
   const [selectedProjet, setSelectedProjet] = useState(null)
   const [selectedRegion, setSelectedRegion] = useState('all')
   const [showAddRegion, setShowAddRegion] = useState(false)
@@ -108,11 +109,11 @@ export default function Stock() {
   async function addNote() {
     if (!newNote.trim() || !selectedProjet) return
     await supabase.from('stock_notes').insert({ projet_id: selectedProjet.id, texte: newNote.trim(), user_id: user.id })
-    setNewNote(''); setShowAddNote(false); loadAll()
+    setNewNote(''); setShowAddNote(false); await loadAll(); setRefreshKey(k => k + 1)
   }
 
   async function deleteNote(id) {
-    await supabase.from('stock_notes').delete().eq('id', id); loadAll()
+    await supabase.from('stock_notes').delete().eq('id', id); await loadAll(); setRefreshKey(k => k + 1)
   }
 
   async function toggleCommercial(projetId, commercialId) {
