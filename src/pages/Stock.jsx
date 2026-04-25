@@ -44,14 +44,14 @@ export default function Stock() {
       supabase.from('commerciaux').select('id, nom, equipe').eq('actif', true).order('nom'),
       supabase.from('projets_commerciaux').select('projet_id, commercial_id, commerciaux(id, nom, equipe)'),
       supabase.from('stock').select('*').order('type_bien'),
-      supabase.from('stock_notes').select('*, user_profils(nom)').order('created_at', { ascending: false }),
+      supabase.from('stock_notes').select('id, projet_id, texte, user_id, created_at, user_profils(nom)').order('created_at', { ascending: false }),
     ])
     setRegions(r.data || [])
     setProjets(p.data || [])
     setCommerciaux(c.data || [])
     setProjetsCommerciaux(pc.data || [])
     setStock(s.data || [])
-    setNotes(n.data || [])
+    setNotes([...(n.data || [])])
     if (selectedProjet) {
       const updated = (p.data || []).find(x => x.id === selectedProjet.id)
       if (updated) setSelectedProjet(updated)
