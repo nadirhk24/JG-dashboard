@@ -105,7 +105,7 @@ export default function PerfCommercial() {
     async function load() {
       setLoading(true)
       const { data } = await supabase.from('flux_rdv')
-        .select('date_debut, date_fin, visites, ventes, commerciaux(nom, equipe)')
+        .select('date_debut, date_fin, visites, ventes, type_saisie, commerciaux(nom, equipe)')
         .not('commercial_id', 'is', null)
         .order('date_debut', { ascending: true })
       setFluxData(data || [])
@@ -129,7 +129,7 @@ export default function PerfCommercial() {
     // Filtrer selon la sélection
     let filtered = fluxFiltres
     if (selected.type === 'year') {
-      filtered = filtered.filter(r => new Date(r.date_debut).getFullYear() === selected.value)
+      filtered = filtered.filter(r => new Date(r.date_debut).getFullYear() === parseInt(selected.value))
     } else if (selected.type === 'quarter') {
       const [year, q] = selected.value.split('-Q')
       const startM = (parseInt(q)-1)*3
@@ -152,7 +152,7 @@ export default function PerfCommercial() {
         ? r.date_debut
         : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
       if (!groups[key]) groups[key] = { visites: 0, ventes: 0, taux: [] }
-      const v = parseFloat(r.visites||0) + parseFloat(r.ventes||0)
+      const v = parseFloat(r.visites||0)  // flux_rdv.visites = visites brutes (sans ventes)
       const ve = parseFloat(r.ventes||0)
       groups[key].visites += v
       groups[key].ventes += ve
