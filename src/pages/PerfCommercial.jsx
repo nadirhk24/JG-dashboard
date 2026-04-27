@@ -152,7 +152,10 @@ export default function PerfCommercial() {
         ? r.date_debut
         : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
       if (!groups[key]) groups[key] = { visites: 0, ventes: 0, taux: [] }
-      const v = parseFloat(r.visites||0)  // flux_rdv.visites = visites brutes (sans ventes)
+      // Pour type 'jour': visites_raw + ventes (1 vente = 1 visite)
+      // Pour type 'periode' et 'non_reconnue': visites déjà inclut les ventes
+      const isPeriode = r.type_saisie === 'periode' || r.type_saisie === 'non_reconnue'
+      const v = isPeriode ? parseFloat(r.visites||0) : parseFloat(r.visites||0) + parseFloat(r.ventes||0)
       const ve = parseFloat(r.ventes||0)
       groups[key].visites += v
       groups[key].ventes += ve
