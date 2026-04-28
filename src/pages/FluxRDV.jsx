@@ -176,7 +176,7 @@ export default function FluxRDV({ conseilleres }) {
       .eq('commercial_id', commercialId)
       .eq('date_debut', jour)
       .eq('date_fin', jour)
-      .in('type_saisie', ['periode', 'non_reconnue'])
+      .in('type_saisie', ['periode', 'non_reconnue', 'jour'])
     setJourDetailSaisies(data || [])
   }
 
@@ -343,7 +343,7 @@ export default function FluxRDV({ conseilleres }) {
 
   async function handleSaisie() {
     if (!saisieConseillere) { setMsg({ type: 'error', text: 'Sélectionne une conseillère' }); return }
-    const entries = Object.entries(saisieForm).filter(([_, v]) => v.rdv || v.visites || v.ventes)
+    const entries = Object.entries(saisieForm).filter(([_, v]) => parseFloat(v.rdv)||0 || parseFloat(v.visites)||0 || parseFloat(v.ventes)||0)
     if (!entries.length) { setMsg({ type: 'error', text: 'Saisis au moins une donnée' }); return }
     // Bloquer les dimanches
     if (saisieModeDate === 'jour') {
@@ -370,12 +370,12 @@ export default function FluxRDV({ conseilleres }) {
       .eq('conseillere_id', saisieConseillere)
       .gte('date_debut', dd)
       .lte('date_fin', df)
-      .in('type_saisie', ['periode', 'non_reconnue'])
+      .in('type_saisie', ['periode', 'non_reconnue', 'jour'])
     const rows = entries
       .filter(([cid, v]) => !cid.startsWith('__non_reconnue_'))
       .map(([cid, v]) => ({
         conseillere_id: saisieConseillere, commercial_id: cid,
-        date_debut: dd, date_fin: df, type_saisie: 'periode',
+        date_debut: dd, date_fin: df, type_saisie: dd === df ? 'jour' : 'periode',
         rdv: parseFloat(v.rdv)||0, visites: parseFloat(v.visites)||0, ventes: parseFloat(v.ventes)||0,
       }))
 
@@ -437,7 +437,7 @@ export default function FluxRDV({ conseilleres }) {
                 conseillere_id: consId, date: dd, date_debut: dd, date_fin: df,
                 type_saisie: dd === df ? 'jour' : 'periode',
                 leads_bruts: 0, indispos: 0, leads_nets: 0, echanges: 0,
-                rdv: 0, visites: visTotal, ventes: venTotal,
+                rdv: rdvTotal, visites: visTotal, ventes: venTotal,
               })
             }
           }
