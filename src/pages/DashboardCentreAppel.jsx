@@ -113,6 +113,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   const [selectedRows, setSelectedRows] = useState(new Set())
   const [showHistorique, setShowHistorique] = useState(false)
   const [showDetail, setShowDetail] = useState(false)
+  const [chartType, setChartType] = useState('bar')
   const [saisieMode, setSaisieMode] = useState('jour')
   const today = new Date().toISOString().split('T')[0]
   const [form, setForm] = useState({ conseillere_id: '', date: today, date_debut: '', date_fin: '', leads_bruts: '', indispos: '', non_exploitables: '', echanges: '', rdv: '', visites: '', ventes: '' })
@@ -509,7 +510,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
 
       <SectionTitle>KPIs Globaux — {selected.label}</SectionTitle>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 16, marginBottom: 16 }}>
-        <KpiCard label="Productivité" value={kpisGlobal.productivite} sub="Échanges / Objectif" badge={`Obj: ${(isConseillere || filtreConseillere !== 'all') ? objParConseillere.obj_echanges_nb : objectifs.obj_echanges_nb}`} objectifPct={objectifs.obj_productivite_pct} />
+        <KpiCard label="Productivité" value={kpisGlobal.productivite} sub="(Leads nets + Éch. nets) / Objectif" badge={`Obj: ${(isConseillere || filtreConseillere !== 'all') ? objParConseillere.obj_echanges_nb : objectifs.obj_echanges_nb}`} objectifPct={objectifs.obj_productivite_pct} />
         <KpiCard label="Conv. Téléphonique" value={kpisGlobal.conversion_tel} sub="RDV / Échanges" badge={`CV: ${cvConvTel}%`} objectifPct={objectifs.obj_conv_tel_pct} objectifNb={objectifs.obj_conv_tel_nb} valeurNb={kpisGlobal.rdv} />
         <KpiCard label="Taux de Présence" value={kpisGlobal.taux_presence} sub="Visites / RDV" badge={`CV: ${cvPresence}%`} objectifPct={objectifs.obj_presence_pct} />
       </div>
@@ -520,52 +521,52 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
         <KpiCard label="Total Ventes" value={kpisGlobal.ventes} unit="" sub="Période sélectionnée" objectifNb={filtreConseillere !== 'all' ? objParConseillere.obj_ventes_nb : objectifs.obj_ventes_nb} valeurNb={kpisGlobal.ventes} />
       </div>
 
+      {/* Toggle graphe/courbe + 3 graphiques */}
+      <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: 6, background: '#F8F7F4', borderRadius: 20, padding: 3, border: '1px solid rgba(201,168,76,0.15)' }}>
+          {[{ val: 'bar', label: '▬ Barres' }, { val: 'line', label: '〰 Courbes' }].map(opt => (
+            <button key={opt.val} onClick={() => setChartType(opt.val)}
+              style={{ padding: '5px 14px', borderRadius: 16, border: 'none', fontSize: 11, fontWeight: 500, cursor: 'pointer',
+                background: chartType === opt.val ? '#C9A84C' : 'transparent',
+                color: chartType === opt.val ? '#fff' : '#8A8A7A',
+                transition: 'all 0.15s' }}>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20, marginBottom: 28 }}>
-        <div style={cardStyle}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <div style={{ fontSize: 13, fontWeight: 500 }}>Conv. Téléphonique</div>
-            <div style={{ fontSize: 11, color: '#5A5A5A' }}>CV: <span style={{ color: '#C9A84C', fontWeight: 500 }}>{cvConvTel}%</span></div>
+        {[
+          { title: 'Conv. Téléphonique', cv: cvConvTel, cvColor: '#C9A84C', dataKey: 'conv', color: '#C9A84C', label: 'Conv. Tél.' },
+          { title: 'Taux de Présence',   cv: cvPresence,  cvColor: '#4CAF7D', dataKey: 'presence', color: '#4CAF7D', label: 'Présence' },
+          { title: 'Efficacité Commerciale', cv: cvEfficacite, cvColor: '#534AB7', dataKey: 'efficacite', color: '#534AB7', label: 'Eff. Comm.' },
+        ].map(cfg => (
+          <div key={cfg.dataKey} style={cardStyle}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 500 }}>{cfg.title}</div>
+              <div style={{ fontSize: 11, color: '#5A5A5A' }}>CV: <span style={{ color: cfg.cvColor, fontWeight: 500 }}>{cfg.cv}%</span></div>
+            </div>
+            <ResponsiveContainer width="100%" height={200}>
+              {chartType === 'bar' ? (
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={`${cfg.color}15`} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${v}%`} domain={[0, 'auto']} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={v => [`${v}%`, cfg.label]} />
+                  <Bar dataKey={cfg.dataKey} fill={cfg.color} radius={[4,4,0,0]} />
+                </BarChart>
+              ) : (
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={`${cfg.color}15`} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${v}%`} domain={[0, 'auto']} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={v => [`${v}%`, cfg.label]} />
+                  <Line type="monotone" dataKey={cfg.dataKey} stroke={cfg.color} strokeWidth={2.5} dot={{ r: 4, fill: cfg.color }} />
+                </LineChart>
+              )}
+            </ResponsiveContainer>
           </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.08)" />
-              <XAxis dataKey="label" tick={{ fontSize: 10 }} />
-              <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${v}%`} domain={[0, 'auto']} />
-              <Tooltip contentStyle={tooltipStyle} formatter={v => [`${v}%`, 'Conv. Tél.']} />
-              <Bar dataKey="conv" fill="#C9A84C" radius={[4,4,0,0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <div style={cardStyle}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <div style={{ fontSize: 13, fontWeight: 500 }}>Taux de Présence</div>
-            <div style={{ fontSize: 11, color: '#5A5A5A' }}>CV: <span style={{ color: '#4CAF7D', fontWeight: 500 }}>{cvPresence}%</span></div>
-          </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(76,175,125,0.08)" />
-              <XAxis dataKey="label" tick={{ fontSize: 10 }} />
-              <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${v}%`} domain={[0, 'auto']} />
-              <Tooltip contentStyle={tooltipStyle} formatter={v => [`${v}%`, 'Présence']} />
-              <Line type="monotone" dataKey="presence" stroke="#4CAF7D" strokeWidth={2.5} dot={{ r: 4, fill: '#4CAF7D' }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-        <div style={cardStyle}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <div style={{ fontSize: 13, fontWeight: 500 }}>Efficacité Commerciale</div>
-            <div style={{ fontSize: 11, color: '#5A5A5A' }}>CV: <span style={{ color: '#534AB7', fontWeight: 500 }}>{cvEfficacite}%</span></div>
-          </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(83,74,183,0.08)" />
-              <XAxis dataKey="label" tick={{ fontSize: 10 }} />
-              <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `${v}%`} domain={[0, 'auto']} />
-              <Tooltip contentStyle={tooltipStyle} formatter={v => [`${v}%`, 'Eff. Comm.']} />
-              <Line type="monotone" dataKey="efficacite" stroke="#534AB7" strokeWidth={2.5} dot={{ r: 4, fill: '#534AB7' }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        ))}
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, marginTop: 8 }}>
