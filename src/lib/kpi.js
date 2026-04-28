@@ -1,8 +1,6 @@
 export function calcProductivite(echanges, nonExploitablesCC, leadsBruts, indispos, objNb) {
   if (!objNb || objNb === 0) return 0
-  const leadsNets = Math.max(0, (leadsBruts || 0) - (indispos || 0))
-  const echangesNets = Math.max(0, (echanges || 0) - (nonExploitablesCC || 0))
-  return parseFloat((((leadsNets + echangesNets) / objNb) * 100).toFixed(1))
+  return parseFloat(((echanges / objNb) * 100).toFixed(1))
 }
 
 export function calcJoignabilite(indispos, leadsBruts) {
