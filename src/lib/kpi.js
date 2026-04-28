@@ -25,7 +25,7 @@ export function calcEfficaciteComm(ventes, visites) {
 }
 
 export function calcLeadsNets(leadsBruts, nonExploitablesCC, indispos) {
-  return Math.max(0, (leadsBruts || 0) - (nonExploitablesCC || 0) - (indispos || 0))
+  return Math.max(0, (leadsBruts || 0) - (indispos || 0))
 }
 
 export function calcCV(valeurs) {
