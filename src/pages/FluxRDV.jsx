@@ -366,11 +366,7 @@ export default function FluxRDV({ conseilleres }) {
       dd = saisieDebut || `${saisieMois}-01`
       df = saisieFin || `${saisieMois}-${String(lastDay).padStart(2,'0')}`
     }
-    await supabase.from('flux_rdv').delete()
-      .eq('conseillere_id', saisieConseillere)
-      .gte('date_debut', dd)
-      .lte('date_fin', df)
-      .in('type_saisie', ['periode', 'non_reconnue', 'jour'])
+    // Upsert : update si la ligne existe, insert sinon (ne pas écraser les données du calendrier)
     const rows = entries
       .filter(([cid, v]) => !cid.startsWith('__non_reconnue_'))
       .map(([cid, v]) => ({
@@ -394,7 +390,7 @@ export default function FluxRDV({ conseilleres }) {
       }
     }
     const allRows = [...rows, ...nonReconnuRows]
-    const { error } = await supabase.from('flux_rdv').insert(allRows)
+    const { error } = await supabase.from('flux_rdv').upsert(allRows, { onConflict: 'conseillere_id,commercial_id,date_debut,date_fin' })
     
     if (!error) {
       // Sync totaux vers saisies CC par conseillere
