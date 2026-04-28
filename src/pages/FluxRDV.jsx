@@ -402,16 +402,18 @@ export default function FluxRDV({ conseilleres }) {
       const conseilleresIds = [...new Set(allRows.map(r => r.conseillere_id))]
       for (const consId of conseilleresIds) {
         const { data: allFlux } = await supabase.from('flux_rdv')
-          .select('visites, ventes')
+          .select('rdv, visites, ventes')
           .eq('conseillere_id', consId)
           .gte('date_debut', dd)
           .lte('date_fin', df)
         const tot = (allFlux || []).reduce((acc, f) => ({
+          rdv: acc.rdv + parseFloat(f.rdv || 0),
           visites: acc.visites + parseFloat(f.visites || 0),
           ventes: acc.ventes + parseFloat(f.ventes || 0),
-        }), { visites: 0, ventes: 0 })
+        }), { rdv: 0, visites: 0, ventes: 0 })
         const visTotal = Math.round(tot.visites + tot.ventes)
         const venTotal = Math.round(tot.ventes)
+        const rdvTotal = Math.round(tot.rdv + visTotal)
         // Chercher toutes les lignes CC de la periode
         const { data: lignesCC } = await supabase.from('saisies')
           .select('id, date_debut, rdv')
@@ -423,12 +425,12 @@ export default function FluxRDV({ conseilleres }) {
         if (lignesCC && lignesCC.length > 0) {
           if (lignesCC.length === 1) {
             // 1 seule ligne → mettre à jour visites+ventes sans toucher au rdv
-            await supabase.from('saisies').update({ visites: visTotal, ventes: venTotal }).eq('id', lignesCC[0].id)
+            await supabase.from('saisies').update({ rdv: rdvTotal, visites: visTotal, ventes: venTotal }).eq('id', lignesCC[0].id)
           } else {
             // Plusieurs lignes jour/jour → chercher la ligne du jour exact si saisie par jour
             const ligneJour = lignesCC.find(l => l.date_debut === dd)
             if (ligneJour) {
-              await supabase.from('saisies').update({ visites: visTotal, ventes: venTotal }).eq('id', ligneJour.id)
+              await supabase.from('saisies').update({ rdv: rdvTotal, visites: visTotal, ventes: venTotal }).eq('id', ligneJour.id)
             } else {
               // Créer une ligne pour cette période
               await supabase.from('saisies').insert({
