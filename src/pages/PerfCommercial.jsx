@@ -105,9 +105,9 @@ export default function PerfCommercial() {
     async function load() {
       setLoading(true)
       const { data } = await supabase.from('flux_rdv')
-        .select('date_debut, date_fin, visites, ventes, type_saisie, commerciaux(nom, equipe)')
-        .not('commercial_id', 'is', null)
+        .select('date_debut, date_fin, visites, ventes, type_saisie, commercial_id, commerciaux(nom, equipe)')
         .order('date_debut', { ascending: true })
+        .limit(5000)
       setFluxData(data || [])
       setLoading(false)
     }
@@ -117,8 +117,8 @@ export default function PerfCommercial() {
   // Filtrer par équipe
   const fluxFiltres = useMemo(() => {
     let data = fluxData
-    if (equipe === 'sale') data = data.filter(r => r.commerciaux?.equipe === 'sale')
-    else if (equipe === 'kenitra') data = data.filter(r => r.commerciaux?.equipe === 'kenitra')
+    if (equipe === 'sale') data = data.filter(r => r.commerciaux?.equipe === 'sale' || !r.commercial_id)
+    else if (equipe === 'kenitra') data = data.filter(r => r.commerciaux?.equipe === 'kenitra' || !r.commercial_id)
     return data
   }, [fluxData, equipe])
 
