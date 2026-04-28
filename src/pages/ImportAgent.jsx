@@ -753,10 +753,6 @@ export default function ImportAgent() {
             parsed = parseRdvCalendrier(rows2.slice(1))
           } else if (['visites_cc','ventes_cc'].includes(type)) {
             parsed = parseVisitesVentesCC(rows2.slice(1))
-          } else if (type === 'echanges') {
-            // Échanges : soit datetime (col0=date, col1=vendeur) soit text (col0=date texte, col1=null)
-            const hasDatetime = rows2.slice(1).some(r => r[0] instanceof Date)
-            parsed = hasDatetime ? parseWithDatetime(rows2.slice(1)) : parseWithTextDate(rows2.slice(1))
           } else {
             parsed = parseWithTextDate(rows2.slice(1))
           }
