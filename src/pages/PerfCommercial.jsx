@@ -79,7 +79,6 @@ function Signal({ moyenneTrend, cvTrend }) {
 export default function PerfCommercial() {
   const { profil } = useAuth()
   const [fluxData, setFluxData] = useState([])
-  const [saisiesCC, setSaisiesCC] = useState([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(() => {
     const saved = localStorage.getItem('jg_selected_perf')
@@ -180,22 +179,8 @@ export default function PerfCommercial() {
   }, [fluxFiltres, selected])
 
   // Totaux KPIs
-  // Totaux depuis saisies CC (source de vérité)
-  const saisiesFiltreesCC = useMemo(() => {
-    if (!selected || selected.type === 'global') return saisiesCC
-    if (selected.type === 'year') return saisiesCC.filter(s => s.date?.startsWith(String(selected.value)))
-    if (selected.type === 'quarter') {
-      const [y, q] = selected.value.split('-Q')
-      return saisiesCC.filter(s => { const d = new Date(s.date); return d.getFullYear() === parseInt(y) && Math.floor(d.getMonth()/3) === parseInt(q)-1 })
-    }
-    if (selected.type === 'month') return saisiesCC.filter(s => s.date?.startsWith(selected.value))
-    if (selected.type === 'day') return saisiesCC.filter(s => s.date?.startsWith(selected.value))
-    if (selected.type === 'custom') return saisiesCC.filter(s => s.date >= selected.from && s.date <= selected.to)
-    return saisiesCC
-  }, [saisiesCC, selected])
-
-  const totalVisites = saisiesFiltreesCC.reduce((s,r) => s + parseFloat(r.visites||0), 0)
-  const totalVentes = saisiesFiltreesCC.reduce((s,r) => s + parseFloat(r.ventes||0), 0)
+  const totalVisites = chartData.reduce((s,r) => s + r.visites, 0)
+  const totalVentes = chartData.reduce((s,r) => s + r.ventes, 0)
   const txConv = totalVisites > 0 ? ((totalVentes/totalVisites)*100).toFixed(1) : '0.0'
   const cvGlobal = calcCV(chartData.map(r => r.moyenne)).toFixed(1)
 
