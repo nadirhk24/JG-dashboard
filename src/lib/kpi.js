@@ -1,6 +1,8 @@
-export function calcProductivite(echanges, objEchangesNb) {
-  if (!objEchangesNb || objEchangesNb === 0) return 0
-  return parseFloat(((echanges / objEchangesNb) * 100).toFixed(1))
+export function calcProductivite(echanges, nonExploitablesCC, leadsBruts, indispos, objNb) {
+  if (!objNb || objNb === 0) return 0
+  const leadsNets = Math.max(0, (leadsBruts || 0) - (indispos || 0))
+  const echangesNets = Math.max(0, (echanges || 0) - (nonExploitablesCC || 0))
+  return parseFloat((((leadsNets + echangesNets) / objNb) * 100).toFixed(1))
 }
 
 export function calcJoignabilite(indispos, leadsBruts) {
@@ -80,7 +82,7 @@ export function agregerParPeriode(saisies, conseillereId = null, options = {}) {
     ...totaux,
     leads_nets: leadsNets,
     echanges_exploitables: echangesExpl,
-    productivite: calcProductivite(totaux.echanges, options?.objEchangesNb || leadsNets),
+    productivite: calcProductivite(totaux.echanges, totaux.non_exploitables_cc, totaux.leads_bruts, totaux.indispos, options?.objEchangesNb),
     joignabilite: calcJoignabilite(totaux.indispos, totaux.leads_bruts),
     conversion_tel: calcConversionTel(totaux.rdv, echangesExpl),
     taux_presence: calcTauxPresence(totaux.visites, totaux.rdv),
