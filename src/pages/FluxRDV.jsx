@@ -250,7 +250,7 @@ export default function FluxRDV({ conseilleres }) {
     setLoading(true)
     const [{ data: comms }, { data: flux }] = await Promise.all([
       supabase.from('commerciaux').select('*').eq('actif', true).order('equipe').order('nom'),
-      supabase.from('flux_rdv').select('*')
+      supabase.from('flux_rdv').select('*').limit(5000)
     ])
     setCommerciaux(comms || [])
     setFluxData(flux || [])
