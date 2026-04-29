@@ -155,12 +155,13 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
     if (isConseillere && myConseillereId) return agregerParPeriode(saisiesFiltrees, myConseillereId, { objEchangesNb: objEch })
     return agregerParPeriode(saisiesFiltrees, null, { objEchangesNb: objEch })
   }, [saisiesFiltrees, isConseillere, myConseillereId, filtreConseillere, objParConseillere, objectifs])
-  // Ranking : toujours toutes les conseillères (pas de filtre pour le ranking)
+  // Ranking : utilise toujours saisiesFiltrees (filtrées par période)
+  // Pour une conseillère, saisiesFiltrees est déjà restreint à son propre ID → les % sont corrects
   const kpisParConseillere = useMemo(() => conseilleres.map(c => ({ ...c, ...agregerParPeriode(
-    isConseillere ? saisies.filter(s => filtrerParSelection([s], selected).length > 0) : saisiesFiltrees,
+    saisiesFiltrees,
     c.id,
     { objEchangesNb: objParConseillere.obj_echanges_nb }
-  ) })), [conseilleres, saisies, saisiesFiltrees, isConseillere, selected, objectifs, objParConseillere])
+  ) })), [conseilleres, saisiesFiltrees, objParConseillere])
   const cvConvTel = useMemo(() => calcCV(kpisParConseillere.map(c => c.conversion_tel)), [kpisParConseillere])
   const cvPresence = useMemo(() => calcCV(kpisParConseillere.map(c => c.taux_presence)), [kpisParConseillere])
   const cvEfficacite = useMemo(() => calcCV(kpisParConseillere.map(c => c.efficacite_comm)), [kpisParConseillere])

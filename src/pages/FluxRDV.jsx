@@ -226,17 +226,33 @@ export default function FluxRDV({ conseilleres }) {
   }
 
 
+  // syncCC : agrège flux_rdv → saisies CC pour une conseillère et une date donnée.
+  // Règle métier : une vente = 1 visite = 1 rdv (les trois s'additionnent)
+  // • type 'jour' : visites saisies brutes (hors ventes) → visites_cc = visites_brutes + ventes
+  // • type 'periode'/'non_reconnue' : visites saisies incluent déjà les ventes → visites_cc = visites telles quelles
   async function syncCC(conseillereId, date) {
     const { data: allFlux } = await supabase.from('flux_rdv')
-      .select('rdv, visites, ventes')
+      .select('rdv, visites, ventes, type_saisie')
       .eq('conseillere_id', conseillereId)
       .eq('date_debut', date)
     const rows = allFlux || []
-    const totalVisitesRaw = rows.reduce((s,x) => s + parseFloat(x.visites||0), 0)
-    const totalVentes = rows.reduce((s,x) => s + parseFloat(x.ventes||0), 0)
-    const totalRdvRaw = rows.reduce((s,x) => s + parseFloat(x.rdv||0), 0)
-    const totalVisites = totalVisitesRaw + totalVentes
-    const totalRdv = totalRdvRaw + totalVisites
+    let totalVisites = 0
+    let totalVentes = 0
+    let totalRdvBruts = 0
+    for (const r of rows) {
+      const vis = parseFloat(r.visites || 0)
+      const ven = parseFloat(r.ventes || 0)
+      const rdvBrut = parseFloat(r.rdv || 0)
+      const isPeriode = r.type_saisie === 'periode' || r.type_saisie === 'non_reconnue'
+      // Pour 'periode'/'non_reconnue' les visites incluent déjà les ventes → pas d'ajout
+      totalVisites += isPeriode ? vis : vis + ven
+      totalVentes += ven
+      totalRdvBruts += rdvBrut
+    }
+    // rdv_total = rdv_bruts + visites_total  (car 1 visite = 1 rdv)
+    const totalRdv = Math.round(totalRdvBruts + totalVisites)
+    totalVisites = Math.round(totalVisites)
+    totalVentes = Math.round(totalVentes)
     const { data: saisie } = await supabase.from('saisies')
       .select('id').eq('conseillere_id', conseillereId).eq('date', date).maybeSingle()
     if (saisie) {
@@ -308,9 +324,9 @@ export default function FluxRDV({ conseilleres }) {
     Object.keys(EQUIPES).forEach(eq => {
       const comms = commerciaux.filter(c => c.equipe === eq)
       const tot = comms.reduce((acc, c) => {
+        // fluxParCommercial contient des totaux déjà type_saisie-aware → additionner directement
         const d = fluxParCommercial[c.id] || { rdv: 0, visites: 0, ventes: 0 }
-        const t = calcTotaux(d)
-        return { rdv: acc.rdv + t.rdv, visites: acc.visites + t.visites, ventes: acc.ventes + t.ventes }
+        return { rdv: acc.rdv + (d.rdv || 0), visites: acc.visites + (d.visites || 0), ventes: acc.ventes + (d.ventes || 0) }
       }, { rdv: 0, visites: 0, ventes: 0 })
       // Ajouter les non reconnues de cette équipe
       fluxFiltres.filter(f => !f.commercial_id && f.type_saisie === 'non_reconnue').forEach(f => {
@@ -335,17 +351,24 @@ export default function FluxRDV({ conseilleres }) {
       const m = f.date_debut?.substring(0, 7)
       if (!m) return
       if (!byMois[m]) byMois[m] = { rdv: 0, visites: 0, ventes: 0 }
-      byMois[m].rdv += parseFloat(f.rdv || 0)
-      byMois[m].visites += parseFloat(f.visites || 0)
-      byMois[m].ventes += parseFloat(f.ventes || 0)
+      const isPeriode = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
+      const vis = parseFloat(f.visites || 0)
+      const ven = parseFloat(f.ventes || 0)
+      const rdvBrut = parseFloat(f.rdv || 0)
+      byMois[m].visites += isPeriode ? vis : vis + ven
+      byMois[m].ventes += ven
+      byMois[m].rdv += rdvBrut
     })
     return Object.entries(byMois).sort(([a],[b]) => a.localeCompare(b)).map(([m, d]) => {
-      const ht = calcTotaux(d)
+      // rdv_total = rdv_bruts + visites_total (déjà correct dans d.rdv via accumulation ci-dessus)
+      const rdvTotal = Math.round(d.rdv + d.visites)
+      const visites = Math.round(d.visites)
+      const ventes = Math.round(d.ventes)
       return {
         label: MOIS_LABELS[parseInt(m.split('-')[1])-1]?.substring(0,3) + ' ' + m.split('-')[0].substring(2),
-        rdv: Math.round(ht.rdv), visites: Math.round(ht.visites), ventes: Math.round(ht.ventes),
-        taux_presence: ht.rdv > 0 ? parseFloat(((ht.visites/ht.rdv)*100).toFixed(1)) : 0,
-        taux_vente: ht.visites > 0 ? parseFloat(((ht.ventes/ht.visites)*100).toFixed(1)) : 0,
+        rdv: rdvTotal, visites, ventes,
+        taux_presence: rdvTotal > 0 ? parseFloat(((visites/rdvTotal)*100).toFixed(1)) : 0,
+        taux_vente: visites > 0 ? parseFloat(((ventes/visites)*100).toFixed(1)) : 0,
       }
     })
   }, [selectedCommercial, fluxData])
@@ -415,18 +438,24 @@ export default function FluxRDV({ conseilleres }) {
       const conseilleresIds = [...new Set(allRows.map(r => r.conseillere_id))]
       for (const consId of conseilleresIds) {
         const { data: allFlux } = await supabase.from('flux_rdv')
-          .select('rdv, visites, ventes')
+          .select('rdv, visites, ventes, type_saisie')
           .eq('conseillere_id', consId)
           .gte('date_debut', dd)
           .lte('date_fin', df)
-        const tot = (allFlux || []).reduce((acc, f) => ({
-          rdv: acc.rdv + parseFloat(f.rdv || 0),
-          visites: acc.visites + parseFloat(f.visites || 0),
-          ventes: acc.ventes + parseFloat(f.ventes || 0),
-        }), { rdv: 0, visites: 0, ventes: 0 })
-        const visTotal = Math.round(tot.visites + tot.ventes)
-        const venTotal = Math.round(tot.ventes)
-        const rdvTotal = Math.round(tot.rdv + visTotal)
+        // Agrégation type_saisie-aware : même règle que syncCC
+        let visTotal = 0, venTotal = 0, rdvBrutsTotal = 0
+        for (const f of (allFlux || [])) {
+          const vis = parseFloat(f.visites || 0)
+          const ven = parseFloat(f.ventes || 0)
+          const rdvBrut = parseFloat(f.rdv || 0)
+          const isPeriode = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
+          visTotal += isPeriode ? vis : vis + ven
+          venTotal += ven
+          rdvBrutsTotal += rdvBrut
+        }
+        visTotal = Math.round(visTotal)
+        venTotal = Math.round(venTotal)
+        const rdvTotal = Math.round(rdvBrutsTotal + visTotal)
         // Chercher toutes les lignes CC de la periode
         const { data: lignesCC } = await supabase.from('saisies')
           .select('id, date_debut, rdv')
