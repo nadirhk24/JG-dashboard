@@ -146,7 +146,8 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   // Utilisé pour le ranking afin que toutes les conseillères aient leurs données visibles
   const saisiesParPeriode = useMemo(() => filtrerParSelection(saisies, selected), [saisies, selected])
 
-  const nbConseilleres = conseilleresFiltrees.length || 6
+  // Toujours diviser par l'équipe complète (pas par la vue filtrée) pour avoir les bons objectifs individuels
+  const nbConseilleres = conseilleres.length || 6
   const objParConseillere = useMemo(() => ({
     obj_echanges_nb: objectifs.obj_echanges_nb ? Math.round(objectifs.obj_echanges_nb / nbConseilleres) : 0,
     obj_rdv_nb:      objectifs.obj_rdv_nb      ? Math.round(objectifs.obj_rdv_nb      / nbConseilleres) : 0,
