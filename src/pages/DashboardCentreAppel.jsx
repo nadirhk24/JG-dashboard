@@ -142,6 +142,10 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
     return data
   }, [saisies, selected, filtreConseillere])
 
+  // Saisies filtrées par période uniquement (sans filtre par conseillère)
+  // Utilisé pour le ranking afin que toutes les conseillères aient leurs données visibles
+  const saisiesParPeriode = useMemo(() => filtrerParSelection(saisies, selected), [saisies, selected])
+
   const nbConseilleres = conseilleresFiltrees.length || 6
   const objParConseillere = useMemo(() => ({
     obj_echanges_nb: objectifs.obj_echanges_nb ? Math.round(objectifs.obj_echanges_nb / nbConseilleres) : 0,
@@ -155,13 +159,13 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
     if (isConseillere && myConseillereId) return agregerParPeriode(saisiesFiltrees, myConseillereId, { objEchangesNb: objEch })
     return agregerParPeriode(saisiesFiltrees, null, { objEchangesNb: objEch })
   }, [saisiesFiltrees, isConseillere, myConseillereId, filtreConseillere, objParConseillere, objectifs])
-  // Ranking : utilise toujours saisiesFiltrees (filtrées par période)
-  // Pour une conseillère, saisiesFiltrees est déjà restreint à son propre ID → les % sont corrects
+  // Ranking : utilise saisiesParPeriode (toutes les conseillères, filtrées par période seulement)
+  // Même pour une conseillère connectée, le ranking doit montrer tout le monde avec ses vraies données
   const kpisParConseillere = useMemo(() => conseilleres.map(c => ({ ...c, ...agregerParPeriode(
-    saisiesFiltrees,
+    saisiesParPeriode,
     c.id,
     { objEchangesNb: objParConseillere.obj_echanges_nb }
-  ) })), [conseilleres, saisiesFiltrees, objParConseillere])
+  ) })), [conseilleres, saisiesParPeriode, objParConseillere])
   const cvConvTel = useMemo(() => calcCV(kpisParConseillere.map(c => c.conversion_tel)), [kpisParConseillere])
   const cvPresence = useMemo(() => calcCV(kpisParConseillere.map(c => c.taux_presence)), [kpisParConseillere])
   const cvEfficacite = useMemo(() => calcCV(kpisParConseillere.map(c => c.efficacite_comm)), [kpisParConseillere])

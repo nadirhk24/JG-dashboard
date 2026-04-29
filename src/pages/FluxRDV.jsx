@@ -82,25 +82,19 @@ function calcTotaux(d) {
   return { rdv, visites, ventes }
 }
 
-// Pour les donnees brutes de la DB (un seul commercial)
+// Données issues de fluxParCommercial (totaux déjà type_saisie-aware) → lecture directe
 function getKpiVal(d, kpi) {
-  const t = calcTotaux(d)
-  if (kpi === 'rdv') return Math.round(t.rdv)
-  if (kpi === 'visites') return Math.round(t.visites)
-  if (kpi === 'ventes') return Math.round(t.ventes)
-  if (kpi === 'taux_presence') return t.rdv > 0 ? parseFloat(((t.visites / t.rdv) * 100).toFixed(1)) : 0
-  if (kpi === 'taux_vente') return t.visites > 0 ? parseFloat(((t.ventes / t.visites) * 100).toFixed(1)) : 0
+  if (kpi === 'rdv') return Math.round(d.rdv || 0)
+  if (kpi === 'visites') return Math.round(d.visites || 0)
+  if (kpi === 'ventes') return Math.round(d.ventes || 0)
+  if (kpi === 'taux_presence') return (d.rdv || 0) > 0 ? parseFloat((((d.visites||0) / d.rdv) * 100).toFixed(1)) : 0
+  if (kpi === 'taux_vente') return (d.visites || 0) > 0 ? parseFloat((((d.ventes||0) / d.visites) * 100).toFixed(1)) : 0
   return 0
 }
 
-// Pour les totaux deja calcules (equipe, global) - pas de double calcul
+// Alias explicite pour les appels sur totaux equipe/global
 function getKpiValFromTotaux(t, kpi) {
-  if (kpi === 'rdv') return Math.round(t.rdv || 0)
-  if (kpi === 'visites') return Math.round(t.visites || 0)
-  if (kpi === 'ventes') return Math.round(t.ventes || 0)
-  if (kpi === 'taux_presence') return t.rdv > 0 ? parseFloat(((t.visites / t.rdv) * 100).toFixed(1)) : 0
-  if (kpi === 'taux_vente') return t.visites > 0 ? parseFloat(((t.ventes / t.visites) * 100).toFixed(1)) : 0
-  return 0
+  return getKpiVal(t, kpi)
 }
 
 function getRankColor(rank, total) {
