@@ -287,9 +287,17 @@ export default function FluxRDV({ conseilleres }) {
     const agg = {}
     fluxFiltres.forEach(f => {
       if (!agg[f.commercial_id]) agg[f.commercial_id] = { rdv: 0, visites: 0, ventes: 0 }
-      agg[f.commercial_id].rdv += parseFloat(f.rdv || 0)
-      agg[f.commercial_id].visites += parseFloat(f.visites || 0)
-      agg[f.commercial_id].ventes += parseFloat(f.ventes || 0)
+      const isPeriode = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
+      const vis = parseFloat(f.visites || 0)
+      const ven = parseFloat(f.ventes || 0)
+      const rdv_f = parseFloat(f.rdv || 0)
+      // Pour periode : visites inclut déjà les ventes
+      // Pour jour : visites brutes + ventes
+      const vis_display = isPeriode ? vis : vis + ven
+      const rdv_display = rdv_f + vis_display
+      agg[f.commercial_id].visites += vis_display
+      agg[f.commercial_id].ventes += ven
+      agg[f.commercial_id].rdv += rdv_display
     })
     return agg
   }, [fluxFiltres])
