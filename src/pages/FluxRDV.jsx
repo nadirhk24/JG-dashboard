@@ -74,8 +74,11 @@ function calcTotaux(d) {
   const rdv_saisis = parseFloat(d.rdv || 0)
   const vis_saisies = parseFloat(d.visites || 0)
   const ventes = parseFloat(d.ventes || 0)
-  const visites = vis_saisies + ventes          // 1 vente = 1 visite
-  const rdv = rdv_saisis + vis_saisies + ventes // 1 visite = 1 rdv
+  const isPeriode = d.type_saisie === 'periode' || d.type_saisie === 'non_reconnue'
+  // Pour periode (T1) : visites inclut déjà les ventes
+  // Pour jour (Avril+) : visites brutes + ventes
+  const visites = isPeriode ? vis_saisies : vis_saisies + ventes
+  const rdv = rdv_saisis + visites
   return { rdv, visites, ventes }
 }
 
@@ -301,6 +304,12 @@ export default function FluxRDV({ conseilleres }) {
         const t = calcTotaux(d)
         return { rdv: acc.rdv + t.rdv, visites: acc.visites + t.visites, ventes: acc.ventes + t.ventes }
       }, { rdv: 0, visites: 0, ventes: 0 })
+      // Ajouter les non reconnues de cette équipe
+      fluxFiltres.filter(f => !f.commercial_id && f.type_saisie === 'non_reconnue').forEach(f => {
+        tot.visites += parseFloat(f.visites || 0)
+        tot.ventes += parseFloat(f.ventes || 0)
+        tot.rdv += parseFloat(f.visites || 0) + parseFloat(f.ventes || 0)
+      })
       const cv = calcCV(comms.map(c => (fluxParCommercial[c.id] || {}).rdv || 0))
       res[eq] = { ...tot, cv,
         taux_presence: tot.rdv > 0 ? parseFloat(((tot.visites/tot.rdv)*100).toFixed(1)) : 0,
