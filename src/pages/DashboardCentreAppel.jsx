@@ -185,15 +185,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
     const groups = groupFn(saisiesFiltrees)
     return Object.entries(groups).sort(([a],[b]) => b.localeCompare(a)).map(([key, items]) => {
       const agg = agregerParPeriode(items, null, { objEchangesNb: filtreConseillere !== 'all' ? objParConseillere.obj_echanges_nb : objectifs.obj_echanges_nb })
-      const convParC = conseilleres.map(c => {
-        const cItems = items.filter(s => s.conseillere_id === c.id)
-        const rdvC = cItems.reduce((a,s) => a + (s.rdv||0), 0)
-        const exchExplC = cItems.reduce((a,s) => {
-          const expl = (s.echanges_exploitables||0) > 0 ? s.echanges_exploitables : Math.max(0,(s.echanges||0)-(s.non_exploitables_cc||0))
-          return a + expl
-        }, 0)
-        return calcConversionTel(rdvC, exchExplC)
-      })
+      const convParC = conseilleres.map(c => calcConversionTel(items.filter(s=>s.conseillere_id===c.id).reduce((a,s)=>a+(s.rdv||0),0), items.filter(s=>s.conseillere_id===c.id).reduce((a,s)=>a+(s.echanges||0),0)))
       const presParC = conseilleres.map(c => calcTauxPresence(items.filter(s=>s.conseillere_id===c.id).reduce((a,s)=>a+s.visites,0), items.filter(s=>s.conseillere_id===c.id).reduce((a,s)=>a+s.rdv,0)))
       const effParC = conseilleres.map(c => calcEfficaciteComm(items.filter(s=>s.conseillere_id===c.id).reduce((a,s)=>a+s.ventes,0), items.filter(s=>s.conseillere_id===c.id).reduce((a,s)=>a+s.visites,0)))
       return { label: formatGroupLabel(key, periodeForLabel), key, ...agg, cv_conv: cvSerie(convParC), cv_presence: cvSerie(presParC), cv_efficacite: cvSerie(effParC) }
