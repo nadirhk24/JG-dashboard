@@ -529,7 +529,6 @@ export default function FluxRDV({ conseilleres }) {
     const isAll = viewMode === 'all'
 
     // Granularité selon drill nav
-    // mois → jour par jour | trimestre → mois | année → mois | jour/custom → jour
     function getGranularity() {
       if (!selected || selected.type === 'global') return 'month'
       if (selected.type === 'day')     return 'day'
@@ -548,7 +547,7 @@ export default function FluxRDV({ conseilleres }) {
       return dateStr.substring(0, 4)
     }
 
-    function calcTots(rows) {
+    function calcKpiVal(rows) {
       let rdv = 0, vis = 0, ven = 0
       rows.forEach(f => {
         const isPeriode = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
@@ -557,123 +556,116 @@ export default function FluxRDV({ conseilleres }) {
         vis += isPeriode ? v : v + ve
         ven += ve
       })
-      return {
-        rdv: Math.round(rdv), visites: Math.round(vis), ventes: Math.round(ven),
-        tx_presence: rdv > 0 ? parseFloat(((vis/rdv)*100).toFixed(1)) : 0,
-        tx_vente:    vis > 0 ? parseFloat(((ven/vis)*100).toFixed(1)) : 0,
-      }
+      if (kpi === 'rdv')           return Math.round(rdv)
+      if (kpi === 'visites')       return Math.round(vis)
+      if (kpi === 'ventes')        return Math.round(ven)
+      if (kpi === 'taux_presence') return rdv > 0 ? parseFloat(((vis/rdv)*100).toFixed(1)) : 0
+      if (kpi === 'taux_vente')    return vis > 0 ? parseFloat(((ven/vis)*100).toFixed(1)) : 0
+      return 0
     }
 
-    function calcCVArr(arr) {
-      if (arr.length < 2) return ''
-      const mean = arr.reduce((a,b)=>a+b,0)/arr.length
-      if (mean === 0) return ''
-      const std = Math.sqrt(arr.reduce((a,b)=>a+(b-mean)**2,0)/arr.length)
-      return parseFloat(((std/mean)*100).toFixed(1))
-    }
+    const kpiLabel = kpi === 'rdv' ? 'RDV' : kpi === 'visites' ? 'Visites' : kpi === 'ventes' ? 'Ventes'
+      : kpi === 'taux_presence' ? 'Tx Presence %' : 'Tx Vente %'
 
-    // ── Onglet détail : Date | Commercial | Equipe | Conseillere | KPI sélectionné | CV du jour ──
-    function buildDetailSheet(equipeFilter) {
-      // Grouper par timeKey × commercial × conseillère
-      const groups = {}
-      fluxFiltres.forEach(f => {
-        if (equipeFilter && f.commerciaux?.equipe !== equipeFilter) return
-        const tk = getTimeKey(f.date_debut)
-        const commId = f.commercial_id || 'NR'
-        const consId = f.conseillere_id || 'NR'
-        const key = `${tk}||${commId}||${consId}`
-        if (!groups[key]) groups[key] = { tk, commId, consId, equipe: f.commerciaux?.equipe, items: [] }
-        groups[key].items.push(f)
-      })
+    // Toutes les dates disponibles dans la période, triées
+    const allDates = [...new Set(fluxFiltres.map(f => getTimeKey(f.date_debut)))].filter(Boolean).sort()
 
-      // CV par (timeKey × équipe) sur le KPI sélectionné
-      const cvMap = {}
-      Object.values(groups).forEach(g => {
-        const eqKey = `${g.tk}||${g.equipe||'NR'}`
-        if (!cvMap[eqKey]) cvMap[eqKey] = {}
-        const t = calcTots(g.items)
-        const val = kpi === 'rdv' ? t.rdv : kpi === 'visites' ? t.visites : kpi === 'ventes' ? t.ventes
-          : kpi === 'taux_presence' ? t.tx_presence : t.tx_vente
-        if (!cvMap[eqKey][g.commId]) cvMap[eqKey][g.commId] = 0
-        cvMap[eqKey][g.commId] += val
-      })
-      const cvResultMap = {}
-      Object.entries(cvMap).forEach(([eqKey, commVals]) => {
-        cvResultMap[eqKey] = calcCVArr(Object.values(commVals))
-      })
+    // Toutes les conseillères ayant des données dans la période
+    const allConseillereIds = [...new Set(fluxFiltres.map(f => f.conseillere_id).filter(Boolean))]
+    const getConsNom = (id) => conseilleres.find(c => c.id === id)?.nom || id
 
-      const rows = Object.values(groups)
-        .sort((a,b) => a.tk.localeCompare(b.tk) || (a.commId).localeCompare(b.commId))
-        .map(g => {
-          const t = calcTots(g.items)
-          const commNom = g.items[0]?.commerciaux?.nom || (g.commId === 'NR' ? 'Non reconnu' : g.commId)
-          const consNom = g.items[0]?.conseilleres?.nom || conseilleres.find(c=>c.id===g.consId)?.nom || g.consId
-          const equipeLabel = g.equipe ? EQUIPES[g.equipe]?.label || g.equipe : ''
-          const eqKey = `${g.tk}||${g.equipe||'NR'}`
-          // Colonne KPI = uniquement celui sélectionné dans l'app
-          const kpiVal = kpi === 'rdv' ? t.rdv : kpi === 'visites' ? t.visites : kpi === 'ventes' ? t.ventes
-            : kpi === 'taux_presence' ? t.tx_presence : t.tx_vente
-          const kpiLabel = kpi === 'rdv' ? 'RDV' : kpi === 'visites' ? 'Visites' : kpi === 'ventes' ? 'Ventes'
-            : kpi === 'taux_presence' ? 'Tx Presence %' : 'Tx Vente %'
-          return {
-            'Date':        g.tk,
-            'Commercial':  commNom,
-            'Equipe':      equipeLabel,
-            'Conseillere': consNom,
-            [kpiLabel]:    kpiVal,
-            'CV Equipe %': cvResultMap[eqKey] ?? '',
-          }
+    // ── Une feuille par commercial ────────────────────────────────────────────
+    // Structure : lignes = conseillères, colonnes = dates
+    // Dernière ligne = TOTAL du commercial sur chaque date
+    function buildSheetForCommercial(commercial, equipeFilter) {
+      const commFlux = fluxFiltres.filter(f =>
+        f.commercial_id === commercial.id &&
+        (!equipeFilter || f.commerciaux?.equipe === equipeFilter)
+      )
+
+      // Conseillères qui ont des données pour ce commercial
+      const consIds = [...new Set(commFlux.map(f => f.conseillere_id).filter(Boolean))]
+
+      const rows = []
+
+      consIds.forEach(consId => {
+        const row = { 'Conseillere': getConsNom(consId) }
+        allDates.forEach(date => {
+          const items = commFlux.filter(f => getTimeKey(f.date_debut) === date && f.conseillere_id === consId)
+          row[date] = items.length > 0 ? calcKpiVal(items) : ''
         })
+        rows.push(row)
+      })
+
+      // Ligne TOTAL
+      const totalRow = { 'Conseillere': 'TOTAL' }
+      allDates.forEach(date => {
+        const items = commFlux.filter(f => getTimeKey(f.date_debut) === date)
+        totalRow[date] = items.length > 0 ? calcKpiVal(items) : ''
+      })
+      rows.push(totalRow)
+
       return rows
     }
 
-    // ── Ranking ───────────────────────────────────────────────────────────────
-    function buildRankingRows(equipeFilter) {
-      const comms = equipeFilter ? commerciaux.filter(c => c.equipe === equipeFilter) : commerciaux
-      return [...comms]
-        .map(c => {
-          const d = fluxParCommercial[c.id] || { rdv: 0, visites: 0, ventes: 0 }
-          return {
-            'Commercial':    c.nom,
-            'Equipe':        EQUIPES[c.equipe]?.label || c.equipe,
-            'RDV':           d.rdv || 0,
-            'Visites':       d.visites || 0,
-            'Ventes':        d.ventes || 0,
-            'Tx Presence %': (d.rdv||0) > 0 ? parseFloat((((d.visites||0)/d.rdv)*100).toFixed(1)) : 0,
-            'Tx Vente %':    (d.visites||0) > 0 ? parseFloat((((d.ventes||0)/d.visites)*100).toFixed(1)) : 0,
-          }
+    // ── Feuille résumé : tous les commerciaux, une ligne par commercial ───────
+    function buildSummarySheet(equipeFilter) {
+      const comms = equipeFilter
+        ? commerciaux.filter(c => c.equipe === equipeFilter)
+        : commerciaux
+      const rows = []
+      comms.forEach(c => {
+        const d = fluxParCommercial[c.id] || { rdv: 0, visites: 0, ventes: 0 }
+        const row = {
+          'Commercial': c.nom,
+          'Equipe': EQUIPES[c.equipe]?.label || c.equipe,
+        }
+        allDates.forEach(date => {
+          const items = fluxFiltres.filter(f => f.commercial_id === c.id && getTimeKey(f.date_debut) === date)
+          row[date] = items.length > 0 ? calcKpiVal(items) : ''
         })
-        .sort((a,b) => b[kpi === 'rdv' ? 'RDV' : kpi === 'ventes' ? 'Ventes' : 'Visites'] - a[kpi === 'rdv' ? 'RDV' : kpi === 'ventes' ? 'Ventes' : 'Visites'])
+        // Colonne total période
+        const allItems = fluxFiltres.filter(f => f.commercial_id === c.id && (!equipeFilter || f.commerciaux?.equipe === equipeFilter))
+        row[`TOTAL ${kpiLabel}`] = calcKpiVal(allItems)
+        rows.push(row)
+      })
+      // Tri par total décroissant
+      rows.sort((a, b) => (b[`TOTAL ${kpiLabel}`]||0) - (a[`TOTAL ${kpiLabel}`]||0))
+      return rows
     }
 
-    // ── Résumé région ─────────────────────────────────────────────────────────
-    const resumeRows = Object.keys(EQUIPES).map(eq => {
-      const s = statsParEquipe[eq] || { rdv: 0, visites: 0, ventes: 0 }
-      return {
-        'Region':        EQUIPES[eq].label,
-        'RDV':           Math.round(s.rdv||0),
-        'Visites':       Math.round(s.visites||0),
-        'Ventes':        Math.round(s.ventes||0),
-        'Tx Presence %': s.taux_presence ?? 0,
-        'Tx Vente %':    s.taux_vente ?? 0,
-        'CV %':          s.cv ?? 0,
-      }
-    })
-
-    // ── Feuilles selon vue ────────────────────────────────────────────────────
+    // ── Construction des feuilles ─────────────────────────────────────────────
     const sheets = []
+
     if (isAll) {
-      sheets.push({ name: 'Resume par Region', rows: resumeRows })
-      sheets.push({ name: `Ranking ${periodLabel}`.substring(0,31), rows: buildRankingRows(null) })
-      sheets.push({ name: `Detail ${periodLabel}`.substring(0,31), rows: buildDetailSheet(null) })
+      // Vue All → 1 feuille résumé + 1 feuille par commercial (tous équipes)
+      sheets.push({ name: `Résumé ${kpiLabel}`.substring(0,31), rows: buildSummarySheet(null) })
+      commerciaux.forEach(c => {
+        const sheetRows = buildSheetForCommercial(c, null)
+        if (sheetRows.length > 1) { // au moins 1 conseillère + total
+          sheets.push({ name: c.nom.substring(0,31), rows: sheetRows })
+        }
+      })
     } else {
+      // Vue séparée → par équipe visible
       const eqs = filterEquipe === 'all' ? Object.keys(EQUIPES) : [filterEquipe]
       eqs.forEach(eq => {
         const label = EQUIPES[eq]?.label || eq
-        sheets.push({ name: `Ranking ${label}`.substring(0,31), rows: buildRankingRows(eq) })
-        sheets.push({ name: `Detail ${label}`.substring(0,31), rows: buildDetailSheet(eq) })
+        const commsEquipe = commerciaux.filter(c => c.equipe === eq)
+        // Feuille résumé de l'équipe
+        sheets.push({ name: `Résumé ${label}`.substring(0,31), rows: buildSummarySheet(eq) })
+        // Une feuille par commercial de cette équipe
+        commsEquipe.forEach(c => {
+          const sheetRows = buildSheetForCommercial(c, eq)
+          if (sheetRows.length > 1) {
+            sheets.push({ name: c.nom.substring(0,31), rows: sheetRows })
+          }
+        })
       })
-      sheets.push({ name: 'Resume par Region', rows: resumeRows })
+    }
+
+    if (sheets.length === 0) {
+      sheets.push({ name: 'Aucune donnee', rows: [{ info: 'Aucune donnée pour cette sélection' }] })
     }
 
     exportToXlsx(sheets, filename)
