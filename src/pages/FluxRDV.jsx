@@ -528,7 +528,9 @@ export default function FluxRDV({ conseilleres }) {
     const filename = `FluxRDV_${labelToFilename(periodLabel)}`
     const isAll = viewMode === 'all'
 
-    // Helper : calcule les totaux pour un ensemble de lignes flux
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    // Calcule totaux type_saisie-aware pour un ensemble de lignes flux_rdv
     function calcTots(rows) {
       let rdv = 0, vis = 0, ven = 0
       rows.forEach(f => {
@@ -539,80 +541,131 @@ export default function FluxRDV({ conseilleres }) {
         vis += isPeriode ? v : v + ve
         ven += ve
       })
+      const rdvR = Math.round(rdv), visR = Math.round(vis), venR = Math.round(ven)
       return {
-        rdv: Math.round(rdv),
-        visites: Math.round(vis),
-        ventes: Math.round(ven),
-        tx_presence: rdv > 0 ? parseFloat(((vis / rdv) * 100).toFixed(1)) : 0,
-        tx_vente: vis > 0 ? parseFloat(((ven / vis) * 100).toFixed(1)) : 0,
+        rdv: rdvR, visites: visR, ventes: venR,
+        tx_presence: rdvR > 0 ? parseFloat(((visR / rdvR) * 100).toFixed(1)) : 0,
+        tx_vente: visR > 0 ? parseFloat(((venR / visR) * 100).toFixed(1)) : 0,
       }
     }
 
-    // Dates disponibles dans la période filtrée
-    const dates = [...new Set(fluxFiltres.map(f => f.date_debut))].sort().reverse()
+    // Détermine le label de groupe selon le type de période sélectionnée
+    // jour → groupe par date, mois → par jour, T/année/global/custom → par mois
+    function getGroupKey(dateStr) {
+      if (!dateStr) return ''
+      if (selected?.type === 'day') return dateStr
+      if (selected?.type === 'month') return dateStr // jour exact dans le mois
+      return dateStr.substring(0, 7) // YYYY-MM pour T/année/global/custom
+    }
+    function getGroupLabel(key) {
+      if (!key) return ''
+      if (selected?.type === 'day' || selected?.type === 'month') {
+        const d = new Date(key)
+        return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`
+      }
+      const [y, m] = key.split('-')
+      const MOIS = ['Jan','Fev','Mar','Avr','Mai','Jun','Jul','Aou','Sep','Oct','Nov','Dec']
+      return `${MOIS[parseInt(m)-1]} ${y}`
+    }
 
-    // ── Onglet "Vue All" ou "Par équipe" ──────────────────────────────────────
-    // Rangées : Date | Conseillère | Commercial | Équipe | RDV | Visites | Ventes | Tx Pres. | Tx Vente
+    // ── Construction du tableau détail : groupKey × commercial × conseillère ──
+    // CV calculé par groupe de dates (ex: CV du jour = dispersion des commerciaux ce jour-là)
     function buildDetailRows(equipeFilter) {
+      const lignesBase = equipeFilter
+        ? fluxFiltres.filter(f => f.commerciaux?.equipe === equipeFilter)
+        : fluxFiltres
+
+      // Grouper par clé de période
+      const byGroup = {}
+      lignesBase.forEach(f => {
+        const gk = getGroupKey(f.date_debut)
+        if (!byGroup[gk]) byGroup[gk] = []
+        byGroup[gk].push(f)
+      })
+
       const rows = []
-      dates.forEach(date => {
-        const lignes = fluxFiltres.filter(f => f.date_debut === date && (equipeFilter ? f.commerciaux?.equipe === equipeFilter : true))
-        if (!lignes.length) return
-        // Par conseillère × commercial
-        const keys = [...new Set(lignes.map(f => `${f.conseillere_id}__${f.commercial_id || 'NR'}`))]
-        keys.forEach(k => {
-          const [consId, commId] = k.split('__')
-          const subRows = lignes.filter(f => f.conseillere_id === consId && (f.commercial_id || 'NR') === commId)
+      Object.keys(byGroup).sort().reverse().forEach(gk => {
+        const groupLabel = getGroupLabel(gk)
+        const lignes = byGroup[gk]
+
+        // Totaux tous commerciaux ce groupe → pour CV
+        const commsInGroup = [...new Set(lignes.map(f => f.commercial_id || 'NR'))]
+        const totParComm = commsInGroup.map(cid => {
+          const sub = lignes.filter(f => (f.commercial_id || 'NR') === cid)
+          return calcTots(sub)
+        })
+        const cvRdv      = calcCV(totParComm.map(t => t.rdv))
+        const cvVisites  = calcCV(totParComm.map(t => t.visites))
+        const cvPresence = calcCV(totParComm.map(t => t.tx_presence))
+        const cvVente    = calcCV(totParComm.map(t => t.tx_vente))
+
+        // Une ligne par commercial × conseillère
+        const pairKeys = [...new Set(lignes.map(f => `${f.commercial_id || 'NR'}__${f.conseillere_id || ''}`))]
+        pairKeys.forEach(pk => {
+          const [commId, consId] = pk.split('__')
+          const subRows = lignes.filter(f => (f.commercial_id || 'NR') === commId && (f.conseillere_id || '') === consId)
           const t = calcTots(subRows)
-          const consNom = subRows[0]?.conseilleres?.nom || conseilleres.find(c => c.id === consId)?.nom || consId
           const commNom = subRows[0]?.commerciaux?.nom || (commId === 'NR' ? 'Non reconnu' : commId)
-          const equipe = subRows[0]?.commerciaux?.equipe ? EQUIPES[subRows[0].commerciaux.equipe]?.label || subRows[0].commerciaux.equipe : ''
-          rows.push({ 'Date': date, 'Conseillere': consNom, 'Commercial': commNom, 'Equipe': equipe, 'RDV': t.rdv, 'Visites': t.visites, 'Ventes': t.ventes, 'Tx Presence %': t.tx_presence, 'Tx Vente %': t.tx_vente })
+          const consNom = subRows[0]?.conseilleres?.nom || conseilleres.find(c => c.id === consId)?.nom || ''
+          const equipe  = subRows[0]?.commerciaux?.equipe ? EQUIPES[subRows[0].commerciaux.equipe]?.label || subRows[0].commerciaux.equipe : ''
+          rows.push({
+            'Periode':        groupLabel,
+            'Commercial':     commNom,
+            'Equipe':         equipe,
+            'Conseillere':    consNom,
+            'RDV':            t.rdv,
+            'Visites':        t.visites,
+            'Ventes':         t.ventes,
+            'Tx Presence %':  t.tx_presence,
+            'Tx Vente %':     t.tx_vente,
+            'CV RDV %':       cvRdv,
+            'CV Visites %':   cvVisites,
+            'CV Presence %':  cvPresence,
+            'CV Tx Vente %':  cvVente,
+          })
         })
       })
       return rows
     }
 
-    // ── Onglet Ranking commercial ──────────────────────────────────────────────
+    // ── Ranking ───────────────────────────────────────────────────────────────
     function buildRankingRows(equipeFilter) {
       const comms = equipeFilter ? commerciaux.filter(c => c.equipe === equipeFilter) : commerciaux
       return comms.map(c => {
         const d = fluxParCommercial[c.id] || { rdv: 0, visites: 0, ventes: 0 }
         return {
-          'Commercial': c.nom,
-          'Equipe': EQUIPES[c.equipe]?.label || c.equipe,
-          'RDV': d.rdv || 0,
-          'Visites': d.visites || 0,
-          'Ventes': d.ventes || 0,
-          'Tx Presence %': (d.rdv||0) > 0 ? parseFloat((((d.visites||0)/d.rdv)*100).toFixed(1)) : 0,
-          'Tx Vente %': (d.visites||0) > 0 ? parseFloat((((d.ventes||0)/d.visites)*100).toFixed(1)) : 0,
+          'Commercial':     c.nom,
+          'Equipe':         EQUIPES[c.equipe]?.label || c.equipe,
+          'RDV':            d.rdv || 0,
+          'Visites':        d.visites || 0,
+          'Ventes':         d.ventes || 0,
+          'Tx Presence %':  (d.rdv||0) > 0 ? parseFloat((((d.visites||0)/d.rdv)*100).toFixed(1)) : 0,
+          'Tx Vente %':     (d.visites||0) > 0 ? parseFloat((((d.ventes||0)/d.visites)*100).toFixed(1)) : 0,
         }
       }).sort((a, b) => b['Visites'] - a['Visites'])
     }
 
-    // ── Onglet Résumé par région + KPI ────────────────────────────────────────
+    // ── Résumé par région ─────────────────────────────────────────────────────
     const resumeRows = Object.keys(EQUIPES).map(eq => {
       const s = statsParEquipe[eq] || { rdv: 0, visites: 0, ventes: 0 }
       return {
-        'Region': EQUIPES[eq].label,
-        'RDV': Math.round(s.rdv || 0),
-        'Visites': Math.round(s.visites || 0),
-        'Ventes': Math.round(s.ventes || 0),
-        'Tx Presence %': s.taux_presence ?? 0,
-        'Tx Vente %': s.taux_vente ?? 0,
-        'CV %': s.cv ?? 0,
+        'Region':         EQUIPES[eq].label,
+        'RDV':            Math.round(s.rdv || 0),
+        'Visites':        Math.round(s.visites || 0),
+        'Ventes':         Math.round(s.ventes || 0),
+        'Tx Presence %':  s.taux_presence ?? 0,
+        'Tx Vente %':     s.taux_vente ?? 0,
+        'CV %':           s.cv ?? 0,
       }
     })
 
     // ── Construction des feuilles selon vue ───────────────────────────────────
     const sheets = []
     if (isAll) {
-      // Vue All → 3 onglets : Résumé, Ranking global, Détail global
       sheets.push({ name: 'Resume par Region', rows: resumeRows })
       sheets.push({ name: `Ranking - ${periodLabel}`.substring(0, 31), rows: buildRankingRows(null) })
       sheets.push({ name: 'Detail', rows: buildDetailRows(null) })
     } else {
-      // Vue séparée → 2 onglets par région visible
       const eqs = filterEquipe === 'all' ? Object.keys(EQUIPES) : [filterEquipe]
       eqs.forEach(eq => {
         const label = EQUIPES[eq]?.label || eq
