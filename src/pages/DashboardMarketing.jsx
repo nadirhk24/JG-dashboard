@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import PageHeader from '../components/PageHeader'
 import SectionTitle from '../components/SectionTitle'
+import { exportToXlsx, labelToFilename } from '../lib/useExportXlsx'
 
 // Filtrer les données selon la sélection DrillNav (inclut période custom)
 function filterBySelected(items, selected, dateField = 'date') {
@@ -27,6 +28,36 @@ function filterBySelected(items, selected, dateField = 'date') {
 
 function InfoBulle({ text }) {
   const [show, setShow] = useState(false)
+
+  // ── Export XLSX ──────────────────────────────────────────────────────────────
+  function exportMarketing() {
+    const periodLabel = selected?.label || 'Global'
+    const filename = `Marketing_${labelToFilename(periodLabel)}`
+
+    const sheet1 = chartData.map(r => ({
+      'Période':                r.label ?? r.key,
+      'Injections (CC)':        r.injections ?? '',
+      'Non Exploitables':       r.non_exploitables ?? '',
+      'Non Explo. %':           r.taux_non_exp ?? '',
+      'Indispos':               r.indispos ?? '',
+      'Indispos %':             r.taux_indispos ?? '',
+      'Base Nette':             r.base_nette ?? '',
+      'Suivis':                 r.suivis ?? '',
+      'Suivis %':               r.taux_suivis ?? '',
+      'RDV':                    r.rdv ?? '',
+      'RDV %':                  r.taux_rdv ?? '',
+      'Visites':                r.visites ?? '',
+      'Visites %':              r.taux_visites ?? '',
+      'Ventes':                 r.ventes ?? '',
+      'Ventes %':               r.taux_ventes ?? '',
+    }))
+
+    exportToXlsx([
+      { name: `Marketing - ${periodLabel}`.substring(0,31), rows: sheet1 },
+    ], filename)
+  }
+
+
   return (
     <span style={{ position: 'relative', display: 'inline-block', marginLeft: 5, zIndex: 50 }}>
       <span
@@ -462,6 +493,9 @@ export default function DashboardMarketing() {
         )}
         <button onClick={() => setShowSaisie(!showSaisie)} style={{ padding: '8px 18px', borderRadius: 20, border: '1.5px solid #C9A84C', background: showSaisie ? '#C9A84C' : '#fff', color: showSaisie ? '#fff' : '#C9A84C', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
           {showSaisie ? '✕ Fermer' : '+ Saisir données'}
+        </button>
+        <button onClick={exportMarketing} style={{ padding: '8px 18px', borderRadius: 20, border: '1.5px solid #4CAF7D', background: '#fff', color: '#4CAF7D', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+          ⬇ Export Excel
         </button>
       </PageHeader>
 

@@ -9,6 +9,7 @@ import SectionTitle from '../components/SectionTitle'
 import { getGroupFunction, formatGroupLabel, filtrerParSelection } from '../lib/dates'
 import { agregerParPeriode, calcCV, calcConversionTel, calcTauxPresence, calcEfficaciteComm } from '../lib/kpi'
 import DrillNav from '../components/DrillNav'
+import { exportToXlsx, labelToFilename } from '../lib/useExportXlsx'
 import { supabase } from '../lib/supabase'
 
 // Filtrer les données selon la sélection DrillNav (inclut période custom)
@@ -360,6 +361,56 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   const labelStyle = { fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 500, marginBottom: 5, display: 'block' }
   const periodeLabel = selected.type === 'jour' || selected.type === 'day' || selected.type === 'month' ? 'jour' : 'mois'
 
+
+  // ── Export XLSX ──────────────────────────────────────────────────────────────
+  function exportCC() {
+    const periodLabel = selected?.label || 'Global'
+    const filename = `CC_${labelToFilename(periodLabel)}`
+
+    // Onglet 1 : KPIs par période
+    const sheet1 = tableData.map(r => ({
+      'Période':           r.label,
+      'Leads Bruts':       r.leads_bruts ?? '',
+      'Leads Nets':        r.leads_nets ?? '',
+      'Échanges':          r.echanges ?? '',
+      'Non Explo. CC':     r.non_exploitables_cc ?? '',
+      'Productivité %':    r.productivite ?? '',
+      'Joignabilité %':    r.joignabilite ?? '',
+      'Conv. Tél. %':      r.conversion_tel ?? '',
+      'CV Conv. %':        r.cv_conv ?? '',
+      'RDV':               r.rdv ?? '',
+      'Présence %':        r.taux_presence ?? '',
+      'CV Présence %':     r.cv_presence ?? '',
+      'Visites':           r.visites ?? '',
+      'Eff. Comm. %':      r.efficacite_comm ?? '',
+      'CV Eff. %':         r.cv_efficacite ?? '',
+      'Ventes':            r.ventes ?? '',
+    }))
+
+    // Onglet 2 : Ranking par conseillère
+    const sheet2 = rankingSorted.map((c, i) => ({
+      '#':                 i + 1,
+      'Conseillère':       c.nom,
+      'Leads Bruts':       c.leads_bruts ?? '',
+      'Leads Nets':        c.leads_nets ?? '',
+      'Échanges':          c.echanges ?? '',
+      'Productivité %':    c.productivite ?? '',
+      'Joignabilité %':    c.joignabilite ?? '',
+      'Conv. Tél. %':      c.conversion_tel ?? '',
+      'RDV':               c.rdv ?? '',
+      'Présence %':        c.taux_presence ?? '',
+      'Visites':           c.visites ?? '',
+      'Eff. Comm. %':      c.efficacite_comm ?? '',
+      'Ventes':            c.ventes ?? '',
+      'Score':             parseFloat(((Math.min(c.productivite||0,100)*0.4)+(c.conversion_tel||0)*0.3+(c.taux_presence||0)*0.3).toFixed(1)),
+    }))
+
+    exportToXlsx([
+      { name: `KPIs - ${periodLabel}`.substring(0,31), rows: sheet1 },
+      { name: 'Ranking Conseilleres', rows: sheet2 },
+    ], filename)
+  }
+
   return (
     <div>
       {/* Modal confirmation */}
@@ -459,6 +510,9 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
         {isSuperAdmin && <button onClick={() => setShowSaisie(p => !p)} style={{ padding: '8px 18px', borderRadius: 20, border: '1.5px solid #C9A84C', background: showSaisie ? '#C9A84C' : '#fff', color: showSaisie ? '#fff' : '#C9A84C', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
           {showSaisie ? '✕ Fermer' : '+ Saisir données'}
         </button>}
+        <button onClick={exportCC} style={{ padding: '8px 18px', borderRadius: 20, border: '1.5px solid #4CAF7D', background: '#fff', color: '#4CAF7D', fontSize: 12, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+          ⬇ Export Excel
+        </button>
       </PageHeader>
 
       {isSuperAdmin && showSaisie && (

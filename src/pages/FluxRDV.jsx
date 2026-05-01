@@ -5,6 +5,7 @@ import PageHeader from '../components/PageHeader'
 import SectionTitle from '../components/SectionTitle'
 import DrillNav from '../components/DrillNav'
 import { supabase } from '../lib/supabase'
+import { exportToXlsx, labelToFilename } from '../lib/useExportXlsx'
 
 // Filtrer les données selon la sélection DrillNav (inclut période custom)
 function filterBySelected(items, selected, dateField = 'date') {
@@ -112,6 +113,62 @@ function StarRank({ rank, total, maxDisplay=5 }) {
   const displayRank = rank + 1
   if (displayRank > maxDisplay) return <div style={{ width: 28, textAlign: 'center', fontSize: 11, color: '#8A8A7A' }}>{displayRank}</div>
   const color = rank === 0 ? '#C9A84C' : rank === 1 ? '#B8B8B8' : rank === 2 ? '#CD7F32' : rank < total*0.5 ? '#4CAF7D' : '#8A8A7A'
+
+  // ── Export XLSX ──────────────────────────────────────────────────────────────
+  function exportFlux() {
+    const periodLabel = selected?.label || 'Global'
+    const filename = `FluxRDV_${labelToFilename(periodLabel)}`
+
+    // Onglet 1 : Ranking global commerciaux
+    const rankingRows = [...commerciaux]
+      .map(c => {
+        const d = fluxParCommercial[c.id] || { rdv: 0, visites: 0, ventes: 0 }
+        return {
+          'Commercial':       c.nom,
+          'Équipe':           EQUIPES[c.equipe]?.label || c.equipe,
+          'RDV':              Math.round(d.rdv || 0),
+          'Visites':          Math.round(d.visites || 0),
+          'Ventes':           Math.round(d.ventes || 0),
+          'Tx Présence %':    (d.rdv||0) > 0 ? parseFloat((((d.visites||0)/d.rdv)*100).toFixed(1)) : 0,
+          'Tx Vente %':       (d.visites||0) > 0 ? parseFloat((((d.ventes||0)/d.visites)*100).toFixed(1)) : 0,
+        }
+      })
+      .sort((a, b) => b['Visites'] - a['Visites'])
+
+    // Onglet 2 : Totaux par équipe
+    const equipesRows = Object.keys(EQUIPES).map(eq => {
+      const s = statsParEquipe[eq] || { rdv: 0, visites: 0, ventes: 0 }
+      return {
+        'Équipe':         EQUIPES[eq].label,
+        'RDV':            Math.round(s.rdv || 0),
+        'Visites':        Math.round(s.visites || 0),
+        'Ventes':         Math.round(s.ventes || 0),
+        'Tx Présence %':  s.taux_presence ?? 0,
+        'Tx Vente %':     s.taux_vente ?? 0,
+        'CV %':           s.cv ?? 0,
+      }
+    })
+
+    // Onglet 3 : Détail journalier (données brutes filtrées)
+    const detailRows = fluxFiltres.map(f => ({
+      'Date':           f.date_debut,
+      'Commercial':     f.commerciaux?.nom || 'Non reconnu',
+      'Équipe':         f.commerciaux?.equipe ? (EQUIPES[f.commerciaux.equipe]?.label || f.commerciaux.equipe) : '',
+      'Conseillère':    f.conseilleres?.nom || '',
+      'Type':           f.type_saisie,
+      'RDV':            f.rdv || 0,
+      'Visites':        f.visites || 0,
+      'Ventes':         f.ventes || 0,
+    }))
+
+    exportToXlsx([
+      { name: `Ranking - ${periodLabel}`.substring(0,31), rows: rankingRows },
+      { name: 'Par Equipe', rows: equipesRows },
+      { name: 'Detail', rows: detailRows },
+    ], filename)
+  }
+
+
   return (
     <div style={{ position: 'relative', width: 28, height: 28, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <span style={{ fontSize: 26, color, lineHeight: 1 }}>★</span>
@@ -527,6 +584,9 @@ export default function FluxRDV({ conseilleres }) {
         {isSuperAdmin && <button onClick={() => setShowSaisie(p=>!p)} style={{ padding: '8px 18px', borderRadius: 20, border: '1.5px solid #C9A84C', background: showSaisie?'#C9A84C':'#fff', color: showSaisie?'#fff':'#C9A84C', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
           {showSaisie ? '✕ Fermer' : '+ Saisir données'}
         </button>}
+        <button onClick={exportFlux} style={{ padding: '8px 18px', borderRadius: 20, border: '1.5px solid #4CAF7D', background: '#fff', color: '#4CAF7D', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+          ⬇ Export Excel
+        </button>
       </PageHeader>
 
       {/* Modal detail commercial */}
