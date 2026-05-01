@@ -141,7 +141,21 @@ export default function Sidebar() {
                   Admin
                 </div>
               )}
-              <NavLink to="/gestion-users" style={({ isActive }) => ({
+              <NavLink to="/etudes" style={({ isActive }) => ({
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: collapsed ? '10px 0' : '9px 20px',
+              justifyContent: collapsed ? 'center' : 'flex-start',
+              textDecoration: 'none', fontSize: 13,
+              fontWeight: isActive ? 500 : 400,
+              color: isActive ? '#C9A84C' : 'rgba(201,168,76,0.6)',
+              borderLeft: collapsed ? 'none' : isActive ? '3px solid #C9A84C' : '3px solid transparent',
+              background: isActive ? 'rgba(201,168,76,0.08)' : 'transparent',
+              transition: 'all 0.15s',
+            })} title={collapsed ? 'Etudes' : ''}>
+              <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor', flexShrink: 0 }}></span>
+              {!collapsed && 'Etudes'}
+            </NavLink>
+            <NavLink to="/gestion-users" style={({ isActive }) => ({
                 display: 'flex', alignItems: 'center', gap: 8,
                 padding: collapsed ? '10px 0' : '9px 20px',
                 justifyContent: collapsed ? 'center' : 'flex-start',
