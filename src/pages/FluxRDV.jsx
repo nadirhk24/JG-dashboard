@@ -526,24 +526,75 @@ export default function FluxRDV({ conseilleres }) {
   function exportFlux() {
     const periodLabel = selected?.label || 'Global'
     const filename = `FluxRDV_${labelToFilename(periodLabel)}`
-    const rankingRows = [...commerciaux]
-      .map(c => {
+    const isAll = viewMode === 'all'
+
+    // Helper : calcule les totaux pour un ensemble de lignes flux
+    function calcTots(rows) {
+      let rdv = 0, vis = 0, ven = 0
+      rows.forEach(f => {
+        const isPeriode = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
+        const v = parseFloat(f.visites || 0)
+        const ve = parseFloat(f.ventes || 0)
+        rdv += parseFloat(f.rdv || 0)
+        vis += isPeriode ? v : v + ve
+        ven += ve
+      })
+      return {
+        rdv: Math.round(rdv),
+        visites: Math.round(vis),
+        ventes: Math.round(ven),
+        tx_presence: rdv > 0 ? parseFloat(((vis / rdv) * 100).toFixed(1)) : 0,
+        tx_vente: vis > 0 ? parseFloat(((ven / vis) * 100).toFixed(1)) : 0,
+      }
+    }
+
+    // Dates disponibles dans la période filtrée
+    const dates = [...new Set(fluxFiltres.map(f => f.date_debut))].sort().reverse()
+
+    // ── Onglet "Vue All" ou "Par équipe" ──────────────────────────────────────
+    // Rangées : Date | Conseillère | Commercial | Équipe | RDV | Visites | Ventes | Tx Pres. | Tx Vente
+    function buildDetailRows(equipeFilter) {
+      const rows = []
+      dates.forEach(date => {
+        const lignes = fluxFiltres.filter(f => f.date_debut === date && (equipeFilter ? f.commerciaux?.equipe === equipeFilter : true))
+        if (!lignes.length) return
+        // Par conseillère × commercial
+        const keys = [...new Set(lignes.map(f => `${f.conseillere_id}__${f.commercial_id || 'NR'}`))]
+        keys.forEach(k => {
+          const [consId, commId] = k.split('__')
+          const subRows = lignes.filter(f => f.conseillere_id === consId && (f.commercial_id || 'NR') === commId)
+          const t = calcTots(subRows)
+          const consNom = subRows[0]?.conseilleres?.nom || conseilleres.find(c => c.id === consId)?.nom || consId
+          const commNom = subRows[0]?.commerciaux?.nom || (commId === 'NR' ? 'Non reconnu' : commId)
+          const equipe = subRows[0]?.commerciaux?.equipe ? EQUIPES[subRows[0].commerciaux.equipe]?.label || subRows[0].commerciaux.equipe : ''
+          rows.push({ 'Date': date, 'Conseillere': consNom, 'Commercial': commNom, 'Equipe': equipe, 'RDV': t.rdv, 'Visites': t.visites, 'Ventes': t.ventes, 'Tx Presence %': t.tx_presence, 'Tx Vente %': t.tx_vente })
+        })
+      })
+      return rows
+    }
+
+    // ── Onglet Ranking commercial ──────────────────────────────────────────────
+    function buildRankingRows(equipeFilter) {
+      const comms = equipeFilter ? commerciaux.filter(c => c.equipe === equipeFilter) : commerciaux
+      return comms.map(c => {
         const d = fluxParCommercial[c.id] || { rdv: 0, visites: 0, ventes: 0 }
         return {
           'Commercial': c.nom,
           'Equipe': EQUIPES[c.equipe]?.label || c.equipe,
-          'RDV': Math.round(d.rdv || 0),
-          'Visites': Math.round(d.visites || 0),
-          'Ventes': Math.round(d.ventes || 0),
+          'RDV': d.rdv || 0,
+          'Visites': d.visites || 0,
+          'Ventes': d.ventes || 0,
           'Tx Presence %': (d.rdv||0) > 0 ? parseFloat((((d.visites||0)/d.rdv)*100).toFixed(1)) : 0,
           'Tx Vente %': (d.visites||0) > 0 ? parseFloat((((d.ventes||0)/d.visites)*100).toFixed(1)) : 0,
         }
-      })
-      .sort((a, b) => b['Visites'] - a['Visites'])
-    const equipesRows = Object.keys(EQUIPES).map(eq => {
+      }).sort((a, b) => b['Visites'] - a['Visites'])
+    }
+
+    // ── Onglet Résumé par région + KPI ────────────────────────────────────────
+    const resumeRows = Object.keys(EQUIPES).map(eq => {
       const s = statsParEquipe[eq] || { rdv: 0, visites: 0, ventes: 0 }
       return {
-        'Equipe': EQUIPES[eq].label,
+        'Region': EQUIPES[eq].label,
         'RDV': Math.round(s.rdv || 0),
         'Visites': Math.round(s.visites || 0),
         'Ventes': Math.round(s.ventes || 0),
@@ -552,21 +603,26 @@ export default function FluxRDV({ conseilleres }) {
         'CV %': s.cv ?? 0,
       }
     })
-    const detailRows = fluxFiltres.map(f => ({
-      'Date': f.date_debut,
-      'Commercial': f.commerciaux?.nom || 'Non reconnu',
-      'Equipe': f.commerciaux?.equipe ? (EQUIPES[f.commerciaux.equipe]?.label || f.commerciaux.equipe) : '',
-      'Conseillere': f.conseilleres?.nom || '',
-      'Type': f.type_saisie,
-      'RDV': f.rdv || 0,
-      'Visites': f.visites || 0,
-      'Ventes': f.ventes || 0,
-    }))
-    exportToXlsx([
-      { name: `Ranking - ${periodLabel}`.substring(0,31), rows: rankingRows },
-      { name: 'Par Equipe', rows: equipesRows },
-      { name: 'Detail', rows: detailRows },
-    ], filename)
+
+    // ── Construction des feuilles selon vue ───────────────────────────────────
+    const sheets = []
+    if (isAll) {
+      // Vue All → 3 onglets : Résumé, Ranking global, Détail global
+      sheets.push({ name: 'Resume par Region', rows: resumeRows })
+      sheets.push({ name: `Ranking - ${periodLabel}`.substring(0, 31), rows: buildRankingRows(null) })
+      sheets.push({ name: 'Detail', rows: buildDetailRows(null) })
+    } else {
+      // Vue séparée → 2 onglets par région visible
+      const eqs = filterEquipe === 'all' ? Object.keys(EQUIPES) : [filterEquipe]
+      eqs.forEach(eq => {
+        const label = EQUIPES[eq]?.label || eq
+        sheets.push({ name: `Ranking ${label}`.substring(0, 31), rows: buildRankingRows(eq) })
+        sheets.push({ name: `Detail ${label}`.substring(0, 31), rows: buildDetailRows(eq) })
+      })
+      sheets.push({ name: 'Resume par Region', rows: resumeRows })
+    }
+
+    exportToXlsx(sheets, filename)
   }
 
   return (
