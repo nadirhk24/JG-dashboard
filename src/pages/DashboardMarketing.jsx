@@ -29,34 +29,6 @@ function filterBySelected(items, selected, dateField = 'date') {
 function InfoBulle({ text }) {
   const [show, setShow] = useState(false)
 
-  // ── Export XLSX ──────────────────────────────────────────────────────────────
-  function exportMarketing() {
-    const periodLabel = selected?.label || 'Global'
-    const filename = `Marketing_${labelToFilename(periodLabel)}`
-
-    const sheet1 = chartData.map(r => ({
-      'Période':                r.label ?? r.key,
-      'Injections (CC)':        r.injections ?? '',
-      'Non Exploitables':       r.non_exploitables ?? '',
-      'Non Explo. %':           r.taux_non_exp ?? '',
-      'Indispos':               r.indispos ?? '',
-      'Indispos %':             r.taux_indispos ?? '',
-      'Base Nette':             r.base_nette ?? '',
-      'Suivis':                 r.suivis ?? '',
-      'Suivis %':               r.taux_suivis ?? '',
-      'RDV':                    r.rdv ?? '',
-      'RDV %':                  r.taux_rdv ?? '',
-      'Visites':                r.visites ?? '',
-      'Visites %':              r.taux_visites ?? '',
-      'Ventes':                 r.ventes ?? '',
-      'Ventes %':               r.taux_ventes ?? '',
-    }))
-
-    exportToXlsx([
-      { name: `Marketing - ${periodLabel}`.substring(0,31), rows: sheet1 },
-    ], filename)
-  }
-
 
   return (
     <span style={{ position: 'relative', display: 'inline-block', marginLeft: 5, zIndex: 50 }}>
@@ -427,6 +399,30 @@ export default function DashboardMarketing() {
   const inputStyle = { width: '100%', padding: '9px 12px', border: '1.5px solid rgba(201,168,76,0.25)', borderRadius: 8, fontSize: 13, color: '#2C2C2C', background: '#F8F7F4', outline: 'none' }
   const labelStyle = { fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 500, marginBottom: 5, display: 'flex', alignItems: 'center' }
   const visibleCols = COHORT_COLS.filter(c => !hiddenCols[c.key])
+
+  // ── Export XLSX ──────────────────────────────────────────────────────────────
+  function exportMarketing() {
+    const periodLabel = selected?.label || 'Global'
+    const filename = `Marketing_${labelToFilename(periodLabel)}`
+    const sheet1 = chartData.map(r => ({
+      'Periode':         r.label ?? r.key,
+      'Injections CC':   r.injections ?? '',
+      'Non Exploitables':r.non_exploitables ?? '',
+      'Non Explo %':     r.taux_non_exp ?? '',
+      'Indispos':        r.indispos ?? '',
+      'Indispos %':      r.taux_indispos ?? '',
+      'Base Nette':      r.base_nette ?? '',
+      'Suivis':          r.suivis ?? '',
+      'Suivis %':        r.taux_suivis ?? '',
+      'RDV':             r.rdv ?? '',
+      'RDV %':           r.taux_rdv ?? '',
+      'Visites':         r.visites ?? '',
+      'Visites %':       r.taux_visites ?? '',
+      'Ventes':          r.ventes ?? '',
+      'Ventes %':        r.taux_ventes ?? '',
+    }))
+    exportToXlsx([{ name: periodLabel.substring(0,31), rows: sheet1 }], filename)
+  }
 
   return (
     <div>
