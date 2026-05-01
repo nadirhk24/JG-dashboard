@@ -405,9 +405,37 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
       'Score':             parseFloat(((Math.min(c.productivite||0,100)*0.4)+(c.conversion_tel||0)*0.3+(c.taux_presence||0)*0.3).toFixed(1)),
     }))
 
+    // Onglet 3 : détail par date × conseillère
+    const sheet3 = []
+    const datesInPeriod = [...new Set(saisiesParPeriode.map(s => s.date || s.date_debut))].sort().reverse()
+    datesInPeriod.forEach(date => {
+      conseilleres.forEach(c => {
+        const rows = saisiesParPeriode.filter(s => s.conseillere_id === c.id && (s.date === date || s.date_debut === date))
+        if (rows.length === 0) return
+        const agg = agregerParPeriode(rows, c.id, { objEchangesNb: objParConseillere.obj_echanges_nb })
+        sheet3.push({
+          'Date':            date,
+          'Conseillere':     c.nom,
+          'Leads Bruts':     agg.leads_bruts ?? '',
+          'Leads Nets':      agg.leads_nets ?? '',
+          'Echanges':        agg.echanges ?? '',
+          'Non Explo. CC':   agg.non_exploitables_cc ?? '',
+          'Productivite %':  agg.productivite ?? '',
+          'Joignabilite %':  agg.joignabilite ?? '',
+          'Conv. Tel. %':    agg.conversion_tel ?? '',
+          'RDV':             agg.rdv ?? '',
+          'Presence %':      agg.taux_presence ?? '',
+          'Visites':         agg.visites ?? '',
+          'Eff. Comm. %':    agg.efficacite_comm ?? '',
+          'Ventes':          agg.ventes ?? '',
+        })
+      })
+    })
+
     exportToXlsx([
       { name: `KPIs - ${periodLabel}`.substring(0,31), rows: sheet1 },
       { name: 'Ranking Conseilleres', rows: sheet2 },
+      { name: 'Detail par Conseillere', rows: sheet3 },
     ], filename)
   }
 
