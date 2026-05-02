@@ -75,11 +75,9 @@ function calcTotaux(d) {
   const rdv_saisis = parseFloat(d.rdv || 0)
   const vis_saisies = parseFloat(d.visites || 0)
   const ventes = parseFloat(d.ventes || 0)
-  const isPeriode = d.type_saisie === 'periode' || d.type_saisie === 'non_reconnue'
-  // Pour periode (T1) : visites inclut déjà les ventes
-  // Pour jour (Avril+) : visites brutes + ventes
-  const visites = isPeriode ? vis_saisies : vis_saisies + ventes
-  const rdv = rdv_saisis + visites
+  // Le champ 'visites' dans flux_rdv inclut TOUJOURS les ventes (periode + jour)
+  const visites = vis_saisies
+  const rdv = rdv_saisis  // RDV = RDV fixés uniquement
   return { rdv, visites, ventes }
 }
 
