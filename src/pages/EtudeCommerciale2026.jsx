@@ -388,6 +388,16 @@ const CV_GLOBAL_MM_COMMS = {
   'Oumaima Belbacha': null,
 }
 
+const TV_GLOBAL_AVR_COMMS = {
+  'Alae Elmoussaid': 0.0, 'Asmaa Radouli': 0.0, 'Hajar Snaiki': 0.0,
+  'Hicham Mechach': null, 'Ismail Hammouch': 11.1, 'Marouane Cachchi': 0.0,
+  'Meryem Elbouchikhi': 6.7, 'Nawfal Jdia': 0.0, 'Nissrine Irfden': 0.0,
+  'Oumaima Belbacha': 0.0, 'Rim Snaiki': 0.0, 'Salima Fikri': 0.0,
+  'Samia Ahalay': 33.3, 'Souad Acoine': 0.0, 'Youssef Saadouni': 0.0,
+  'Abdelhak Lakouissmi': 5.8, 'Khalid Amghoud': 33.3, 'Najlaa Maarouf': 14.3,
+  'Nouhaila Belhadj': 14.8, 'Saad Fellah': 8.3, 'Yasmina Souaq': 0.0,
+}
+
 const FUNNEL_MM = [
   { mois: 'Jan', base_nette: 1306, rdv: 372, visites: 279, ventes: 21 },
   { mois: 'Fev', base_nette: 2279, rdv: 464, visites: 149, ventes: 8 },
@@ -742,10 +752,16 @@ function SectionPerfComm({ openPicker, liveData }) {
                       <div>
                         <div style={{ fontSize: 10, color: '#8A8A7A' }}>TV% Avr</div>
                         <div style={{ fontWeight: 700, color: colors[i%colors.length], fontSize: 16 }}>
-                          {liveData?.['flux_tv_mensuel']?.[n]?.vals?.[3] != null
-                            ? `${liveData['flux_tv_mensuel'][n].vals[3]}%`
-                            : `${COMMS_MM[n]?.tv[3] ?? '—'}%`}
+                          {(() => {
+                            const live = liveData?.['flux_tv_mensuel']?.[n]?.vals
+                            const vals = live || COMMS_MM[n]?.tv
+                            if (!vals) return '—%'
+                            const nonNull = vals.filter(v => v != null)
+                            const moy = nonNull.length > 0 ? parseFloat((nonNull.reduce((a,b)=>a+b,0)/nonNull.length).toFixed(1)) : null
+                            return moy != null ? `${moy}%` : '—%'
+                          })()}
                         </div>
+                        <div style={{ fontSize: 9, color: '#8A8A7A' }}>Moy. 2026</div>
                       </div>
                       <div>
                         <div style={{ fontSize: 10, color: '#8A8A7A' }}>CV mensuel</div>
@@ -780,10 +796,13 @@ function SectionPerfComm({ openPicker, liveData }) {
                 title="Cliquer pour lier à une source Supabase"
               >
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center', marginBottom: 2 }}>
-                  <div style={{ fontSize: 10, color: '#8A8A7A' }}>CV Avril JJ</div>
+                  <div style={{ fontSize: 10, color: '#8A8A7A' }}>TV% Avr</div>
                   <span style={{ fontSize: 10, color: '#C9A84C' }}>⟳</span>
                 </div>
-                <CvBadge cv={CV_GLOBAL_JJ_COMMS[selComm]} />
+                <div style={{ fontWeight: 700, fontSize: 16, color: '#C9A84C' }}>
+                  {TV_GLOBAL_AVR_COMMS[selComm] != null ? `${TV_GLOBAL_AVR_COMMS[selComm]}%` : '—'}
+                </div>
+                <div style={{ fontSize: 10, color: '#8A8A7A', marginTop: 2 }}>CV: <CvBadge cv={CV_GLOBAL_JJ_COMMS[selComm]} small /></div>
               </div>
             </div>
             <ResponsiveContainer width="100%" height={240}>
