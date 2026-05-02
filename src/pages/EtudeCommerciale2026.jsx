@@ -826,10 +826,9 @@ function SectionPerfComm({ openPicker, liveData }) {
                   style={{
                     background: selComm === n ? colors[i%colors.length]+'18' : '#F8F7F4',
                     borderRadius: 8, padding: '10px 14px',
-                    borderLeft: `3px solid ${colors[i%colors.length]}`,
-                    cursor: 'pointer',
                     border: selComm === n ? `1.5px solid ${colors[i%colors.length]}` : `1px solid #E8E6DF`,
                     borderLeft: `3px solid ${colors[i%colors.length]}`,
+                    cursor: 'pointer',
                   }}
                 >
                   <div style={{ fontSize: 11, fontWeight: 500, color: '#2C2C2C', marginBottom: 6 }}>{n.split(' ')[0]}</div>
