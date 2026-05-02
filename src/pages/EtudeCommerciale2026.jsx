@@ -221,12 +221,12 @@ const RDV_MM = {
 
 // ── Conv. Tél. mensuelle par conseillère ──
 const CONV_TEL_MM = {
-  'Fatima Zahraa AAKIBA': { short: 'Fatima', conv_tel: [31.7, 23.7, 27.0, 34.9], cv_cumul: [null, 14.4, 12.0, 11.8] },
-  'Ghizlane ELBAKARI': { short: 'Ghizlane', conv_tel: [25.5, 19.2, 28.1, 58.7], cv_cumul: [null, 14.1, 15.4, 28.3] },
-  'Hala ELAOUAD': { short: 'Hala', conv_tel: [21.4, 16.2, 21.8, 37.5], cv_cumul: [null, 13.8, 12.9, 36.3] },
-  'Kaoutar HRARTI': { short: 'Kaoutar', conv_tel: [null, 19.4, 20.2, 52.4], cv_cumul: [null, null, 2.0, 51.5] },
-  'Rajaa ELKHANCHAR': { short: 'Rajaa', conv_tel: [57.0, 24.1, 21.1, 60.4], cv_cumul: [null, 81.9, 62.9, 56.6] },
-  'Siham IBNTABET': { short: 'Siham', conv_tel: [33.5, 0.0, 21.0, 22.4], cv_cumul: [null, 168.0, 79.1, 73.6] },
+  'Fatima Zahraa AAKIBA': { short: 'Fatima', conv_tel: [31.7, 23.7, 27.0, 29.1], cv_cumul: [null, 14.4, 12.0, 11.8] },
+  'Ghizlane ELBAKARI': { short: 'Ghizlane', conv_tel: [25.5, 19.2, 28.1, 46.1], cv_cumul: [null, 14.1, 15.4, 28.3] },
+  'Hala ELAOUAD': { short: 'Hala', conv_tel: [21.4, 16.2, 21.8, 30.0], cv_cumul: [null, 13.8, 12.9, 36.3] },
+  'Kaoutar HRARTI': { short: 'Kaoutar', conv_tel: [null, 19.4, 20.2, 42.2], cv_cumul: [null, null, 2.0, 51.5] },
+  'Rajaa ELKHANCHAR': { short: 'Rajaa', conv_tel: [57.0, 24.1, 21.1, 50.1], cv_cumul: [null, 40.6, 47.7, 56.6] },
+  'Siham IBNTABET': { short: 'Siham', conv_tel: [33.5, 0.0, 21.0, 14.7], cv_cumul: [null, null, 22.9, 39.6] },
 }
 
 const DATES_AVR = ['2026-04-02', '2026-04-03', '2026-04-04', '2026-04-06', '2026-04-07', '2026-04-08', '2026-04-09', '2026-04-10', '2026-04-11', '2026-04-13', '2026-04-14', '2026-04-15', '2026-04-16', '2026-04-17', '2026-04-18', '2026-04-20', '2026-04-21', '2026-04-22', '2026-04-23', '2026-04-24', '2026-04-25', '2026-04-27', '2026-04-28', '2026-04-29', '2026-04-30']

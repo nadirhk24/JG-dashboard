@@ -158,18 +158,15 @@ function processCC(saisies, kpi, granularity) {
         const jourRows = allMonthRows.filter(r => !r.type_saisie || r.type_saisie === 'jour')
         const periodeRows = allMonthRows.filter(r => r.type_saisie === 'periode')
         if (jourRows.length >= 2) {
-          // Assez de JJ → moyenne des taux journaliers (comme CC vue mois)
-          const dailyRates = jourRows
-            .map(r => calcKpi(kpi, {
-              rdv: parseFloat(r.rdv || 0),
-              echanges: parseFloat(r.echanges || 0),
-              visites: parseFloat(r.visites || 0),
-              ventes: parseFloat(r.ventes || 0),
-            }))
-            .filter(v => v != null)
-          if (!dailyRates.length) return null
-          const avg = dailyRates.reduce((a, b) => a + b, 0) / dailyRates.length
-          return parseFloat(Math.min(100, avg).toFixed(1))
+          // Taux global du mois = sum(RDV) / sum(Echanges) comme CC vue 2026
+          const tot = jourRows.reduce((acc, r) => ({
+            rdv: acc.rdv + parseFloat(r.rdv || 0),
+            echanges: acc.echanges + parseFloat(r.echanges || 0),
+            visites: acc.visites + parseFloat(r.visites || 0),
+            ventes: acc.ventes + parseFloat(r.ventes || 0),
+          }), { rdv: 0, echanges: 0, visites: 0, ventes: 0 })
+          const v = calcKpi(kpi, tot)
+          return v != null ? parseFloat(Math.min(100, v).toFixed(1)) : null
         }
         // Fallback periode
         if (!periodeRows.length) return null
