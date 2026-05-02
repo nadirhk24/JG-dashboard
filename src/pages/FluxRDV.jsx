@@ -325,7 +325,7 @@ export default function FluxRDV({ conseilleres }) {
       fluxFiltres.filter(f => !f.commercial_id && f.type_saisie === 'non_reconnue').forEach(f => {
         tot.visites += parseFloat(f.visites || 0)
         tot.ventes += parseFloat(f.ventes || 0)
-        tot.rdv += parseFloat(f.visites || 0) + parseFloat(f.ventes || 0)
+        tot.rdv += parseFloat(f.rdv || 0)  // RDV = champ rdv uniquement, pas visites
       })
       const cv = calcCV(comms.map(c => (fluxParCommercial[c.id] || {}).rdv || 0))
       res[eq] = { ...tot, cv,
@@ -353,8 +353,8 @@ export default function FluxRDV({ conseilleres }) {
       byMois[m].rdv += rdvBrut
     })
     return Object.entries(byMois).sort(([a],[b]) => a.localeCompare(b)).map(([m, d]) => {
-      // rdv_total = rdv_bruts + visites_total (déjà correct dans d.rdv via accumulation ci-dessus)
-      const rdvTotal = Math.round(d.rdv + d.visites)
+      // RDV = RDV fixés (pas d'addition avec visites)
+      const rdvTotal = Math.round(d.rdv)
       const visites = Math.round(d.visites)
       const ventes = Math.round(d.ventes)
       return {
