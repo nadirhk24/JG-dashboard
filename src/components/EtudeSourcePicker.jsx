@@ -151,15 +151,36 @@ function processCC(saisies, kpi, granularity) {
   Object.entries(byConseillere).forEach(([nom, rows]) => {
     if (granularity === 'mensuel') {
       result[nom] = MOIS_STARTS.map(prefix => {
-        const monthRows = rows.filter(r => (r.date || r.date_debut || '').startsWith(prefix))
-        if (!monthRows.length) return null
-        const tot = monthRows.reduce((acc, r) => ({
-          rdv: acc.rdv + parseFloat(r.rdv || 0),
-          visites: acc.visites + parseFloat(r.visites || 0),
-          ventes: acc.ventes + parseFloat(r.ventes || 0),
-          echanges: acc.echanges + parseFloat(r.echanges || 0),
-        }), { rdv: 0, visites: 0, ventes: 0, echanges: 0 })
-        return calcKpi(kpi, tot)
+        const monthRows = rows.filter(r => {
+          const d = r.date || r.date_debut || ''
+          // Exclure les lignes de type periode (date = YYYY-MM-01 avec date_debut = date_fin = meme valeur)
+          // et garder uniquement les saisies journalieres
+          return d.startsWith(prefix) && d !== prefix + '-01'
+        })
+        if (!monthRows.length) {
+          // Fallback: si pas de JJ, utiliser la ligne periode
+          const periodeRow = rows.filter(r => (r.date || r.date_debut || '').startsWith(prefix))
+          if (!periodeRow.length) return null
+          const tot = periodeRow.reduce((acc, r) => ({
+            rdv: acc.rdv + parseFloat(r.rdv || 0),
+            echanges: acc.echanges + parseFloat(r.echanges || 0),
+            visites: acc.visites + parseFloat(r.visites || 0),
+            ventes: acc.ventes + parseFloat(r.ventes || 0),
+          }), { rdv: 0, echanges: 0, visites: 0, ventes: 0 })
+          return calcKpi(kpi, tot)
+        }
+        // Moyenne des taux journaliers (comme le CC vue mois)
+        const dailyRates = monthRows
+          .map(r => calcKpi(kpi, {
+            rdv: parseFloat(r.rdv || 0),
+            echanges: parseFloat(r.echanges || 0),
+            visites: parseFloat(r.visites || 0),
+            ventes: parseFloat(r.ventes || 0),
+          }))
+          .filter(v => v != null)
+        if (!dailyRates.length) return null
+        const avg = dailyRates.reduce((a, b) => a + b, 0) / dailyRates.length
+        return parseFloat(Math.min(100, avg).toFixed(1))
       })
     } else {
       // JJ avril
