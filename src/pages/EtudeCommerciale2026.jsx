@@ -318,6 +318,66 @@ const CV_GLOBAL_MM = {
   'Oumaima Belbacha': { equipe: 'Kenitra', tv: [0, 0, 0, 0], cv_mois: [null, null, null, null] },
 }
 
+
+// ── CV global (ecart-type/moyenne sur tous les points) ──
+const CV_GLOBAL_JJ_COMMS = {
+  'Yasmina Souaq': null,
+  'Nouhaila Belhadj': 189.5,
+  'Abdelhak Lakouissmi': 222.3,
+  'Saad Fellah': 220.6,
+  'Khalid Amghoud': 167.9,
+  'Najlaa Maarouf': 320.2,
+  'Ismail Hammouch': 469.0,
+  'Alae Elmoussaid': null,
+  'Marouane Cachchi': null,
+  'Nissrine Irfden': null,
+  'Souad Acoine': null,
+  'Rim Snaiki': null,
+  'Asmaa Radouli': null,
+  'Youssef Saadouni': null,
+  'Nawfal Jdia': null,
+  'Samia Ahalay': 249.4,
+  'Hicham Mechach': null,
+  'Oumaima Belbacha': null,
+  'Hajar Snaiki': null,
+  'Meryem Elbouchikhi': 458.3,
+  'Salima Fikri': null,
+}
+
+const CV_GLOBAL_JJ_CONS = {
+  'Fatima Zahraa AAKIBA': 56.8,
+  'Ghizlane ELBAKARI': 58.1,
+  'Hala ELAOUAD': 84.4,
+  'Kaoutar HRARTI': 74.0,
+  'Rajaa ELKHANCHAR': 70.6,
+  'Siham IBNTABET': 153.6,
+}
+
+const CV_GLOBAL_MM_CONS = {
+  'Fatima Zahraa AAKIBA': 11.8,
+  'Ghizlane ELBAKARI': 28.3,
+  'Hala ELAOUAD': 36.3,
+  'Kaoutar HRARTI': 51.5,
+  'Rajaa ELKHANCHAR': 56.6,
+  'Siham IBNTABET': 73.6,
+}
+
+const CV_GLOBAL_MM_COMMS = {
+  'Abdelhak Lakouissmi': null,
+  'Khalid Amghoud': 92.7,
+  'Najlaa Maarouf': null,
+  'Nouhaila Belhadj': 173.2,
+  'Saad Fellah': 62.6,
+  'Yasmina Souaq': 114.6,
+  'Alae Elmoussaid': 173.2,
+  'Ismail Hammouch': 72.0,
+  'Meryem Elbouchikhi': 173.2,
+  'Samia Ahalay': 97.9,
+  'Nawfal Jdia': 173.2,
+  'Nissrine Irfden': 69.3,
+  'Oumaima Belbacha': null,
+}
+
 const FUNNEL_MM = [
   { mois: 'Jan', base_nette: 1306, rdv: 372, visites: 279, ventes: 21 },
   { mois: 'Fev', base_nette: 2279, rdv: 464, visites: 149, ventes: 8 },
@@ -527,6 +587,7 @@ function SectionFluxRDV() {
   const [subTab, setSubTab] = useState('mm')
   const [equipe, setEquipe] = useState('Sale')
   const names = equipe === 'Sale' ? SALE_NAMES : KEN_NAMES
+  const [visibleComms, setVisibleComms] = useState(() => Object.fromEntries([...SALE_NAMES,...KEN_NAMES].map(n => [n, true])))
   const colors = equipe === 'Sale' ? SALE_COLORS : KEN_COLORS
   const dataMM = buildRdvMM(names)
   const dataJJ = buildRdvJJ(names)
@@ -539,6 +600,17 @@ function SectionFluxRDV() {
           {['Sale','Kenitra'].map(e => <SubTab key={e} label={e==='Sale'?'Equipe Sale':'Equipe Kenitra'} active={equipe===e} onClick={() => setEquipe(e)} />)}
         </div>
       </div>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+        {names.map((n, i) => (
+          <button key={n} onClick={() => setVisibleComms(p => ({ ...p, [n]: !p[n] }))} style={{
+            padding: '3px 10px', borderRadius: 16,
+            border: `1px solid ${visibleComms[n] !== false ? colors[i%colors.length] : '#E8E6DF'}`,
+            background: visibleComms[n] !== false ? colors[i%colors.length]+'18' : '#fff',
+            color: visibleComms[n] !== false ? colors[i%colors.length] : '#8A8A7A',
+            fontSize: 11, cursor: 'pointer',
+          }}>{n.split(' ')[0]}</button>
+        ))}
+      </div>
       <div style={S.card}>
         <div style={S.h3}>RDV par commercial — {subTab==='mm' ? 'Jan → Avr 2026' : 'Jour par jour Avril 2026'}</div>
         <ResponsiveContainer width="100%" height={280}>
@@ -548,7 +620,7 @@ function SectionFluxRDV() {
             <YAxis tick={{ fontSize: 11, fill: '#8A8A7A' }} axisLine={false} tickLine={false} />
             <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #E8E6DF', fontSize: 11 }} />
             <Legend wrapperStyle={{ fontSize: 11 }} />
-            {names.map((n, i) => (
+            {names.map((n, i) => visibleComms[n] !== false && (
               <Line key={n} type="monotone" dataKey={n} stroke={colors[i % colors.length]} strokeWidth={1.5} dot={false} connectNulls name={n.split(' ')[0]} />
             ))}
           </LineChart>
@@ -585,6 +657,7 @@ function SectionPerfComm() {
   const [subTab, setSubTab] = useState('mm')
   const [equipe, setEquipe] = useState('Sale')
   const [selComm, setSelComm] = useState('Saad Fellah')
+  const [visiblePerfComms, setVisiblePerfComms] = useState(() => Object.fromEntries([...SALE_NAMES,...KEN_NAMES].map(n => [n, true])))
   const names = equipe === 'Sale' ? SALE_NAMES : KEN_NAMES
   const colors = equipe === 'Sale' ? SALE_COLORS : KEN_COLORS
 
@@ -600,7 +673,6 @@ function SectionPerfComm() {
   const dataJJ = DATES_JJ.map((d, di) => ({
     d: d.slice(8)+'/'+d.slice(5,7),
     tv: COMMS_JJ[selComm]?.tv[di] ?? null,
-    cv: CV_ROLLING_JJ[selComm]?.[di] ?? null,
   }))
 
   return (
@@ -615,6 +687,17 @@ function SectionPerfComm() {
 
       {subTab === 'mm' && (
         <div>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+            {names.map((n, i) => (
+              <button key={n} onClick={() => setVisiblePerfComms(p => ({ ...p, [n]: !p[n] }))} style={{
+                padding: '3px 10px', borderRadius: 16,
+                border: `1px solid ${visiblePerfComms[n] !== false ? colors[i%colors.length] : '#E8E6DF'}`,
+                background: visiblePerfComms[n] !== false ? colors[i%colors.length]+'18' : '#fff',
+                color: visiblePerfComms[n] !== false ? colors[i%colors.length] : '#8A8A7A',
+                fontSize: 11, cursor: 'pointer',
+              }}>{n.split(' ')[0]}</button>
+            ))}
+          </div>
           <div style={S.card}>
             <div style={S.h3}>TV% mensuel par commercial</div>
             <ResponsiveContainer width="100%" height={220}>
@@ -624,7 +707,7 @@ function SectionPerfComm() {
                 <YAxis tick={{ fontSize: 11, fill: '#8A8A7A' }} axisLine={false} tickLine={false} unit="%" />
                 <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #E8E6DF', fontSize: 11 }} formatter={v => v != null ? v+'%' : '—'} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                {names.map((n, i) => (
+                {names.map((n, i) => visiblePerfComms[n] !== false && (
                   <Line key={n} type="monotone" dataKey={n+'_tv'} stroke={colors[i % colors.length]} strokeWidth={1.5} dot={{ r: 3 }} connectNulls name={n.split(' ')[0]} />
                 ))}
               </LineChart>
@@ -641,12 +724,8 @@ function SectionPerfComm() {
                     <div style={{ display: 'flex', gap: 12, alignItems: 'baseline' }}>
                       <div><div style={{ fontSize: 10, color: '#8A8A7A' }}>TV% Avr</div><div style={{ fontWeight: 700, color: colors[i%colors.length], fontSize: 16 }}>{COMMS_MM[n].tv[3] ?? '—'}%</div></div>
                       <div>
-                        {['Jan','Fev','Mar','Avr'].map((m, mi) => CV_GLOBAL_MM[n]?.cv_mois[mi] != null && (
-                          <span key={m} style={{ marginRight: 8 }}>
-                            <span style={{ fontSize: 10, color: '#8A8A7A' }}>{m} </span>
-                            <CvBadge cv={CV_GLOBAL_MM[n].cv_mois[mi]} small />
-                          </span>
-                        ))}
+                        <div style={{ fontSize: 10, color: '#8A8A7A' }}>CV mensuel</div>
+                        <CvBadge cv={CV_GLOBAL_MM_COMMS[n]} small />
                       </div>
                     </div>
                   </div>
@@ -669,16 +748,20 @@ function SectionPerfComm() {
             ))}
           </div>
           <div style={S.card}>
-            <div style={S.h3}>{selComm} — TV% journalier + CV cumulatif</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div style={S.h3}>{selComm} — TV% journalier</div>
+              <div style={{ background: '#F8F7F4', borderRadius: 8, padding: '8px 14px', textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: '#8A8A7A' }}>CV Avril JJ</div>
+                <CvBadge cv={CV_GLOBAL_JJ_COMMS[selComm]} />
+              </div>
+            </div>
             <ResponsiveContainer width="100%" height={240}>
               <ComposedChart data={dataJJ}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F0EEE9" vertical={false} />
                 <XAxis dataKey="d" tick={{ fontSize: 10, fill: '#5A5A5A' }} axisLine={false} tickLine={false} interval={3} />
-                <YAxis yAxisId="tv" tick={{ fontSize: 11, fill: '#8A8A7A' }} axisLine={false} tickLine={false} unit="%" />
-                <YAxis yAxisId="cv" orientation="right" tick={{ fontSize: 11, fill: '#E05C5C' }} axisLine={false} tickLine={false} unit="%" />
+                <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#8A8A7A' }} axisLine={false} tickLine={false} unit="%" />
                 <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #E8E6DF', fontSize: 11 }} formatter={v => v != null ? v+'%' : '—'} />
-                <Bar yAxisId="tv" dataKey="tv" name="TV% jour" fill="#C9A84C" radius={[3,3,0,0]} opacity={0.7} />
-                <Line yAxisId="cv" type="monotone" dataKey="cv" name="CV glissant 5j" stroke="#E05C5C" strokeWidth={2} dot={false} connectNulls />
+                <Bar dataKey="tv" name="TV% jour" fill="#C9A84C" radius={[3,3,0,0]} opacity={0.7} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -692,6 +775,7 @@ function SectionPerfComm() {
 function SectionEffConseillere() {
   const [subTab, setSubTab] = useState('mm')
   const [selCons, setSelCons] = useState('Fatima Zahraa AAKIBA')
+  const [visibleCons, setVisibleCons] = useState(() => Object.fromEntries(CONS_NAMES.map(n => [n, true])))
 
   const dataMM = MOIS_LABELS.map((m, mi) => {
     const row = { mois: m }
@@ -721,6 +805,17 @@ function SectionEffConseillere() {
 
       {subTab === 'mm' && (
         <div>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+            {CONS_NAMES.map((n, i) => (
+              <button key={n} onClick={() => setVisibleCons(p => ({ ...p, [n]: !p[n] }))} style={{
+                padding: '3px 10px', borderRadius: 16,
+                border: `1px solid ${visibleCons[n] ? CONS_COLORS[i] : '#E8E6DF'}`,
+                background: visibleCons[n] ? CONS_COLORS[i]+'18' : '#fff',
+                color: visibleCons[n] ? CONS_COLORS[i] : '#8A8A7A',
+                fontSize: 11, cursor: 'pointer',
+              }}>{n.split(' ')[0]}</button>
+            ))}
+          </div>
           <div style={S.card}>
             <div style={S.h3}>Conv. Tél. mensuelle par conseillere (Jan → Avr)</div>
             <ResponsiveContainer width="100%" height={220}>
@@ -730,21 +825,21 @@ function SectionEffConseillere() {
                 <YAxis tick={{ fontSize: 11, fill: '#8A8A7A' }} axisLine={false} tickLine={false} unit="%" />
                 <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #E8E6DF', fontSize: 11 }} formatter={v => v != null ? v+'%' : '—'} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                {CONS_NAMES.map((n, i) => (
-                  <Line key={n} type="monotone" dataKey={n} stroke={CONS_COLORS[i]} strokeWidth={2} dot={{ r: 3 }} connectNulls name={n.split(' ')[0]} />
+                {CONS_NAMES.filter(n => visibleCons[n]).map((n, i) => (
+                  <Line key={n} type="monotone" dataKey={n} stroke={CONS_COLORS[CONS_NAMES.indexOf(n)]} strokeWidth={2} dot={{ r: 3 }} connectNulls name={n.split(' ')[0]} />
                 ))}
               </LineChart>
             </ResponsiveContainer>
           </div>
           <div style={{ ...S.card, marginTop: 14 }}>
-            <div style={S.h3}>CV cumulatif Conv. Tél. — par conseillere</div>
+            <div style={S.h3}>CV Conv. Tél. — par conseillere (4 mois)</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
               {CONS_NAMES.map((n, i) => (
                 <div key={n} style={{ background: '#F8F7F4', borderRadius: 8, padding: '10px 14px', borderLeft: `3px solid ${CONS_COLORS[i]}` }}>
                   <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 4 }}>{n.split(' ')[0]}</div>
                   <div style={{ display: 'flex', gap: 12, alignItems: 'baseline' }}>
                     <div><div style={{ fontSize: 10, color: '#8A8A7A' }}>Conv. Tél. Avr</div><div style={{ fontWeight: 700, color: CONS_COLORS[i], fontSize: 15 }}>{CONV_TEL_MM[n]?.conv_tel[3] ?? '—'}%</div></div>
-                    <div><div style={{ fontSize: 10, color: '#8A8A7A' }}>CV cumulatif</div><CvBadge cv={CONV_TEL_MM[n]?.cv_cumul[3]} small /></div>
+                    <div><div style={{ fontSize: 10, color: '#8A8A7A' }}>CV mensuel</div><CvBadge cv={CV_GLOBAL_MM_CONS[n]} small /></div>
                   </div>
                 </div>
               ))}
@@ -757,26 +852,47 @@ function SectionEffConseillere() {
         <div>
           <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
             {CONS_NAMES.map((n, i) => (
-              <button key={n} onClick={() => setSelCons(n)} style={{
-                padding: '4px 12px', borderRadius: 16, border: `1px solid ${selCons===n ? CONS_COLORS[i] : '#E8E6DF'}`,
-                background: selCons===n ? CONS_COLORS[i]+'18' : '#fff',
-                color: selCons===n ? CONS_COLORS[i] : '#5A5A5A', fontSize: 11, cursor: 'pointer', fontWeight: selCons===n ? 500 : 400,
+              <button key={n} onClick={() => setVisibleCons(p => ({ ...p, [n]: !p[n] }))} style={{
+                padding: '4px 12px', borderRadius: 16,
+                border: `1px solid ${visibleCons[n] ? CONS_COLORS[i] : '#E8E6DF'}`,
+                background: visibleCons[n] ? CONS_COLORS[i]+'18' : '#fff',
+                color: visibleCons[n] ? CONS_COLORS[i] : '#8A8A7A',
+                fontSize: 11, cursor: 'pointer', fontWeight: visibleCons[n] ? 500 : 400,
               }}>{n.split(' ')[0]}</button>
             ))}
           </div>
           <div style={S.card}>
-            <div style={S.h3}>{selCons.split(' ')[0]} — Conv. Tél. journalier + CV cumulatif</div>
+            <div style={S.h3}>Conv. Tél. journalier — Avril 2026</div>
             <ResponsiveContainer width="100%" height={240}>
-              <ComposedChart data={dataJJ}>
+              <LineChart data={DATES_AVR.map((d, di) => {
+                const row = { d: d.slice(8)+'/'+d.slice(5,7) }
+                CONS_NAMES.forEach(n => { row[n] = CONV_TEL_JJ[n]?.conv_tel[di] ?? null })
+                return row
+              })}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F0EEE9" vertical={false} />
                 <XAxis dataKey="d" tick={{ fontSize: 10, fill: '#5A5A5A' }} axisLine={false} tickLine={false} interval={2} />
-                <YAxis yAxisId="ct" tick={{ fontSize: 11, fill: '#8A8A7A' }} axisLine={false} tickLine={false} unit="%" />
-                <YAxis yAxisId="cv" orientation="right" tick={{ fontSize: 11, fill: '#534AB7' }} axisLine={false} tickLine={false} unit="%" />
+                <YAxis tick={{ fontSize: 11, fill: '#8A8A7A' }} axisLine={false} tickLine={false} unit="%" />
                 <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #E8E6DF', fontSize: 11 }} formatter={v => v != null ? v+'%' : '—'} />
-                <Bar yAxisId="ct" dataKey="ct" name="Conv. Tel. jour" fill="#C9A84C" radius={[3,3,0,0]} opacity={0.7} />
-                <Line yAxisId="cv" type="monotone" dataKey="cv" name="CV glissant 5j" stroke="#534AB7" strokeWidth={2} dot={false} connectNulls />
-              </ComposedChart>
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                {CONS_NAMES.filter(n => visibleCons[n]).map((n, i) => (
+                  <Line key={n} type="monotone" dataKey={n} stroke={CONS_COLORS[CONS_NAMES.indexOf(n)]} strokeWidth={2} dot={{ r: 2 }} connectNulls name={n.split(' ')[0]} />
+                ))}
+              </LineChart>
             </ResponsiveContainer>
+          </div>
+          <div style={{ ...S.card, marginTop: 14 }}>
+            <div style={S.h3}>CV Conv. Tél. — par conseillere (JJ Avril)</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+              {CONS_NAMES.map((n, i) => (
+                <div key={n} style={{ background: '#F8F7F4', borderRadius: 8, padding: '10px 14px', borderLeft: `3px solid ${CONS_COLORS[i]}` }}>
+                  <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 4 }}>{n.split(' ')[0]}</div>
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'baseline' }}>
+                    <div><div style={{ fontSize: 10, color: '#8A8A7A' }}>Conv. Tél. Avr</div><div style={{ fontWeight: 700, color: CONS_COLORS[i], fontSize: 15 }}>{CONV_TEL_MM[n]?.conv_tel[3] ?? '—'}%</div></div>
+                    <div><div style={{ fontSize: 10, color: '#8A8A7A' }}>CV JJ Avril</div><CvBadge cv={CV_GLOBAL_JJ_CONS[n]} small /></div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
