@@ -70,6 +70,25 @@ const MOIS = ['Jan', 'Fev', 'Mar', 'Avr']
 const MOIS_STARTS = ['2026-01', '2026-02', '2026-03', '2026-04']
 
 // ── Fetchers ──────────────────────────────────────────────────────────────────
+const CONS_NAME_MAP = {
+  'FATIMA ZAHRAA': 'Fatima Zahraa AAKIBA',
+  'Fatima Zahraa AAKIBA': 'Fatima Zahraa AAKIBA',
+  'GHIZLANE ELBAKARI': 'Ghizlane ELBAKARI',
+  'Ghizlane ELBAKARI': 'Ghizlane ELBAKARI',
+  'Hala ELAOUAD': 'Hala ELAOUAD',
+  'HALA ELAOUAD': 'Hala ELAOUAD',
+  'KAOUTAR HRARTI': 'Kaoutar HRARTI',
+  'Kaoutar HRARTI': 'Kaoutar HRARTI',
+  'Rajaa ELKHANCHAR': 'Rajaa ELKHANCHAR',
+  'RAJAA ELKHANCHAR': 'Rajaa ELKHANCHAR',
+  'IBNTABET SIHAM': 'Siham IBNTABET',
+  'Siham IBNTABET': 'Siham IBNTABET',
+}
+
+function normalizeName(nom) {
+  return CONS_NAME_MAP[nom] || nom
+}
+
 async function fetchCCSaisies() {
   const { data } = await supabase
     .from('saisies')
@@ -123,7 +142,7 @@ function calcKpi(kpi, row) {
 function processCC(saisies, kpi, granularity) {
   const byConseillere = {}
   saisies.forEach(s => {
-    const nom = s.conseilleres?.nom || s.conseillere_id
+    const nom = normalizeName(s.conseilleres?.nom || s.conseillere_id)
     if (!byConseillere[nom]) byConseillere[nom] = []
     byConseillere[nom].push(s)
   })

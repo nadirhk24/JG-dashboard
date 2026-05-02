@@ -951,11 +951,17 @@ function SectionEffConseillere({ openPicker, liveData }) {
                   </div>
                   <div style={{ display: 'flex', gap: 12, alignItems: 'baseline' }}>
                     <div>
-                      <div style={{ fontSize: 10, color: '#8A8A7A' }}>Conv. Tél. moy. Avr</div>
+                      <div style={{ fontSize: 10, color: '#8A8A7A' }}>Moy. Avr</div>
                       <div style={{ fontWeight: 700, color: CONS_COLORS[i], fontSize: 15 }}>
-                        {liveData?.['cc_conv_tel_jj']?.[n]
-                          ? `${Math.min(100, liveData['cc_conv_tel_jj'][n].filter(e => e?.val != null).slice(-1)[0]?.val ?? CONV_TEL_MM[n]?.conv_tel[3] ?? 0)}%`
-                          : `${CONV_TEL_MM[n]?.conv_tel[3] ?? '—'}%`}
+                        {(() => {
+                            const liveVals = liveData?.['cc_conv_tel_jj']?.[n]
+                            if (liveVals) {
+                              const nonNull = liveVals.filter(e => e?.val != null).map(e => Math.min(100, e.val))
+                              const moy = nonNull.length > 0 ? parseFloat((nonNull.reduce((a,b)=>a+b,0)/nonNull.length).toFixed(1)) : null
+                              return moy != null ? `${moy}%` : '—'
+                            }
+                            return `${CONV_TEL_MM[n]?.conv_tel[3] ?? '—'}%`
+                          })()}
                       </div>
                     </div>
                     <div><div style={{ fontSize: 10, color: '#8A8A7A' }}>CV JJ Avril</div><CvBadge cv={CV_GLOBAL_JJ_CONS[n]} small /></div>
