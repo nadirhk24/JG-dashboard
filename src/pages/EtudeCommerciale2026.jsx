@@ -863,25 +863,36 @@ function SectionEffConseillere({ openPicker, liveData }) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
               {CONS_NAMES.map((n, i) => (
                 <div key={n}
-                  onClick={() => openPicker?.(`Conv. Tél. ${n.split(' ')[0]}`, (src, data) => {})}
-                  style={{ background: '#F8F7F4', borderRadius: 8, padding: '10px 14px', borderLeft: `3px solid ${CONS_COLORS[i]}`, cursor: 'pointer', transition: 'box-shadow 0.15s' }}
+                  onClick={() => openPicker?.(`Taux conv. 2026 — ${n.split(' ')[0]}`, (src, data) => {})}
+                  style={{ background: '#F8F7F4', borderRadius: 8, padding: '12px 16px', borderLeft: `3px solid ${CONS_COLORS[i]}`, cursor: 'pointer' }}
                   title="Cliquer pour lier à une source Supabase"
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <div style={{ fontSize: 12, fontWeight: 500 }}>{n.split(' ')[0]}</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600 }}>{n.split(' ')[0]}</div>
                     <span style={{ fontSize: 10, color: '#C9A84C' }}>⟳ source</span>
                   </div>
-                  <div style={{ display: 'flex', gap: 12, alignItems: 'baseline' }}>
-                    <div>
-                      <div style={{ fontSize: 10, color: '#8A8A7A' }}>Conv. Tél. Avr</div>
-                      <div style={{ fontWeight: 700, color: CONS_COLORS[i], fontSize: 15 }}>
-                        {liveData?.['cc_conv_tel_mensuel']?.[n]?.[3] != null
-                          ? `${Math.min(100, liveData['cc_conv_tel_mensuel'][n][3])}%`
-                          : `${CONV_TEL_MM[n]?.conv_tel[3] ?? '—'}%`}
+                  {(() => {
+                    const vals = MOIS_LABELS.map((m, mi) =>
+                      liveData?.['cc_conv_tel_mensuel']?.[n]?.[mi] != null
+                        ? Math.min(100, liveData['cc_conv_tel_mensuel'][n][mi])
+                        : (CONV_TEL_MM[n]?.conv_tel[mi] != null ? Math.min(100, CONV_TEL_MM[n].conv_tel[mi]) : null)
+                    ).filter(v => v != null)
+                    const moy = vals.length > 0 ? parseFloat((vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1)) : null
+                    return (
+                      <div style={{ display: 'flex', gap: 12, alignItems: 'baseline', marginBottom: 6 }}>
+                        <div>
+                          <div style={{ fontSize: 10, color: '#8A8A7A' }}>Moy. 2026</div>
+                          <div style={{ fontWeight: 700, color: moy != null ? CONS_COLORS[i] : '#D0CEC7', fontSize: 20 }}>
+                            {moy != null ? `${moy}%` : '—'}
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 10, color: '#8A8A7A' }}>CV 2026</div>
+                          <CvBadge cv={CV_GLOBAL_MM_CONS[n]} small />
+                        </div>
                       </div>
-                    </div>
-                    <div><div style={{ fontSize: 10, color: '#8A8A7A' }}>CV mensuel</div><CvBadge cv={CV_GLOBAL_MM_CONS[n]} small /></div>
-                  </div>
+                    )
+                  })()}
                 </div>
               ))}
             </div>
@@ -940,7 +951,7 @@ function SectionEffConseillere({ openPicker, liveData }) {
                   </div>
                   <div style={{ display: 'flex', gap: 12, alignItems: 'baseline' }}>
                     <div>
-                      <div style={{ fontSize: 10, color: '#8A8A7A' }}>Conv. Tél. Avr</div>
+                      <div style={{ fontSize: 10, color: '#8A8A7A' }}>Conv. Tél. moy. Avr</div>
                       <div style={{ fontWeight: 700, color: CONS_COLORS[i], fontSize: 15 }}>
                         {liveData?.['cc_conv_tel_jj']?.[n]
                           ? `${Math.min(100, liveData['cc_conv_tel_jj'][n].filter(e => e?.val != null).slice(-1)[0]?.val ?? CONV_TEL_MM[n]?.conv_tel[3] ?? 0)}%`
