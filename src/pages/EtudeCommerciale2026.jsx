@@ -700,7 +700,7 @@ function SectionPerfComm({ openPicker, liveData }) {
             ))}
           </div>
           <div style={S.card}>
-            <div style={S.h3}>TV% mensuel par commercial</div>
+            <div style={S.h3}>Taux de conversion 2026 — par commercial</div>
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={dataMM}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F0EEE9" vertical={false} />
@@ -715,7 +715,7 @@ function SectionPerfComm({ openPicker, liveData }) {
             </ResponsiveContainer>
           </div>
           <div style={{ ...S.card, marginTop: 14 }}>
-            <div style={S.h3}>CV cumulatif TV% — par commercial (Jan → Avr)</div>
+            <div style={S.h3}>CV Taux de conversion 2026 — par commercial</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
               {names.filter(n => COMMS_MM[n]).map((n, i) => {
                 const tvArr = COMMS_MM[n].tv.filter(v => v != null)
@@ -764,9 +764,16 @@ function SectionPerfComm({ openPicker, liveData }) {
           </div>
           <div style={S.card}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <div style={S.h3}>{selComm} — TV% journalier</div>
-              <div style={{ background: '#F8F7F4', borderRadius: 8, padding: '8px 14px', textAlign: 'center' }}>
-                <div style={{ fontSize: 10, color: '#8A8A7A' }}>CV Avril JJ</div>
+              <div style={S.h3}>{selComm} — Taux de conversion Avril</div>
+              <div
+                onClick={() => openPicker?.(`TV% JJ ${selComm}`, (src, data) => {})}
+                style={{ background: '#F8F7F4', borderRadius: 8, padding: '8px 14px', textAlign: 'center', cursor: 'pointer' }}
+                title="Cliquer pour lier à une source Supabase"
+              >
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center', marginBottom: 2 }}>
+                  <div style={{ fontSize: 10, color: '#8A8A7A' }}>CV Avril JJ</div>
+                  <span style={{ fontSize: 10, color: '#C9A84C' }}>⟳</span>
+                </div>
                 <CvBadge cv={CV_GLOBAL_JJ_COMMS[selComm]} />
               </div>
             </div>
@@ -837,7 +844,7 @@ function SectionEffConseillere({ openPicker, liveData }) {
             ))}
           </div>
           <div style={S.card}>
-            <div style={S.h3}>Conv. Tél. mensuelle par conseillere (Jan → Avr)</div>
+            <div style={S.h3}>Taux de conversion 2026 — par conseillere</div>
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={dataMM}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F0EEE9" vertical={false} />
@@ -852,7 +859,7 @@ function SectionEffConseillere({ openPicker, liveData }) {
             </ResponsiveContainer>
           </div>
           <div style={{ ...S.card, marginTop: 14 }}>
-            <div style={S.h3}>CV Conv. Tél. — par conseillere (4 mois)</div>
+            <div style={S.h3}>CV Taux de conversion 2026 — par conseillere</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
               {CONS_NAMES.map((n, i) => (
                 <div key={n}
@@ -896,12 +903,13 @@ function SectionEffConseillere({ openPicker, liveData }) {
             ))}
           </div>
           <div style={S.card}>
-            <div style={S.h3}>Conv. Tél. journalier — Avril 2026</div>
+            <div style={S.h3}>Taux de conversion Avril — jour par jour</div>
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={DATES_AVR.map((d, di) => {
                 const row = { d: d.slice(8)+'/'+d.slice(5,7) }
                 CONS_NAMES.forEach(n => {
-                  const v = CONV_TEL_JJ[n]?.conv_tel[di] ?? null
+                  const liveVal = liveData?.['cc_conv_tel_jj']?.[n]?.find(e => e?.date === d)?.val
+                  const v = liveVal != null ? liveVal : (CONV_TEL_JJ[n]?.conv_tel[di] ?? null)
                   row[n] = v !== null ? Math.min(100, v) : null
                 })
                 return row
@@ -918,13 +926,27 @@ function SectionEffConseillere({ openPicker, liveData }) {
             </ResponsiveContainer>
           </div>
           <div style={{ ...S.card, marginTop: 14 }}>
-            <div style={S.h3}>CV Conv. Tél. — par conseillere (JJ Avril)</div>
+            <div style={S.h3}>CV Taux de conversion Avril — par conseillere</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
               {CONS_NAMES.map((n, i) => (
-                <div key={n} style={{ background: '#F8F7F4', borderRadius: 8, padding: '10px 14px', borderLeft: `3px solid ${CONS_COLORS[i]}` }}>
-                  <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 4 }}>{n.split(' ')[0]}</div>
+                <div key={n}
+                  onClick={() => openPicker?.(`Conv. Tél. JJ ${n.split(' ')[0]}`, (src, data) => {})}
+                  style={{ background: '#F8F7F4', borderRadius: 8, padding: '10px 14px', borderLeft: `3px solid ${CONS_COLORS[i]}`, cursor: 'pointer' }}
+                  title="Cliquer pour lier à une source Supabase"
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <div style={{ fontSize: 12, fontWeight: 500 }}>{n.split(' ')[0]}</div>
+                    <span style={{ fontSize: 10, color: '#C9A84C' }}>⟳ source</span>
+                  </div>
                   <div style={{ display: 'flex', gap: 12, alignItems: 'baseline' }}>
-                    <div><div style={{ fontSize: 10, color: '#8A8A7A' }}>Conv. Tél. Avr</div><div style={{ fontWeight: 700, color: CONS_COLORS[i], fontSize: 15 }}>{CONV_TEL_MM[n]?.conv_tel[3] ?? '—'}%</div></div>
+                    <div>
+                      <div style={{ fontSize: 10, color: '#8A8A7A' }}>Conv. Tél. Avr</div>
+                      <div style={{ fontWeight: 700, color: CONS_COLORS[i], fontSize: 15 }}>
+                        {liveData?.['cc_conv_tel_jj']?.[n]
+                          ? `${Math.min(100, liveData['cc_conv_tel_jj'][n].filter(e => e?.val != null).slice(-1)[0]?.val ?? CONV_TEL_MM[n]?.conv_tel[3] ?? 0)}%`
+                          : `${CONV_TEL_MM[n]?.conv_tel[3] ?? '—'}%`}
+                      </div>
+                    </div>
                     <div><div style={{ fontSize: 10, color: '#8A8A7A' }}>CV JJ Avril</div><CvBadge cv={CV_GLOBAL_JJ_CONS[n]} small /></div>
                   </div>
                 </div>
@@ -1137,7 +1159,12 @@ export default function EtudeCommerciale2026() {
   const navigate = useNavigate()
   const [active, setActive] = useState('marketing')
   // Live data overrides depuis Supabase
-  const [liveData, setLiveData] = useState({})
+  const [liveData, setLiveData] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('etude_commerciale_2026_livedata')
+      return saved ? JSON.parse(saved) : {}
+    } catch { return {} }
+  })
   const [picker, setPicker] = useState(null) // { targetLabel, onApply }
 
   function openPicker(targetLabel, onApply) {
@@ -1145,7 +1172,11 @@ export default function EtudeCommerciale2026() {
   }
 
   function handleApply(source, preview) {
-    setLiveData(prev => ({ ...prev, [source.id]: preview }))
+    setLiveData(prev => {
+      const next = { ...prev, [source.id]: preview }
+      try { sessionStorage.setItem('etude_commerciale_2026_livedata', JSON.stringify(next)) } catch {}
+      return next
+    })
     setPicker(null)
   }
 
