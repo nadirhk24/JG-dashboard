@@ -815,6 +815,40 @@ function SectionPerfComm({ openPicker, liveData }) {
               </BarChart>
             </ResponsiveContainer>
           </div>
+
+          {/* Cartes TV% global par commercial */}
+          <div style={{ ...S.card, marginTop: 14 }}>
+            <div style={S.h3}>TV% Avr — tous les commerciaux ({EQUIPES[equipe]?.label || equipe})</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10, marginTop: 10 }}>
+              {names.map((n, i) => (
+                <div key={n}
+                  onClick={() => setSelComm(n)}
+                  style={{
+                    background: selComm === n ? colors[i%colors.length]+'18' : '#F8F7F4',
+                    borderRadius: 8, padding: '10px 14px',
+                    borderLeft: `3px solid ${colors[i%colors.length]}`,
+                    cursor: 'pointer',
+                    border: selComm === n ? `1.5px solid ${colors[i%colors.length]}` : `1px solid #E8E6DF`,
+                    borderLeft: `3px solid ${colors[i%colors.length]}`,
+                  }}
+                >
+                  <div style={{ fontSize: 11, fontWeight: 500, color: '#2C2C2C', marginBottom: 6 }}>{n.split(' ')[0]}</div>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}>
+                    <div>
+                      <div style={{ fontSize: 10, color: '#8A8A7A' }}>TV% Avr</div>
+                      <div style={{ fontWeight: 700, fontSize: 18, color: TV_GLOBAL_AVR_COMMS[n] > 10 ? '#4CAF7D' : TV_GLOBAL_AVR_COMMS[n] > 0 ? '#C9A84C' : '#E05C5C' }}>
+                        {TV_GLOBAL_AVR_COMMS[n] != null ? `${TV_GLOBAL_AVR_COMMS[n]}%` : '—'}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: '#8A8A7A' }}>CV JJ</div>
+                      <CvBadge cv={CV_GLOBAL_JJ_COMMS[n]} small />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>
