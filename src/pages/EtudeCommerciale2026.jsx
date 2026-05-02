@@ -266,6 +266,58 @@ const CONV_TEL_JJ = {
 
 // ── Données figées marketing ───────────────────────────────────────────────
 const MOIS_LABELS = ['Jan', 'Fev', 'Mar', 'Avr']
+
+// ── CV glissant 5j (non cumulatif, zeros inclus) ──
+const CV_ROLLING_JJ = {
+  'Alae Elmoussaid': [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
+  'Asmaa Radouli': [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
+  'Hajar Snaiki': [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
+  'Hicham Mechach': [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
+  'Ismail Hammouch': [null, null, null, null, 200.0, 200.0, 200.0, 200.0, 200.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
+  'Marouane Cachchi': [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
+  'Meryem Elbouchikhi': [null, null, null, null, 200.0, 200.0, 200.0, 200.0, 200.0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
+  'Nawfal Jdia': [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
+  'Nissrine Irfden': [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
+  'Oumaima Belbacha': [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
+  'Rim Snaiki': [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
+  'Salima Fikri': [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
+  'Samia Ahalay': [null, null, null, null, 141.4, 141.4, 141.4, 173.2, 173.2, 173.2, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, null, null, null, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0],
+  'Souad Acoine': [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
+  'Youssef Saadouni': [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
+  'Abdelhak Lakouissmi': [null, null, null, null, null, null, null, null, null, 173.2, 200.0, 122.5, 122.5, 122.5, 200.0, 200.0, null, null, null, null, null, null, null, null, 200.0, 128.7],
+  'Khalid Amghoud': [null, null, null, 173.2, 200.0, 200.0, 200.0, 200.0, null, null, null, null, 200.0, 133.3, 133.3, 133.3, 133.3, 200.0, null, null, 200.0, 122.5, 122.5, 89.4, 57.1, 57.1],
+  'Najlaa Maarouf': [null, null, null, null, null, null, 141.4, 173.2, 173.2, 173.2, 200.0, 200.0, 200.0, null, null, null, null, null, 200.0, 200.0, 200.0, 200.0, 200.0, null, null, null],
+  'Nouhaila Belhadj': [null, null, null, 173.2, 200.0, 124.5, 124.5, 124.5, 200.0, 142.0, 200.0, 200.0, 124.5, 124.5, 200.0, 200.0, 133.4, 200.0, 200.0, 200.0, 200.0, null, null, null, null, 200.0],
+  'Saad Fellah': [null, null, null, 173.2, 128.7, 128.7, 128.7, 128.7, 200.0, null, 200.0, 200.0, 144.2, 144.2, 144.2, 200.0, 200.0, null, null, null, null, 200.0, 200.0, 200.0, 200.0, 200.0],
+  'Yasmina Souaq': [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
+}
+
+const CV_ROLLING_CONS_JJ = {
+  'Fatima Zahraa AAKIBA': [null, 17.1, 17.1, 22.5, 29.9, 56.5, 58.1, 49.5, 45.8, 39.3, 46.1, 46.1, 60.7, 68.8, 41.1, 41.3, 45.7, 48.2, 34.8, 34.8, 36.8, 34.4, 32.4, 27.8, 10.3],
+  'Ghizlane ELBAKARI': [null, 20.2, 17.0, 17.5, 16.7, 20.6, 22.0, 33.3, 43.6, 41.9, 43.7, 35.1, 65.9, 63.0, 57.9, 56.7, 72.3, 46.3, 46.3, 45.0, 51.9, 35.6, 36.2, 31.0, 14.7],
+  'Hala ELAOUAD': [null, 23.1, 49.6, 59.7, 52.7, 52.7, 41.6, 75.7, 55.9, 64.2, 74.8, 79.1, 50.4, 54.9, 64.4, 58.8, 95.6, 98.1, 85.1, 68.6, 70.6, 44.4, 44.6, 46.5, 29.3],
+  'Kaoutar HRARTI': [null, 4.2, 14.7, 26.3, 24.3, 33.0, 32.7, 26.9, 27.8, 23.6, 14.6, 69.2, 65.1, 71.2, 67.1, 75.9, 96.9, 50.3, 43.7, 31.4, 27.8, 21.0, 27.9, 30.4, 28.0],
+  'Rajaa ELKHANCHAR': [null, 8.6, 7.4, 8.7, 13.9, 31.2, 31.1, 30.4, 37.1, 34.0, 35.3, 63.3, 69.0, 76.6, 101.6, 81.0, 73.3, 73.1, 66.4, 36.8, 34.1, 17.3, 23.2, 28.9, 29.4],
+  'Siham IBNTABET': [null, 85.4, 110.6, 130.8, 149.7, 156.7, 60.4, 42.3, 143.3, 116.2, 100.7, 75.1, 86.1, 71.8, 73.6, 80.0, 79.8, 53.1, 54.0, 39.8, 39.7, 32.3, 38.9, 29.7, 22.0],
+}
+
+// ── CV global mensuel (ecart-type/moyenne sur 4 mois, = formule regularite) ──
+const CV_GLOBAL_MM = {
+  'Abdelhak Lakouissmi': { equipe: 'Sale', tv: [null, null, null, 5.8], cv_mois: [null, null, null, null] },
+  'Khalid Amghoud': { equipe: 'Sale', tv: [25.9, 0, 2.8, 33.3], cv_mois: [null, 100.0, 121.3, 92.7] },
+  'Najlaa Maarouf': { equipe: 'Sale', tv: [null, null, null, 14.3], cv_mois: [null, null, null, null] },
+  'Nouhaila Belhadj': { equipe: 'Sale', tv: [0, 0, 0, 14.8], cv_mois: [null, null, null, 173.2] },
+  'Saad Fellah': { equipe: 'Sale', tv: [22.2, 7.1, 5.3, 8.3], cv_mois: [null, 51.5, 65.7, 62.6] },
+  'Yasmina Souaq': { equipe: 'Sale', tv: [7.4, 0, 3.2, 0], cv_mois: [null, 100.0, 85.8, 114.6] },
+  'Alae Elmoussaid': { equipe: 'Kenitra', tv: [0, 0, 15.4, 0], cv_mois: [null, null, 141.4, 173.2] },
+  'Ismail Hammouch': { equipe: 'Kenitra', tv: [9.1, 40, 11.1, 11.1], cv_mois: [null, 62.9, 70.4, 72.0] },
+  'Meryem Elbouchikhi': { equipe: 'Kenitra', tv: [0, 0, 0, 6.7], cv_mois: [null, null, null, 173.2] },
+  'Samia Ahalay': { equipe: 'Kenitra', tv: [0, 100, 20, 33.3], cv_mois: [null, 100.0, 108.0, 97.9] },
+  'Nawfal Jdia': { equipe: 'Kenitra', tv: [66.7, 0, 0, 0], cv_mois: [null, 100.0, 141.4, 173.2] },
+  'Nissrine Irfden': { equipe: 'Kenitra', tv: [14.3, 33.3, 33.3, 0], cv_mois: [null, 39.9, 33.2, 69.3] },
+  'Oumaima Belbacha': { equipe: 'Kenitra', tv: [0, 0, 0, 0], cv_mois: [null, null, null, null] },
+}
+
 const FUNNEL_MM = [
   { mois: 'Jan', base_nette: 1306, rdv: 372, visites: 279, ventes: 21 },
   { mois: 'Fev', base_nette: 2279, rdv: 464, visites: 149, ventes: 8 },
@@ -548,7 +600,7 @@ function SectionPerfComm() {
   const dataJJ = DATES_JJ.map((d, di) => ({
     d: d.slice(8)+'/'+d.slice(5,7),
     tv: COMMS_JJ[selComm]?.tv[di] ?? null,
-    cv: COMMS_JJ[selComm]?.cv_cumul[di] ?? null,
+    cv: CV_ROLLING_JJ[selComm]?.[di] ?? null,
   }))
 
   return (
@@ -583,13 +635,19 @@ function SectionPerfComm() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
               {names.filter(n => COMMS_MM[n]).map((n, i) => {
                 const tvArr = COMMS_MM[n].tv.filter(v => v != null)
-                const cvFinal = COMMS_MM[n].cv_cumul[3]
                 return (
                   <div key={n} style={{ background: '#F8F7F4', borderRadius: 8, padding: '10px 14px', borderLeft: `3px solid ${colors[i % colors.length]}` }}>
                     <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 4 }}>{n}</div>
                     <div style={{ display: 'flex', gap: 12, alignItems: 'baseline' }}>
                       <div><div style={{ fontSize: 10, color: '#8A8A7A' }}>TV% Avr</div><div style={{ fontWeight: 700, color: colors[i%colors.length], fontSize: 16 }}>{COMMS_MM[n].tv[3] ?? '—'}%</div></div>
-                      <div><div style={{ fontSize: 10, color: '#8A8A7A' }}>CV cumulatif</div><CvBadge cv={cvFinal} /></div>
+                      <div>
+                        {['Jan','Fev','Mar','Avr'].map((m, mi) => CV_GLOBAL_MM[n]?.cv_mois[mi] != null && (
+                          <span key={m} style={{ marginRight: 8 }}>
+                            <span style={{ fontSize: 10, color: '#8A8A7A' }}>{m} </span>
+                            <CvBadge cv={CV_GLOBAL_MM[n].cv_mois[mi]} small />
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )
@@ -620,7 +678,7 @@ function SectionPerfComm() {
                 <YAxis yAxisId="cv" orientation="right" tick={{ fontSize: 11, fill: '#E05C5C' }} axisLine={false} tickLine={false} unit="%" />
                 <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #E8E6DF', fontSize: 11 }} formatter={v => v != null ? v+'%' : '—'} />
                 <Bar yAxisId="tv" dataKey="tv" name="TV% jour" fill="#C9A84C" radius={[3,3,0,0]} opacity={0.7} />
-                <Line yAxisId="cv" type="monotone" dataKey="cv" name="CV cumulatif" stroke="#E05C5C" strokeWidth={2} dot={false} connectNulls />
+                <Line yAxisId="cv" type="monotone" dataKey="cv" name="CV glissant 5j" stroke="#E05C5C" strokeWidth={2} dot={false} connectNulls />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -651,7 +709,7 @@ function SectionEffConseillere() {
     d: d.slice(8)+'/'+d.slice(5,7),
     ct: CONV_TEL_JJ[selCons]?.conv_tel[di] ?? null,
     rdv: CONV_TEL_JJ[selCons]?.rdv[di] ?? null,
-    cv: CONV_TEL_JJ[selCons]?.cv_cumul[di] ?? null,
+    cv: CV_ROLLING_CONS_JJ[selCons]?.[di] ?? null,
   }))
 
   return (
@@ -716,7 +774,7 @@ function SectionEffConseillere() {
                 <YAxis yAxisId="cv" orientation="right" tick={{ fontSize: 11, fill: '#534AB7' }} axisLine={false} tickLine={false} unit="%" />
                 <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #E8E6DF', fontSize: 11 }} formatter={v => v != null ? v+'%' : '—'} />
                 <Bar yAxisId="ct" dataKey="ct" name="Conv. Tel. jour" fill="#C9A84C" radius={[3,3,0,0]} opacity={0.7} />
-                <Line yAxisId="cv" type="monotone" dataKey="cv" name="CV cumulatif" stroke="#534AB7" strokeWidth={2} dot={false} connectNulls />
+                <Line yAxisId="cv" type="monotone" dataKey="cv" name="CV glissant 5j" stroke="#534AB7" strokeWidth={2} dot={false} connectNulls />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
