@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
+import EtudeSourcePicker from '../components/EtudeSourcePicker'
 import { useNavigate } from 'react-router-dom'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell, ReferenceLine, ComposedChart, Area } from 'recharts'
 
@@ -653,7 +654,7 @@ function SectionFluxRDV() {
 }
 
 // ── Section Perf Commerciale ──────────────────────────────────────────────
-function SectionPerfComm() {
+function SectionPerfComm({ openPicker, liveData }) {
   const [subTab, setSubTab] = useState('mm')
   const [equipe, setEquipe] = useState('Sale')
   const [selComm, setSelComm] = useState('Saad Fellah')
@@ -719,10 +720,24 @@ function SectionPerfComm() {
               {names.filter(n => COMMS_MM[n]).map((n, i) => {
                 const tvArr = COMMS_MM[n].tv.filter(v => v != null)
                 return (
-                  <div key={n} style={{ background: '#F8F7F4', borderRadius: 8, padding: '10px 14px', borderLeft: `3px solid ${colors[i % colors.length]}` }}>
-                    <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 4 }}>{n}</div>
+                  <div key={n}
+                    onClick={() => openPicker?.(`TV% ${n}`, (src, data) => {})}
+                    style={{ background: '#F8F7F4', borderRadius: 8, padding: '10px 14px', borderLeft: `3px solid ${colors[i % colors.length]}`, cursor: 'pointer' }}
+                    title="Cliquer pour lier à une source Supabase"
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <div style={{ fontSize: 12, fontWeight: 500 }}>{n}</div>
+                      <span style={{ fontSize: 10, color: '#C9A84C' }}>⟳ source</span>
+                    </div>
                     <div style={{ display: 'flex', gap: 12, alignItems: 'baseline' }}>
-                      <div><div style={{ fontSize: 10, color: '#8A8A7A' }}>TV% Avr</div><div style={{ fontWeight: 700, color: colors[i%colors.length], fontSize: 16 }}>{COMMS_MM[n].tv[3] ?? '—'}%</div></div>
+                      <div>
+                        <div style={{ fontSize: 10, color: '#8A8A7A' }}>TV% Avr</div>
+                        <div style={{ fontWeight: 700, color: colors[i%colors.length], fontSize: 16 }}>
+                          {liveData?.['flux_tv_mensuel']?.[n]?.vals?.[3] != null
+                            ? `${liveData['flux_tv_mensuel'][n].vals[3]}%`
+                            : `${COMMS_MM[n]?.tv[3] ?? '—'}%`}
+                        </div>
+                      </div>
                       <div>
                         <div style={{ fontSize: 10, color: '#8A8A7A' }}>CV mensuel</div>
                         <CvBadge cv={CV_GLOBAL_MM_COMMS[n]} small />
@@ -772,7 +787,7 @@ function SectionPerfComm() {
 }
 
 // ── Section Efficacité Conseillères ────────────────────────────────────────
-function SectionEffConseillere() {
+function SectionEffConseillere({ openPicker, liveData }) {
   const [subTab, setSubTab] = useState('mm')
   const [selCons, setSelCons] = useState('Fatima Zahraa AAKIBA')
   const [visibleCons, setVisibleCons] = useState(() => Object.fromEntries(CONS_NAMES.map(n => [n, true])))
@@ -780,7 +795,9 @@ function SectionEffConseillere() {
   const dataMM = MOIS_LABELS.map((m, mi) => {
     const row = { mois: m }
     CONS_NAMES.forEach(n => {
-      const v = CONV_TEL_MM[n]?.conv_tel[mi] ?? null
+      // Priorité aux données live si disponibles
+      const live = liveData?.['cc_conv_tel_mensuel']?.[n]?.[mi]
+      const v = live != null ? live : (CONV_TEL_MM[n]?.conv_tel[mi] ?? null)
       row[n] = v !== null ? Math.min(100, v) : null
     })
     return row
@@ -838,10 +855,24 @@ function SectionEffConseillere() {
             <div style={S.h3}>CV Conv. Tél. — par conseillere (4 mois)</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
               {CONS_NAMES.map((n, i) => (
-                <div key={n} style={{ background: '#F8F7F4', borderRadius: 8, padding: '10px 14px', borderLeft: `3px solid ${CONS_COLORS[i]}` }}>
-                  <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 4 }}>{n.split(' ')[0]}</div>
+                <div key={n}
+                  onClick={() => openPicker?.(`Conv. Tél. ${n.split(' ')[0]}`, (src, data) => {})}
+                  style={{ background: '#F8F7F4', borderRadius: 8, padding: '10px 14px', borderLeft: `3px solid ${CONS_COLORS[i]}`, cursor: 'pointer', transition: 'box-shadow 0.15s' }}
+                  title="Cliquer pour lier à une source Supabase"
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <div style={{ fontSize: 12, fontWeight: 500 }}>{n.split(' ')[0]}</div>
+                    <span style={{ fontSize: 10, color: '#C9A84C' }}>⟳ source</span>
+                  </div>
                   <div style={{ display: 'flex', gap: 12, alignItems: 'baseline' }}>
-                    <div><div style={{ fontSize: 10, color: '#8A8A7A' }}>Conv. Tél. Avr</div><div style={{ fontWeight: 700, color: CONS_COLORS[i], fontSize: 15 }}>{CONV_TEL_MM[n]?.conv_tel[3] ?? '—'}%</div></div>
+                    <div>
+                      <div style={{ fontSize: 10, color: '#8A8A7A' }}>Conv. Tél. Avr</div>
+                      <div style={{ fontWeight: 700, color: CONS_COLORS[i], fontSize: 15 }}>
+                        {liveData?.['cc_conv_tel_mensuel']?.[n]?.[3] != null
+                          ? `${Math.min(100, liveData['cc_conv_tel_mensuel'][n][3])}%`
+                          : `${CONV_TEL_MM[n]?.conv_tel[3] ?? '—'}%`}
+                      </div>
+                    </div>
                     <div><div style={{ fontSize: 10, color: '#8A8A7A' }}>CV mensuel</div><CvBadge cv={CV_GLOBAL_MM_CONS[n]} small /></div>
                   </div>
                 </div>
@@ -1105,6 +1136,18 @@ const SLIDES = [
 export default function EtudeCommerciale2026() {
   const navigate = useNavigate()
   const [active, setActive] = useState('marketing')
+  // Live data overrides depuis Supabase
+  const [liveData, setLiveData] = useState({})
+  const [picker, setPicker] = useState(null) // { targetLabel, onApply }
+
+  function openPicker(targetLabel, onApply) {
+    setPicker({ targetLabel, onApply })
+  }
+
+  function handleApply(source, preview) {
+    setLiveData(prev => ({ ...prev, [source.id]: preview }))
+    setPicker(null)
+  }
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto' }}>
@@ -1137,11 +1180,19 @@ export default function EtudeCommerciale2026() {
 
       {active === 'marketing' && <SectionMarketing />}
       {active === 'flux' && <SectionFluxRDV />}
-      {active === 'perf' && <SectionPerfComm />}
-      {active === 'conseilleres' && <SectionEffConseillere />}
+      {active === 'perf' && <SectionPerfComm openPicker={openPicker} liveData={liveData} />}
+      {active === 'conseilleres' && <SectionEffConseillere openPicker={openPicker} liveData={liveData} />}
       {active === 'segmentation' && <SectionSegmentation />}
       {active === 'cohorte' && <SectionCohorte />}
       {active === 'synthese' && <SectionSynthese />}
+
+      {picker && (
+        <EtudeSourcePicker
+          targetLabel={picker.targetLabel}
+          onClose={() => setPicker(null)}
+          onApply={handleApply}
+        />
+      )}
     </div>
   )
 }
