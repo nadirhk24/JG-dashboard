@@ -303,7 +303,7 @@ export default function FluxRDV({ conseilleres }) {
       // Pour periode : visites inclut déjà les ventes
       // Pour jour : visites brutes + ventes
       const vis_display = isPeriode ? vis : vis + ven
-      const rdv_display = rdv_f + vis_display
+      const rdv_display = rdv_f  // RDV = champ rdv uniquement, pas d'addition
       agg[f.commercial_id].visites += vis_display
       agg[f.commercial_id].ventes += ven
       agg[f.commercial_id].rdv += rdv_display
@@ -325,7 +325,7 @@ export default function FluxRDV({ conseilleres }) {
       fluxFiltres.filter(f => !f.commercial_id && f.type_saisie === 'non_reconnue').forEach(f => {
         tot.visites += parseFloat(f.visites || 0)
         tot.ventes += parseFloat(f.ventes || 0)
-        tot.rdv += parseFloat(f.rdv || 0)  // RDV = champ rdv uniquement, pas visites
+        tot.rdv += parseFloat(f.rdv || 0)  // RDV = champ rdv uniquement
       })
       const cv = calcCV(comms.map(c => (fluxParCommercial[c.id] || {}).rdv || 0))
       res[eq] = { ...tot, cv,
@@ -353,7 +353,7 @@ export default function FluxRDV({ conseilleres }) {
       byMois[m].rdv += rdvBrut
     })
     return Object.entries(byMois).sort(([a],[b]) => a.localeCompare(b)).map(([m, d]) => {
-      // RDV = RDV fixés (pas d'addition avec visites)
+      // RDV = RDV fixés uniquement
       const rdvTotal = Math.round(d.rdv)
       const visites = Math.round(d.visites)
       const ventes = Math.round(d.ventes)
@@ -448,7 +448,7 @@ export default function FluxRDV({ conseilleres }) {
         }
         visTotal = Math.round(visTotal)
         venTotal = Math.round(venTotal)
-        const rdvTotal = Math.round(rdvBrutsTotal + visTotal)
+        const rdvTotal = Math.round(rdvBrutsTotal)  // RDV = RDV fixés uniquement
         // Chercher toutes les lignes CC de la periode
         const { data: lignesCC } = await supabase.from('saisies')
           .select('id, date_debut, rdv')
