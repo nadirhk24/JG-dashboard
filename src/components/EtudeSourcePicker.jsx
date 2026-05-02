@@ -194,7 +194,7 @@ function processCC(saisies, kpi, granularity) {
           ventes: acc.ventes + parseFloat(r.ventes || 0),
           echanges: acc.echanges + parseFloat(r.echanges || 0),
         }), { rdv: 0, visites: 0, ventes: 0, echanges: 0 })
-        return { date, val: calcKpi(kpi, tot) }
+        return { date, val: calcKpi(kpi, tot), rdv: tot.rdv, ech: tot.echanges }
       })
     }
   })

@@ -345,6 +345,15 @@ const CV_GLOBAL_JJ_COMMS = {
   'Salima Fikri': null,
 }
 
+const CONV_TEL_GLOBAL_AVR = {
+  'Fatima Zahraa AAKIBA': 29.1,
+  'Ghizlane ELBAKARI': 46.1,
+  'Hala ELAOUAD': 30.0,
+  'Kaoutar HRARTI': 42.2,
+  'Rajaa ELKHANCHAR': 50.1,
+  'Siham IBNTABET': 14.7,
+}
+
 const CV_GLOBAL_JJ_CONS = {
   'Fatima Zahraa AAKIBA': 56.8,
   'Ghizlane ELBAKARI': 58.1,
@@ -956,11 +965,15 @@ function SectionEffConseillere({ openPicker, liveData }) {
                         {(() => {
                             const liveVals = liveData?.['cc_conv_tel_jj']?.[n]
                             if (liveVals) {
-                              const nonNull = liveVals.filter(e => e?.val != null).map(e => Math.min(100, e.val))
-                              const moy = nonNull.length > 0 ? parseFloat((nonNull.reduce((a,b)=>a+b,0)/nonNull.length).toFixed(1)) : null
-                              return moy != null ? `${moy}%` : '—'
+                              // Taux global = sum(RDV) / sum(echanges) via les donnees live
+                              const tot = liveVals.filter(e => e?.val != null).reduce((acc, e) => ({
+                                rdv: acc.rdv + (e.rdv || 0),
+                                ech: acc.ech + (e.ech || 0),
+                              }), { rdv: 0, ech: 0 })
+                              const g = tot.ech > 0 ? parseFloat(((tot.rdv/tot.ech)*100).toFixed(1)) : null
+                              return g != null ? `${g}%` : `${CONV_TEL_GLOBAL_AVR[n] ?? '—'}%`
                             }
-                            return `${CONV_TEL_MM[n]?.conv_tel[3] ?? '—'}%`
+                            return `${CONV_TEL_GLOBAL_AVR[n] ?? '—'}%`
                           })()}
                       </div>
                     </div>
