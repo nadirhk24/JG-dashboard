@@ -818,7 +818,7 @@ function SectionPerfComm({ openPicker, liveData }) {
 
           {/* Cartes TV% global par commercial */}
           <div style={{ ...S.card, marginTop: 14 }}>
-            <div style={S.h3}>TV% Avr — tous les commerciaux ({EQUIPES[equipe]?.label || equipe})</div>
+            <div style={S.h3}>TV% Avr — tous les commerciaux ({equipe === 'Sale' ? 'Equipe Sale' : 'Equipe Kenitra'})</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10, marginTop: 10 }}>
               {names.map((n, i) => (
                 <div key={n}
@@ -835,7 +835,7 @@ function SectionPerfComm({ openPicker, liveData }) {
                   <div style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}>
                     <div>
                       <div style={{ fontSize: 10, color: '#8A8A7A' }}>TV% Avr</div>
-                      <div style={{ fontWeight: 700, fontSize: 18, color: TV_GLOBAL_AVR_COMMS[n] > 10 ? '#4CAF7D' : TV_GLOBAL_AVR_COMMS[n] > 0 ? '#C9A84C' : '#E05C5C' }}>
+                      <div style={{ fontWeight: 700, fontSize: 18, color: (TV_GLOBAL_AVR_COMMS[n] ?? 0) > 10 ? '#4CAF7D' : (TV_GLOBAL_AVR_COMMS[n] ?? 0) > 0 ? '#C9A84C' : '#E05C5C' }}>
                         {TV_GLOBAL_AVR_COMMS[n] != null ? `${TV_GLOBAL_AVR_COMMS[n]}%` : '—'}
                       </div>
                     </div>
