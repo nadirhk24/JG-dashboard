@@ -756,13 +756,13 @@ function SectionPerfComm() {
               </div>
             </div>
             <ResponsiveContainer width="100%" height={240}>
-              <ComposedChart data={dataJJ}>
+              <BarChart data={dataJJ}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F0EEE9" vertical={false} />
                 <XAxis dataKey="d" tick={{ fontSize: 10, fill: '#5A5A5A' }} axisLine={false} tickLine={false} interval={3} />
-                <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#8A8A7A' }} axisLine={false} tickLine={false} unit="%" />
+                <YAxis tick={{ fontSize: 11, fill: '#8A8A7A' }} axisLine={false} tickLine={false} unit="%" />
                 <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #E8E6DF', fontSize: 11 }} formatter={v => v != null ? v+'%' : '—'} />
                 <Bar dataKey="tv" name="TV% jour" fill="#C9A84C" radius={[3,3,0,0]} opacity={0.7} />
-              </ComposedChart>
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
@@ -779,7 +779,10 @@ function SectionEffConseillere() {
 
   const dataMM = MOIS_LABELS.map((m, mi) => {
     const row = { mois: m }
-    CONS_NAMES.forEach(n => { row[n] = CONV_TEL_MM[n]?.conv_tel[mi] ?? null })
+    CONS_NAMES.forEach(n => {
+      const v = CONV_TEL_MM[n]?.conv_tel[mi] ?? null
+      row[n] = v !== null ? Math.min(100, v) : null
+    })
     return row
   })
 
@@ -866,7 +869,10 @@ function SectionEffConseillere() {
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={DATES_AVR.map((d, di) => {
                 const row = { d: d.slice(8)+'/'+d.slice(5,7) }
-                CONS_NAMES.forEach(n => { row[n] = CONV_TEL_JJ[n]?.conv_tel[di] ?? null })
+                CONS_NAMES.forEach(n => {
+                  const v = CONV_TEL_JJ[n]?.conv_tel[di] ?? null
+                  row[n] = v !== null ? Math.min(100, v) : null
+                })
                 return row
               })}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F0EEE9" vertical={false} />
