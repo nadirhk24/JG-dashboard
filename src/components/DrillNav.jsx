@@ -97,15 +97,26 @@ export default function DrillNav({ data, onSelect, selected, dateField = 'date' 
                         {MOIS_SHORT[m]} {expandedMonth === mKey ? '▼' : '▶'}
                       </button>
 
-                      {expandedMonth === mKey && [...new Set(
-                        data.map(s => s[dateField] || s.date || s.date_debut)
-                          .filter(d => d && d.startsWith(mKey))
-                      )].sort().map(date => (
-                        <button key={date} style={btnStyle(selected?.type === 'day' && selected?.value === date, '#E07B30')}
-                          onClick={() => onSelect({ type: 'day', value: date, label: date })}>
-                          {new Date(date).getDate()}
-                        </button>
-                      ))}
+                      {expandedMonth === mKey && (() => {
+                        // Générer TOUS les jours du mois (pas seulement ceux avec données)
+                        const [y, mo] = mKey.split('-')
+                        const daysInMonth = new Date(parseInt(y), parseInt(mo), 0).getDate()
+                        const allDays = []
+                        for (let d = 1; d <= daysInMonth; d++) {
+                          const dateStr = `${mKey}-${String(d).padStart(2, '0')}`
+                          // Exclure les dimanches (jour 0 = dimanche)
+                          const dayOfWeek = new Date(dateStr).getDay()
+                          if (dayOfWeek !== 0) {
+                            allDays.push(dateStr)
+                          }
+                        }
+                        return allDays.map(date => (
+                          <button key={date} style={btnStyle(selected?.type === 'day' && selected?.value === date, '#E07B30')}
+                            onClick={() => onSelect({ type: 'day', value: date, label: date })}>
+                            {new Date(date).getDate()}
+                          </button>
+                        ))
+                      })()}
                     </React.Fragment>
                   )
                 })}

@@ -260,12 +260,29 @@ export default function FluxRDV({ conseilleres }) {
 
   async function loadData() {
     setLoading(true)
-    const [{ data: comms }, { data: flux }] = await Promise.all([
-      supabase.from('commerciaux').select('*').eq('actif', true).order('equipe').order('nom'),
-      supabase.from('flux_rdv').select('*').limit(5000)
-    ])
+
+    // Charger les commerciaux
+    const { data: comms } = await supabase
+      .from('commerciaux').select('*').eq('actif', true).order('equipe').order('nom')
+
+    // Charger TOUT flux_rdv via pagination (Supabase limite à 1000 par requête)
+    let allFlux = []
+    let from = 0
+    const PAGE_SIZE = 1000
+    while (true) {
+      const { data: page, error } = await supabase
+        .from('flux_rdv')
+        .select('*')
+        .order('date_debut', { ascending: true })
+        .range(from, from + PAGE_SIZE - 1)
+      if (error || !page || page.length === 0) break
+      allFlux = [...allFlux, ...page]
+      if (page.length < PAGE_SIZE) break  // Dernière page
+      from += PAGE_SIZE
+    }
+
     setCommerciaux(comms || [])
-    setFluxData(flux || [])
+    setFluxData(allFlux)
     setLoading(false)
   }
 
