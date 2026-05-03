@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { syncCC } from '../lib/sync'
 import PageHeader from '../components/PageHeader'
 import * as XLSX from 'xlsx'
 
@@ -474,27 +475,8 @@ async function injectData(parsed, fileType, modeInfo, dryRun = false, importId =
             await supabase.from('flux_rdv').insert({ conseillere_id: consId, commercial_id: commId, date_debut: row.date, date_fin: row.date, type_saisie: 'jour', rdv: 0, visites: type === 'visites_cc' ? row.count : 0, ventes: type === 'ventes_cc' ? row.count : 0 })
             results.inserted++
           }
-          // Sync flux_rdv → saisies CC : recalculer totaux visites/ventes/rdv pour cette conseillère ce jour
-          const fluxSaisies = await supabase.from('flux_rdv')
-            .select('rdv, visites, ventes').eq('conseillere_id', consId).eq('date_debut', row.date)
-          const fluxRows = fluxSaisies.data || []
-          // Même logique que calcTotaux du FluxRDV : 1 vente = 1 visite, 1 visite = 1 rdv
-          let totalVisitesRaw = fluxRows.reduce((s,x) => s + parseFloat(x.visites||0), 0)
-          let totalVentes = fluxRows.reduce((s,x) => s + parseFloat(x.ventes||0), 0)
-          let totalRdvRaw = fluxRows.reduce((s,x) => s + parseFloat(x.rdv||0), 0)
-          const totalVisites = totalVisitesRaw + totalVentes
-          const totalRdv = totalRdvRaw + totalVisites
-          const { data: saisieCC } = await supabase.from('saisies')
-            .select('id').eq('conseillere_id', consId).eq('date', row.date).maybeSingle()
-          if (saisieCC) {
-            await supabase.from('saisies').update({ visites: totalVisites, ventes: totalVentes, rdv: totalRdv }).eq('id', saisieCC.id)
-          } else {
-            await supabase.from('saisies').insert({
-              conseillere_id: consId, date: row.date, date_debut: row.date, date_fin: row.date,
-              type_saisie: 'jour', leads_bruts: 0, indispos: 0, echanges: 0,
-              visites: totalVisites, ventes: totalVentes, rdv: totalRdv,
-            })
-          }
+          // Sync flux_rdv → CC uniquement (pas de Marketing depuis FluxRDV)
+          await syncCC(consId, row.date)
         }
         continue
       }

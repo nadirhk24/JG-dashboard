@@ -11,6 +11,7 @@ import { agregerParPeriode, calcCV, calcConversionTel, calcTauxPresence, calcEff
 import DrillNav from '../components/DrillNav'
 import { exportToXlsx, labelToFilename } from '../lib/useExportXlsx'
 import { supabase } from '../lib/supabase'
+import { syncMarketing } from '../lib/sync'
 
 // Filtrer les données selon la sélection DrillNav (inclut période custom)
 function filterBySelected(items, selected, dateField = 'date') {
@@ -291,28 +292,8 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
         .eq('date_debut', dateDebut)
         .eq('date_fin', dateFin)
       
-      const totalLeads = (allSaisiesJour || []).reduce((s, x) => s + parseFloat(x.leads_bruts||0), 0)
-      const totalIndispos = (allSaisiesJour || []).reduce((s, x) => s + parseFloat(x.indispos||0), 0)
-
-      const { data: mktLine } = await supabase.from('marketing_saisies')
-        .select('id')
-        .eq('date_debut', dateDebut)
-        .eq('date_fin', dateFin)
-        .maybeSingle()
-
-      if (mktLine) {
-        await supabase.from('marketing_saisies').update({
-          injections: totalLeads,
-          indispos: totalIndispos,
-        }).eq('id', mktLine.id)
-      } else {
-        await supabase.from('marketing_saisies').insert({
-          date: dateDebut, date_debut: dateDebut, date_fin: dateFin,
-          type_saisie: saisieMode,
-          injections: totalLeads, indispos: totalIndispos,
-          non_exploitables: 0, suivis: 0, rdv: 0, visites: 0, ventes: 0,
-        })
-      }
+      // Sync centralisée CC → Marketing (leads_bruts + indispos uniquement)
+      await syncMarketing(dateDebut)
     }
 
     setSaving(false)
@@ -332,6 +313,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
     const ancienne = JSON.parse(backup.ancienne_valeur)
     const { id, created_at, ...updateData } = ancienne
     const { error } = await supabase.from('saisies').update(updateData).eq('id', saisieId)
+    if (!error) await syncMarketing(updateData.date_debut || updateData.date)
     if (error) setMsg({ type: 'error', text: error.message })
     else { setMsg({ type: 'success', text: 'Mise à jour annulée — données restaurées !' }); reload(); setTimeout(() => setMsg(null), 3000) }
   }
@@ -340,7 +322,9 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
     if (!window.confirm('Supprimer cette saisie définitivement ?')) return
     // Recuperer la saisie avant suppression
     const { data: saisie } = await supabase.from('saisies').select('*').eq('id', id).maybeSingle()
+    const { data: saisieASuppr } = await supabase.from('saisies').select('date_debut, date').eq('id', id).maybeSingle()
     await supabase.from('saisies').delete().eq('id', id)
+    if (saisieASuppr) await syncMarketing(saisieASuppr.date_debut || saisieASuppr.date)
     // Sync: mettre indispos a 0 dans marketing si periode correspondante
     if (saisie) {
       const { data: mkt } = await supabase.from('marketing_saisies')

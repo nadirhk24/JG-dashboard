@@ -5,6 +5,7 @@ import PageHeader from '../components/PageHeader'
 import SectionTitle from '../components/SectionTitle'
 import DrillNav from '../components/DrillNav'
 import { supabase } from '../lib/supabase'
+import { syncCC } from '../lib/sync'
 import { exportToXlsx, labelToFilename } from '../lib/useExportXlsx'
 
 // Filtrer les données selon la sélection DrillNav (inclut période custom)
@@ -219,44 +220,8 @@ export default function FluxRDV({ conseilleres }) {
   }
 
 
-  // syncCC : agrège flux_rdv → saisies CC pour une conseillère et une date donnée.
-  // Règle métier : une vente = 1 visite = 1 rdv (les trois s'additionnent)
-  // • type 'jour' : visites saisies brutes (hors ventes) → visites_cc = visites_brutes + ventes
-  // • type 'periode'/'non_reconnue' : visites saisies incluent déjà les ventes → visites_cc = visites telles quelles
-  async function syncCC(conseillereId, date) {
-    const { data: allFlux } = await supabase.from('flux_rdv')
-      .select('rdv, visites, ventes, type_saisie')
-      .eq('conseillere_id', conseillereId)
-      .eq('date_debut', date)
-    const rows = allFlux || []
-    let totalVisites = 0
-    let totalVentes = 0
-    let totalRdvBruts = 0
-    for (const r of rows) {
-      const vis = parseFloat(r.visites || 0)
-      const ven = parseFloat(r.ventes || 0)
-      const rdvBrut = parseFloat(r.rdv || 0)
-      const isPeriode = r.type_saisie === 'periode' || r.type_saisie === 'non_reconnue'
-      // Pour 'periode'/'non_reconnue' les visites incluent déjà les ventes → pas d'ajout
-      totalVisites += isPeriode ? vis : vis + ven
-      totalVentes += ven
-      totalRdvBruts += rdvBrut
-    }
-    // rdv_total = rdv_bruts + visites_total  (car 1 visite = 1 rdv)
-    const totalRdv = Math.round(totalRdvBruts + totalVisites)
-    totalVisites = Math.round(totalVisites)
-    totalVentes = Math.round(totalVentes)
-    const { data: saisie } = await supabase.from('saisies')
-      .select('id').eq('conseillere_id', conseillereId).eq('date', date).maybeSingle()
-    if (saisie) {
-      await supabase.from('saisies').update({ rdv: totalRdv, visites: totalVisites, ventes: totalVentes }).eq('id', saisie.id)
-    } else {
-      await supabase.from('saisies').insert({
-        conseillere_id: conseillereId, date, date_debut: date, date_fin: date, type_saisie: 'jour',
-        leads_bruts: 0, indispos: 0, echanges: 0, rdv: totalRdv, visites: totalVisites, ventes: totalVentes
-      })
-    }
-  }
+  // syncCC importée depuis lib/sync.js
+  // flux_rdv → saisies CC UNIQUEMENT (pas de sync Marketing depuis FluxRDV)
 
   async function loadData() {
     setLoading(true)
