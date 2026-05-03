@@ -354,7 +354,7 @@ export default function FluxRDV({ conseilleres }) {
       }
     })
     return res
-  }, [commerciaux, fluxParCommercial])
+  }, [commerciaux, fluxParCommercial, fluxFiltres])
 
   // Historique pour graphe du commercial selectionne
   const historique = useMemo(() => {
