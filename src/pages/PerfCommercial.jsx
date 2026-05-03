@@ -185,13 +185,13 @@ export default function PerfCommercial() {
         ? new Date(key).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
         : `${MOIS_SHORT[new Date(key+'-01').getMonth()]} ${new Date(key+'-01').getFullYear()}`
       const txJour = g.visites > 0 ? parseFloat(((g.ventes / g.visites) * 100).toFixed(1)) : 0
-      return { key, label, visites: g.visites, ventes: g.ventes, moyenne: parseFloat(moyenne.toFixed(1)), cv: parseFloat(cv.toFixed(1)), txJour }
+      return { key, label, visites: Math.round(g.visites), ventes: Math.round(g.ventes), moyenne: parseFloat(moyenne.toFixed(1)), cv: parseFloat(cv.toFixed(1)), txJour }
     })
   }, [fluxFiltres, selected])
 
   // Totaux KPIs
-  const totalVisites = chartData.reduce((s,r) => s + r.visites, 0)
-  const totalVentes = chartData.reduce((s,r) => s + r.ventes, 0)
+  const totalVisites = Math.round(chartData.reduce((s,r) => s + r.visites, 0))
+  const totalVentes = Math.round(chartData.reduce((s,r) => s + r.ventes, 0))
   const txConv = totalVisites > 0 ? ((totalVentes/totalVisites)*100).toFixed(1) : '0.0'
   const cvGlobal = calcCV(chartData.map(r => r.moyenne)).toFixed(1)
 
