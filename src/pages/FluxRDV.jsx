@@ -338,14 +338,11 @@ export default function FluxRDV({ conseilleres }) {
         const d = fluxParCommercial[c.id] || { rdv: 0, visites: 0, ventes: 0 }
         return { rdv: acc.rdv + (d.rdv || 0), visites: acc.visites + (d.visites || 0), ventes: acc.ventes + (d.ventes || 0) }
       }, { rdv: 0, visites: 0, ventes: 0 })
-      // Ajouter TOUTES les lignes sans commercial_id (NR, peu importe le type_saisie)
-      fluxFiltres.filter(f => !f.commercial_id).forEach(f => {
-        const isPeriodeNR = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
-        const visNR = parseFloat(f.visites || 0)
-        const venNR = parseFloat(f.ventes || 0)
-        tot.visites += isPeriodeNR ? visNR : visNR + venNR
-        tot.ventes += venNR
-        tot.rdv += parseFloat(f.rdv || 0)
+      // Ajouter les non reconnues de cette équipe
+      fluxFiltres.filter(f => !f.commercial_id && f.type_saisie === 'non_reconnue').forEach(f => {
+        tot.visites += parseFloat(f.visites || 0)
+        tot.ventes += parseFloat(f.ventes || 0)
+        tot.rdv += parseFloat(f.rdv || 0)  // RDV = champ rdv uniquement
       })
       const cv = calcCV(comms.map(c => (fluxParCommercial[c.id] || {}).rdv || 0))
       res[eq] = { ...tot, cv,
