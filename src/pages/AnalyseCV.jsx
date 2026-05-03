@@ -201,11 +201,24 @@ export default function AnalyseCV({ conseilleres, saisies }) {
     setMarketingData(data || [])
   }
   async function loadFlux() {
-    const [{ data: flux }, { data: comms }] = await Promise.all([
-      supabase.from('flux_rdv').select('*'),
-      supabase.from('commerciaux').select('*').eq('actif', true)
-    ])
-    setFluxData(flux || [])
+    // Pagination pour charger TOUT flux_rdv (Supabase limite à 1000 par requête)
+    let allFlux = []
+    let from = 0
+    const PAGE_SIZE = 1000
+    while (true) {
+      const { data: page, error } = await supabase
+        .from('flux_rdv')
+        .select('*')
+        .order('date_debut', { ascending: true })
+        .range(from, from + PAGE_SIZE - 1)
+      if (error || !page || page.length === 0) break
+      allFlux = [...allFlux, ...page]
+      if (page.length < PAGE_SIZE) break
+      from += PAGE_SIZE
+    }
+    const { data: comms } = await supabase
+      .from('commerciaux').select('*').eq('actif', true)
+    setFluxData(allFlux)
     setFluxCommerciaux(comms || [])
   }
   useEffect(() => {
