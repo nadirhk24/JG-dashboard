@@ -104,11 +104,22 @@ export default function PerfCommercial() {
   useEffect(() => {
     async function load() {
       setLoading(true)
-      const { data } = await supabase.from('flux_rdv')
-        .select('date_debut, date_fin, visites, ventes, type_saisie, commercial_id, commerciaux(nom, equipe)')
-        .order('date_debut', { ascending: true })
-        .limit(5000)
-      setFluxData(data || [])
+      // Pagination pour charger TOUT flux_rdv (Supabase limite à 1000 par requête)
+      let allData = []
+      let from = 0
+      const PAGE_SIZE = 1000
+      while (true) {
+        const { data: page, error } = await supabase
+          .from('flux_rdv')
+          .select('date_debut, date_fin, visites, ventes, type_saisie, commercial_id, commerciaux(nom, equipe)')
+          .order('date_debut', { ascending: true })
+          .range(from, from + PAGE_SIZE - 1)
+        if (error || !page || page.length === 0) break
+        allData = [...allData, ...page]
+        if (page.length < PAGE_SIZE) break
+        from += PAGE_SIZE
+      }
+      setFluxData(allData)
       setLoading(false)
     }
     load()
