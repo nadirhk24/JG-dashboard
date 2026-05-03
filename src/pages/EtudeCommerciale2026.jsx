@@ -1243,7 +1243,7 @@ export default function EtudeCommerciale2026() {
   // Live data overrides depuis Supabase
   const [liveData, setLiveData] = useState(() => {
     try {
-      const saved = sessionStorage.getItem('etude_commerciale_2026_livedata')
+      const saved = localStorage.getItem('etude_commerciale_2026_livedata')
       return saved ? JSON.parse(saved) : {}
     } catch { return {} }
   })
@@ -1256,7 +1256,7 @@ export default function EtudeCommerciale2026() {
   function handleApply(source, preview) {
     setLiveData(prev => {
       const next = { ...prev, [source.id]: preview }
-      try { sessionStorage.setItem('etude_commerciale_2026_livedata', JSON.stringify(next)) } catch {}
+      try { localStorage.setItem('etude_commerciale_2026_livedata', JSON.stringify(next)) } catch {}
       return next
     })
     setPicker(null)
