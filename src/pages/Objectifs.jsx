@@ -50,8 +50,12 @@ function SectionVentesDelais() {
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState(null)
 
+  const TYPES_BIENS = ['Appartement', 'Bureau', 'Magasin', 'Boutique']
+
+  const REGIONS = ['Kenitra', 'Sale']
+
   const emptyProjet = {
-    nom_projet: '', commerciaux: '', delai_mois: 4,
+    nom_projet: '', commerciaux: '', region: 'Kenitra', delai_mois: 4,
     tx_vente: 30, tx_presence: 20, tx_conv_tel: 35, tx_joignabilite: 78,
     biens: [{ type_bien: '', stock: 0 }]
   }
@@ -102,6 +106,7 @@ function SectionVentesDelais() {
     const payload = {
       nom_projet: form.nom_projet,
       commerciaux: form.commerciaux,
+      region: form.region || 'Kenitra',
       delai_mois: parseInt(form.delai_mois) || 1,
       tx_vente: parseFloat(form.tx_vente) || 0,
       tx_presence: parseFloat(form.tx_presence) || 0,
@@ -249,6 +254,13 @@ function SectionVentesDelais() {
                 placeholder="ex: Nawfal, Hajar" />
             </div>
             <div>
+              <label style={sty.label}>Région</label>
+              <select style={sty.input} value={form.region}
+                onChange={e => setForm(p => ({ ...p, region: e.target.value }))}>
+                {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+            <div>
               <label style={sty.label}>Délai global (mois)</label>
               <input style={sty.input} type="number" value={form.delai_mois}
                 onChange={e => setForm(p => ({ ...p, delai_mois: e.target.value }))} min={1} />
@@ -293,9 +305,15 @@ function SectionVentesDelais() {
                 {form.biens.map((b, i) => (
                   <tr key={i}>
                     <td style={{ padding: '6px 8px' }}>
-                      <input style={sty.input} value={b.type_bien}
-                        onChange={e => updateBien(i, 'type_bien', e.target.value)}
-                        placeholder="ex: Appartement" />
+                      <select style={sty.input} value={b.type_bien}
+                        onChange={e => updateBien(i, 'type_bien', e.target.value)}>
+                        <option value="">-- Choisir --</option>
+                        {TYPES_BIENS.filter(t =>
+                          t === b.type_bien || !form.biens.some((other, oi) => oi !== i && other.type_bien === t)
+                        ).map(t => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
                     </td>
                     <td style={{ padding: '6px 8px' }}>
                       <input style={{ ...sty.input, textAlign: 'center' }} type="number" value={b.stock}
@@ -336,7 +354,23 @@ function SectionVentesDelais() {
           <div style={{ fontSize: 12, marginTop: 5 }}>Cliquez sur "+ Nouveau projet" pour commencer</div>
         </div>
       ) : (
-        projets.map(p => {
+        REGIONS.map(region => {
+          const projetsRegion = projets.filter(p => p.region === region)
+          if (projetsRegion.length === 0) return null
+          return (
+            <div key={region}>
+              {/* Header région */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, marginTop: 8 }}>
+                <div style={{ height: 2, flex: 1, background: region === 'Kenitra' ? 'rgba(83,74,183,0.2)' : 'rgba(201,168,76,0.3)' }} />
+                <div style={{ fontSize: 13, fontWeight: 700, color: region === 'Kenitra' ? '#534AB7' : '#C9A84C',
+                  padding: '4px 16px', borderRadius: 20, background: region === 'Kenitra' ? 'rgba(83,74,183,0.08)' : 'rgba(201,168,76,0.08)',
+                  border: `1px solid ${region === 'Kenitra' ? 'rgba(83,74,183,0.2)' : 'rgba(201,168,76,0.2)'}` }}>
+                  Équipe {region} · {projetsRegion.length} projet{projetsRegion.length > 1 ? 's' : ''} · {projetsRegion.reduce((s, p) => s + p.biens.reduce((ss, b) => ss + (parseInt(b.stock)||0), 0), 0)} unités
+                </div>
+                <div style={{ height: 2, flex: 1, background: region === 'Kenitra' ? 'rgba(83,74,183,0.2)' : 'rgba(201,168,76,0.3)' }} />
+              </div>
+
+              {projetsRegion.map(p => {
           const totalStock = p.biens.reduce((s, b) => s + (parseInt(b.stock) || 0), 0)
           const totFunnel = calcFunnel(totalStock, p.delai_mois, p.tx_vente, p.tx_presence, p.tx_conv_tel, p.tx_joignabilite)
           const lastUpdate = new Date(p.updated_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -424,6 +458,9 @@ function SectionVentesDelais() {
                   </tbody>
                 </table>
               )}
+            </div>
+          )
+        })}
             </div>
           )
         })
