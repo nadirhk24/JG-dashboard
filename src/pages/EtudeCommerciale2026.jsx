@@ -1235,7 +1235,7 @@ const SLIDES = [
   { id: 'segmentation', label: 'Segmentation' },
   { id: 'cohorte', label: 'Cohorte Delais' },
   { id: 'synthese', label: 'Synthese' },
-  { id: 'plans', label: 'Plans d'actions' },
+  { id: 'plans', label: "Plans d'actions" },
 ]
 
 
