@@ -162,7 +162,12 @@ function SectionVentesDelais() {
 
   function openEdit(p) {
     setForm({ ...p, biens: p.biens.length > 0 ? p.biens : [{ type_bien: '', stock: 0 }] })
-    setEditProjet(p); setShowForm(true)
+    setEditProjet(p)
+    setShowForm(true)
+    // Scroll vers le formulaire en haut
+    setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }, 50)
   }
 
   function addBien() { setForm(p => ({ ...p, biens: [...p.biens, { type_bien: '', stock: 0 }] })) }
