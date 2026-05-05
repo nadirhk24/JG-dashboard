@@ -42,16 +42,7 @@ const KPI_FIELDS = [
 // ── Section Objectifs Ventes/Délais ─────────────────────────────────────────
 
 function SectionVentesDelais() {
-  const [projets, setProjets] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [editProjet, setEditProjet] = useState(null)
-  const [showMethodo, setShowMethodo] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [msg, setMsg] = useState(null)
-
   const TYPES_BIENS = ['Appartement', 'Bureau', 'Magasin', 'Boutique']
-
   const REGIONS = ['Kenitra', 'Sale']
 
   const emptyProjet = {
@@ -59,17 +50,32 @@ function SectionVentesDelais() {
     tx_vente: 30, tx_presence: 20, tx_conv_tel: 35, tx_joignabilite: 78,
     biens: [{ type_bien: '', stock: 0 }]
   }
+
+  const [projets, setProjets] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [editProjet, setEditProjet] = useState(null)
+  const [showMethodo, setShowMethodo] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState(null)
   const [form, setForm] = useState(emptyProjet)
 
   useEffect(() => { loadProjets() }, [])
 
   async function loadProjets() {
     setLoading(true)
-    const { data: ps } = await supabase.from('objectifs_vente_projets').select('*').order('created_at')
+    const { data: ps } = await supabase
+      .from('objectifs_vente_projets')
+      .select('*')
+      .order('region')
+      .order('nom_projet')
     const result = []
     for (const p of (ps || [])) {
-      const { data: biens } = await supabase.from('objectifs_vente_biens')
-        .select('*').eq('projet_id', p.id).order('created_at')
+      const { data: biens } = await supabase
+        .from('objectifs_vente_biens')
+        .select('*')
+        .eq('projet_id', p.id)
+        .order('created_at')
       result.push({ ...p, biens: biens || [] })
     }
     setProjets(result)
@@ -84,15 +90,11 @@ function SectionVentesDelais() {
     const s = parseInt(stock) || 0
     const d = parseInt(delai_mois) || 1
     if (!s || !tv || !tp || !tc || !tj) return {}
-    // Calcul objectifs
-    const obj_mois_exact = s / d
-    const obj_mois = Math.round(obj_mois_exact)
+    const obj_mois = Math.round(s / d)
     const obj_semaine = Math.round(obj_mois / 4)
-    // Ventes réelles si on respecte obj/mois
     const ventes_reelles = obj_mois * d
     const liquide_avant = ventes_reelles > s
     const mois_reel = +(s / obj_mois).toFixed(1)
-    // Funnel
     const visites = Math.ceil(obj_mois / tv)
     const rdv = Math.ceil(visites / tp)
     const echanges = Math.ceil(rdv / tc)
@@ -123,7 +125,7 @@ function SectionVentesDelais() {
       const { data } = await supabase.from('objectifs_vente_projets').insert(payload).select().single()
       projetId = data.id
     }
-    const biens = form.biens.filter(b => b.type_bien.trim())
+    const biens = form.biens.filter(b => b.type_bien.trim() && parseInt(b.stock) > 0)
     if (biens.length > 0) {
       await supabase.from('objectifs_vente_biens').insert(
         biens.map(b => ({ projet_id: projetId, type_bien: b.type_bien, stock: parseInt(b.stock) || 0 }))
@@ -131,35 +133,42 @@ function SectionVentesDelais() {
     }
     setSaving(false)
     setMsg({ type: 'success', text: editProjet ? 'Projet mis à jour !' : 'Projet créé !' })
-    setShowForm(false); setEditProjet(null); setForm(emptyProjet)
+    setShowForm(false)
+    setEditProjet(null)
+    setForm(emptyProjet)
     loadProjets()
     setTimeout(() => setMsg(null), 3000)
   }
 
   async function handleDelete(id) {
-    if (!confirm('Supprimer ce projet et tous ses biens ?')) return
+    if (!confirm('Supprimer ce projet ?')) return
     await supabase.from('objectifs_vente_projets').delete().eq('id', id)
     loadProjets()
   }
 
   function openEdit(p) {
     setForm({ ...p, biens: p.biens.length > 0 ? p.biens : [{ type_bien: '', stock: 0 }] })
-    setEditProjet(p); setShowForm(true)
+    setEditProjet(p)
+    setShowForm(true)
   }
 
-  function addBien() { setForm(p => ({ ...p, biens: [...p.biens, { type_bien: '', stock: 0 }] })) }
-  function removeBien(i) { setForm(p => ({ ...p, biens: p.biens.filter((_, idx) => idx !== i) })) }
-  function updateBien(i, key, val) { setForm(p => ({ ...p, biens: p.biens.map((b, idx) => idx === i ? { ...b, [key]: val } : b) })) }
+  function addBien() {
+    setForm(p => ({ ...p, biens: [...p.biens, { type_bien: '', stock: 0 }] }))
+  }
+  function removeBien(i) {
+    setForm(p => ({ ...p, biens: p.biens.filter((_, idx) => idx !== i) }))
+  }
+  function updateBien(i, key, val) {
+    setForm(p => ({ ...p, biens: p.biens.map((b, idx) => idx === i ? { ...b, [key]: val } : b) }))
+  }
 
   const sty = {
-    card: { background: '#fff', borderRadius: 14, padding: 24, border: '1px solid rgba(201,168,76,0.15)', marginBottom: 20 },
+    card: { background: '#fff', borderRadius: 14, padding: 24, border: '1px solid rgba(201,168,76,0.15)', marginBottom: 16 },
     label: { fontSize: 11, color: '#8A8A7A', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 5, display: 'block' },
     input: { width: '100%', padding: '9px 12px', border: '1.5px solid rgba(201,168,76,0.25)', borderRadius: 8, fontSize: 13, color: '#2C2C2C', background: '#F8F7F4', outline: 'none', boxSizing: 'border-box' },
     th: { fontSize: 11, color: '#5A5A5A', fontWeight: 500, padding: '10px 12px', borderBottom: '1px solid rgba(201,168,76,0.15)', textAlign: 'center', background: '#FAFAF8' },
     td: { padding: '10px 12px', borderBottom: '1px solid rgba(201,168,76,0.06)', fontSize: 13, color: '#2C2C2C', textAlign: 'center' },
-    tdTotal: { padding: '10px 12px', fontSize: 13, fontWeight: 700, color: '#C9A84C', background: 'rgba(201,168,76,0.06)', textAlign: 'center' },
     btn: (bg, col) => ({ background: bg, color: col, border: 'none', padding: '9px 20px', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }),
-    kpiBox: (color) => ({ textAlign: 'center', padding: '10px 8px', background: `${color}08`, borderRadius: 8, border: `1px solid ${color}20` }),
   }
 
   if (loading) return <div style={{ textAlign: 'center', color: '#8A8A7A', padding: 40 }}>Chargement...</div>
@@ -170,7 +179,7 @@ function SectionVentesDelais() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
           <div style={{ fontSize: 15, fontWeight: 600, color: '#2C2C2C' }}>Objectifs Ventes / Délais</div>
-          <div style={{ fontSize: 12, color: '#8A8A7A', marginTop: 3 }}>Par projet · Funnel commercial calculé automatiquement</div>
+          <div style={{ fontSize: 12, color: '#8A8A7A', marginTop: 3 }}>Par projet · Funnel calculé automatiquement</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={() => setShowMethodo(!showMethodo)}
@@ -184,6 +193,7 @@ function SectionVentesDelais() {
         </div>
       </div>
 
+      {/* Message */}
       {msg && (
         <div style={{ padding: '10px 16px', borderRadius: 8, marginBottom: 16, fontSize: 13, fontWeight: 500,
           background: msg.type === 'success' ? 'rgba(76,175,125,0.1)' : 'rgba(224,92,92,0.1)',
@@ -194,12 +204,12 @@ function SectionVentesDelais() {
 
       {/* Note Méthodologique */}
       {showMethodo && (
-        <div style={{ ...sty.card, background: 'rgba(55,138,221,0.04)', border: '1px solid rgba(55,138,221,0.15)', marginBottom: 20 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#378ADD', marginBottom: 12 }}>Méthodologie — Calcul du funnel inversé</div>
+        <div style={{ background: 'rgba(55,138,221,0.04)', border: '1px solid rgba(55,138,221,0.15)', borderRadius: 14, padding: 20, marginBottom: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#378ADD', marginBottom: 12 }}>Méthodologie — Funnel inversé</div>
           <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
             {[
               { step: 'Leads bruts', formula: '= Échanges ÷ Joignabilité', color: '#E8A040' },
-              { step: 'Échanges', formula: '= RDV ÷ Tx Conv. Tél', color: '#378ADD' },
+              { step: 'Échanges', formula: '= RDV ÷ Conv. Tél', color: '#378ADD' },
               { step: 'RDV', formula: '= Visites ÷ Tx Présence', color: '#4CAF7D' },
               { step: 'Visites', formula: '= Ventes ÷ Tx Vente', color: '#534AB7' },
             ].map((f, i) => (
@@ -211,10 +221,10 @@ function SectionVentesDelais() {
           </div>
           <div style={{ fontSize: 12, color: '#5A5A5A', padding: '10px 14px', background: 'rgba(201,168,76,0.06)', borderRadius: 8, borderLeft: '3px solid #C9A84C' }}>
             <strong style={{ color: '#C9A84C' }}>Analyse Avril 2026 · </strong>
-            Joignabilité équipe CC : 78% · Entre 55 et 75 leads nécessaires par vente selon la conseillère.
-            Pour 19 ventes/mois (avec 30% vente / 20% présence / 35% conv. tél) → 1 160 leads nécessaires.
+            Joignabilité équipe CC : 78% · Entre 55 et 75 leads/vente selon conseillère.
+            Pour 19 ventes/mois (30% vente / 20% présence / 35% conv. tél) → 1 160 leads nécessaires.
           </div>
-          <div style={{ marginTop: 12, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ marginTop: 10, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
             {[
               { cons: 'Rajaa', joign: '86.2%', leads: 55, color: '#4CAF7D' },
               { cons: 'Kaoutar', joign: '77.5%', leads: 61, color: '#4CAF7D' },
@@ -239,8 +249,7 @@ function SectionVentesDelais() {
           <div style={{ fontSize: 14, fontWeight: 600, color: '#2C2C2C', marginBottom: 20 }}>
             {editProjet ? `Modifier — ${editProjet.nom_projet}` : 'Nouveau projet'}
           </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 14, marginBottom: 20 }}>
             <div>
               <label style={sty.label}>Nom du projet *</label>
               <input style={sty.input} value={form.nom_projet}
@@ -248,7 +257,7 @@ function SectionVentesDelais() {
                 placeholder="ex: JIRARI MALL" />
             </div>
             <div>
-              <label style={sty.label}>Commerciaux assignés</label>
+              <label style={sty.label}>Commerciaux</label>
               <input style={sty.input} value={form.commerciaux}
                 onChange={e => setForm(p => ({ ...p, commerciaux: e.target.value }))}
                 placeholder="ex: Nawfal, Hajar" />
@@ -261,7 +270,7 @@ function SectionVentesDelais() {
               </select>
             </div>
             <div>
-              <label style={sty.label}>Délai global (mois)</label>
+              <label style={sty.label}>Délai (mois)</label>
               <input style={sty.input} type="number" value={form.delai_mois}
                 onChange={e => setForm(p => ({ ...p, delai_mois: e.target.value }))} min={1} />
             </div>
@@ -269,10 +278,8 @@ function SectionVentesDelais() {
 
           {/* Taux */}
           <div style={{ padding: '14px 16px', background: 'rgba(201,168,76,0.05)', borderRadius: 10, border: '1px solid rgba(201,168,76,0.15)', marginBottom: 20 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: '#C9A84C', marginBottom: 12 }}>
-              Taux commerciaux (communs à tous les types de biens)
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#C9A84C', marginBottom: 12 }}>Taux (communs à tous les types de biens)</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14 }}>
               {[
                 { key: 'tx_vente', label: 'Tx Vente %', color: '#534AB7', hint: 'Ventes / Visites' },
                 { key: 'tx_presence', label: 'Tx Présence %', color: '#4CAF7D', hint: 'Visites / RDV' },
@@ -329,10 +336,12 @@ function SectionVentesDelais() {
                 ))}
               </tbody>
             </table>
-            <button onClick={addBien}
-              style={{ marginTop: 8, ...sty.btn('rgba(201,168,76,0.08)', '#C9A84C'), border: '1px dashed rgba(201,168,76,0.3)', fontSize: 12 }}>
-              + Ajouter un type de bien
-            </button>
+            {form.biens.length < TYPES_BIENS.length && (
+              <button onClick={addBien}
+                style={{ marginTop: 8, ...sty.btn('rgba(201,168,76,0.08)', '#C9A84C'), border: '1px dashed rgba(201,168,76,0.3)', fontSize: 12 }}>
+                + Ajouter un type de bien
+              </button>
+            )}
           </div>
 
           <div style={{ display: 'flex', gap: 10 }}>
@@ -346,7 +355,7 @@ function SectionVentesDelais() {
         </div>
       )}
 
-      {/* Liste projets */}
+      {/* Liste projets groupés par région */}
       {projets.length === 0 && !showForm ? (
         <div style={{ ...sty.card, textAlign: 'center', color: '#8A8A7A', padding: 48 }}>
           <div style={{ fontSize: 32, marginBottom: 10 }}>🏗</div>
@@ -357,110 +366,125 @@ function SectionVentesDelais() {
         REGIONS.map(region => {
           const projetsRegion = projets.filter(p => p.region === region)
           if (projetsRegion.length === 0) return null
+          const totalUnites = projetsRegion.reduce((s, p) => s + p.biens.reduce((ss, b) => ss + (parseInt(b.stock) || 0), 0), 0)
+
           return (
-            <div key={region}>
-              {/* Header région */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, marginTop: 8 }}>
+            <div key={region} style={{ marginBottom: 32 }}>
+              {/* Séparateur région */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
                 <div style={{ height: 2, flex: 1, background: region === 'Kenitra' ? 'rgba(83,74,183,0.2)' : 'rgba(201,168,76,0.3)' }} />
-                <div style={{ fontSize: 13, fontWeight: 700, color: region === 'Kenitra' ? '#534AB7' : '#C9A84C',
-                  padding: '4px 16px', borderRadius: 20, background: region === 'Kenitra' ? 'rgba(83,74,183,0.08)' : 'rgba(201,168,76,0.08)',
+                <div style={{ fontSize: 13, fontWeight: 700,
+                  color: region === 'Kenitra' ? '#534AB7' : '#C9A84C',
+                  padding: '5px 18px', borderRadius: 20,
+                  background: region === 'Kenitra' ? 'rgba(83,74,183,0.08)' : 'rgba(201,168,76,0.08)',
                   border: `1px solid ${region === 'Kenitra' ? 'rgba(83,74,183,0.2)' : 'rgba(201,168,76,0.2)'}` }}>
-                  Équipe {region} · {projetsRegion.length} projet{projetsRegion.length > 1 ? 's' : ''} · {projetsRegion.reduce((s, p) => s + p.biens.reduce((ss, b) => ss + (parseInt(b.stock)||0), 0), 0)} unités
+                  Équipe {region} · {projetsRegion.length} projet{projetsRegion.length > 1 ? 's' : ''} · {totalUnites} unités
                 </div>
                 <div style={{ height: 2, flex: 1, background: region === 'Kenitra' ? 'rgba(83,74,183,0.2)' : 'rgba(201,168,76,0.3)' }} />
               </div>
 
+              {/* Projets de la région */}
               {projetsRegion.map(p => {
-          const totalStock = p.biens.reduce((s, b) => s + (parseInt(b.stock) || 0), 0)
-          const totFunnel = calcFunnel(totalStock, p.delai_mois, p.tx_vente, p.tx_presence, p.tx_conv_tel, p.tx_joignabilite)
-          const lastUpdate = new Date(p.updated_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                const totalStock = p.biens.reduce((s, b) => s + (parseInt(b.stock) || 0), 0)
+                const totFunnel = calcFunnel(totalStock, p.delai_mois, p.tx_vente, p.tx_presence, p.tx_conv_tel, p.tx_joignabilite)
+                const lastUpdate = new Date(p.updated_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
-          return (
-            <div key={p.id} style={sty.card}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-                <div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: '#2C2C2C' }}>{p.nom_projet}</div>
-                  {p.commerciaux && <div style={{ fontSize: 12, color: '#8A8A7A', marginTop: 3 }}>Commerciaux : {p.commerciaux}</div>}
-                  <div style={{ fontSize: 11, color: '#B0AEA8', marginTop: 3 }}>Dernière mise à jour : {lastUpdate}</div>
-                </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <span style={{ display: 'inline-block', padding: '3px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, color: '#C9A84C', background: 'rgba(201,168,76,0.1)' }}>
-                    {p.delai_mois} mois
-                  </span>
-                  <button onClick={() => openEdit(p)} style={sty.btn('rgba(55,138,221,0.08)', '#378ADD')}>Modifier</button>
-                  <button onClick={() => handleDelete(p.id)} style={sty.btn('rgba(224,92,92,0.08)', '#E05C5C')}>Supprimer</button>
-                </div>
-              </div>
+                return (
+                  <div key={p.id} style={sty.card}>
+                    {/* Header projet */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+                      <div>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: '#2C2C2C' }}>{p.nom_projet}</div>
+                        {p.commerciaux && <div style={{ fontSize: 12, color: '#8A8A7A', marginTop: 2 }}>Commerciaux : {p.commerciaux}</div>}
+                        <div style={{ fontSize: 11, color: '#B0AEA8', marginTop: 2 }}>Mise à jour : {lastUpdate}</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <span style={{ display: 'inline-block', padding: '3px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, color: '#C9A84C', background: 'rgba(201,168,76,0.1)' }}>
+                          {p.delai_mois} mois
+                        </span>
+                        <button onClick={() => openEdit(p)} style={sty.btn('rgba(55,138,221,0.08)', '#378ADD')}>Modifier</button>
+                        <button onClick={() => handleDelete(p.id)} style={sty.btn('rgba(224,92,92,0.08)', '#E05C5C')}>Supprimer</button>
+                      </div>
+                    </div>
 
-              {/* Taux */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 16 }}>
-                {[
-                  { label: 'Tx Vente', val: `${p.tx_vente}%`, color: '#534AB7' },
-                  { label: 'Tx Présence', val: `${p.tx_presence}%`, color: '#4CAF7D' },
-                  { label: 'Conv. Tél', val: `${p.tx_conv_tel}%`, color: '#C9A84C' },
-                  { label: 'Joignabilité', val: `${p.tx_joignabilite}%`, color: '#378ADD' },
-                ].map(k => (
-                  <div key={k.label} style={sty.kpiBox(k.color)}>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: k.color }}>{k.val}</div>
-                    <div style={{ fontSize: 10, color: '#8A8A7A', marginTop: 2 }}>{k.label}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Tableau */}
-              {p.biens.length > 0 && (
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr>
-                      {['Type de bien', 'Stock', 'Délai', 'Obj/mois', 'Obj/sem.', 'Visites/mois', 'RDV/mois', 'Échanges/mois', 'Leads/mois'].map(h => (
-                        <th key={h} style={{ ...sty.th, textAlign: h === 'Type de bien' ? 'left' : 'center' }}>{h}</th>
+                    {/* Taux KPIs */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 14 }}>
+                      {[
+                        { label: 'Tx Vente', val: `${p.tx_vente}%`, color: '#534AB7' },
+                        { label: 'Tx Présence', val: `${p.tx_presence}%`, color: '#4CAF7D' },
+                        { label: 'Conv. Tél', val: `${p.tx_conv_tel}%`, color: '#C9A84C' },
+                        { label: 'Joignabilité', val: `${p.tx_joignabilite}%`, color: '#378ADD' },
+                      ].map(k => (
+                        <div key={k.label} style={{ textAlign: 'center', padding: '8px', background: `${k.color}08`, borderRadius: 8, border: `1px solid ${k.color}20` }}>
+                          <div style={{ fontSize: 15, fontWeight: 700, color: k.color }}>{k.val}</div>
+                          <div style={{ fontSize: 10, color: '#8A8A7A', marginTop: 2 }}>{k.label}</div>
+                        </div>
                       ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {p.biens.map((b, i) => {
-                      const f = calcFunnel(b.stock, p.delai_mois, p.tx_vente, p.tx_presence, p.tx_conv_tel, p.tx_joignabilite)
-                      return (
-                        <tr key={i}>
-                          <td style={{ ...sty.td, textAlign: 'left', fontWeight: 500 }}>{b.type_bien}</td>
-                          <td style={sty.td}>{b.stock}</td>
-                          <td style={sty.td}>{p.delai_mois} mois</td>
-                          <td style={{ ...sty.td, fontWeight: 600, color: '#C9A84C' }}>{f.obj_mois || '—'}</td>
-                          <td style={{ ...sty.td, fontWeight: 500, color: '#C9A84C' }}>{f.obj_semaine || '—'}</td>
-                          <td style={{ ...sty.td, color: '#534AB7' }}>{f.visites || '—'}</td>
-                          <td style={{ ...sty.td, color: '#4CAF7D' }}>{f.rdv || '—'}</td>
-                          <td style={{ ...sty.td, color: '#C9A84C' }}>{f.echanges || '—'}</td>
-                          <td style={{ ...sty.td, fontWeight: 600, color: '#E8A040' }}>{f.leads || '—'}</td>
-                        </tr>
-                      )
-                    })}
-                    <tr>
-                      <td style={{ ...sty.tdTotal, textAlign: 'left' }}>TOTAL</td>
-                      <td style={sty.tdTotal}>{totalStock}</td>
-                      <td style={sty.tdTotal}>{p.delai_mois} mois</td>
-                      <td style={sty.tdTotal}>{totFunnel.obj_mois || '—'}</td>
-                      <td style={sty.tdTotal}>{totFunnel.obj_semaine || '—'}</td>
-                      <td style={{ ...sty.tdTotal, color: '#534AB7' }}>{totFunnel.visites || '—'}</td>
-                      <td style={{ ...sty.tdTotal, color: '#4CAF7D' }}>{totFunnel.rdv || '—'}</td>
-                      <td style={{ ...sty.tdTotal, color: '#C9A84C' }}>{totFunnel.echanges || '—'}</td>
-                      <td style={{ ...sty.tdTotal, color: '#E8A040' }}>{totFunnel.leads || '—'}</td>
-                    </tr>
-                    {/* Notification liquidation avant délai */}
-                    {totFunnel.liquide_avant && (
-                      <tr>
-                        <td colSpan={9} style={{ padding: '10px 14px', background: 'rgba(76,175,125,0.08)', borderTop: '1px solid rgba(76,175,125,0.2)' }}>
+                    </div>
+
+                    {/* Tableau par type de bien */}
+                    {p.biens.length > 0 && (
+                      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 14 }}>
+                        <thead>
+                          <tr>
+                            {['Type de bien', 'Stock', 'Délai', 'Obj/mois', 'Obj/sem.', 'Visites/mois', 'RDV/mois', 'Échanges/mois', 'Leads/mois'].map(h => (
+                              <th key={h} style={{ ...sty.th, textAlign: h === 'Type de bien' ? 'left' : 'center' }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {p.biens.map((b, i) => {
+                            const f = calcFunnel(b.stock, p.delai_mois, p.tx_vente, p.tx_presence, p.tx_conv_tel, p.tx_joignabilite)
+                            return (
+                              <tr key={i}>
+                                <td style={{ ...sty.td, textAlign: 'left', fontWeight: 500 }}>{b.type_bien}</td>
+                                <td style={sty.td}>{b.stock}</td>
+                                <td style={sty.td}>{p.delai_mois} mois</td>
+                                <td style={{ ...sty.td, fontWeight: 600, color: '#C9A84C' }}>{f.obj_mois || '—'}</td>
+                                <td style={{ ...sty.td, color: '#C9A84C' }}>{f.obj_semaine || '—'}</td>
+                                <td style={{ ...sty.td, color: '#534AB7' }}>{f.visites || '—'}</td>
+                                <td style={{ ...sty.td, color: '#4CAF7D' }}>{f.rdv || '—'}</td>
+                                <td style={{ ...sty.td, color: '#C9A84C' }}>{f.echanges || '—'}</td>
+                                <td style={{ ...sty.td, fontWeight: 600, color: '#E8A040' }}>{f.leads || '—'}</td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    )}
+
+                    {/* TOTAL EN CARTE */}
+                    <div style={{ padding: '16px 20px', borderRadius: 10, background: 'rgba(201,168,76,0.06)', border: '1.5px solid rgba(201,168,76,0.2)' }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#8A8A7A', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
+                        Total projet
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+                        {[
+                          { label: 'Stock total', val: totalStock, color: '#2C2C2C' },
+                          { label: 'Obj/mois', val: totFunnel.obj_mois, color: '#C9A84C' },
+                          { label: 'Obj/semaine', val: totFunnel.obj_semaine, color: '#C9A84C' },
+                          { label: 'Visites/mois', val: totFunnel.visites, color: '#534AB7' },
+                          { label: 'RDV/mois', val: totFunnel.rdv, color: '#4CAF7D' },
+                          { label: 'Échanges/mois', val: totFunnel.echanges, color: '#C9A84C' },
+                          { label: 'Leads/mois', val: totFunnel.leads, color: '#E8A040' },
+                        ].map(k => (
+                          <div key={k.label} style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: 24, fontWeight: 800, color: k.color }}>{k.val || '—'}</div>
+                            <div style={{ fontSize: 10, color: '#8A8A7A', marginTop: 2 }}>{k.label}</div>
+                          </div>
+                        ))}
+                      </div>
+                      {totFunnel.liquide_avant && (
+                        <div style={{ marginTop: 12, padding: '8px 14px', background: 'rgba(76,175,125,0.08)', borderRadius: 8, border: '1px solid rgba(76,175,125,0.2)' }}>
                           <span style={{ fontSize: 12, color: '#2d7a54', fontWeight: 500 }}>
                             ✅ Avec ces taux, le projet sera liquidé en <strong>{totFunnel.mois_reel} mois</strong> — avant le délai de {p.delai_mois} mois !
                           </span>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          )
-        })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )
         })
