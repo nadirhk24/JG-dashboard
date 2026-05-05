@@ -59,6 +59,10 @@ function SectionVentesDelais() {
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState(null)
   const [form, setForm] = useState(emptyProjet)
+  // Expand/collapse state
+  const [expandedRegions, setExpandedRegions] = useState({})
+  const [expandedProjets, setExpandedProjets] = useState({})
+  const [globalExpanded, setGlobalExpanded] = useState(false)
 
   useEffect(() => { loadProjets() }, [])
 
@@ -92,8 +96,7 @@ function SectionVentesDelais() {
     if (!s || !tv || !tp || !tc || !tj) return {}
     const obj_mois = Math.round(s / d)
     const obj_semaine = Math.round(obj_mois / 4)
-    const ventes_reelles = obj_mois * d
-    const liquide_avant = ventes_reelles > s
+    const liquide_avant = (obj_mois * d) > s
     const mois_reel = +(s / obj_mois).toFixed(1)
     const visites = Math.ceil(obj_mois / tv)
     const rdv = Math.ceil(visites / tp)
@@ -102,18 +105,31 @@ function SectionVentesDelais() {
     return { obj_mois, obj_semaine, visites, rdv, echanges, leads, liquide_avant, mois_reel }
   }
 
+  // Calcul totaux pour une liste de projets
+  function calcTotauxProjets(liste) {
+    let stock = 0, obj_mois = 0, obj_sem = 0, visites = 0, rdv = 0, echanges = 0, leads = 0
+    for (const p of liste) {
+      const totalStock = p.biens.reduce((s, b) => s + (parseInt(b.stock) || 0), 0)
+      const f = calcFunnel(totalStock, p.delai_mois, p.tx_vente, p.tx_presence, p.tx_conv_tel, p.tx_joignabilite)
+      stock += totalStock
+      obj_mois += f.obj_mois || 0
+      obj_sem += f.obj_semaine || 0
+      visites += f.visites || 0
+      rdv += f.rdv || 0
+      echanges += f.echanges || 0
+      leads += f.leads || 0
+    }
+    return { stock, obj_mois, obj_sem, visites, rdv, echanges, leads }
+  }
+
   async function handleSave() {
     if (!form.nom_projet.trim()) return setMsg({ type: 'error', text: 'Nom du projet requis' })
     setSaving(true)
     const payload = {
-      nom_projet: form.nom_projet,
-      commerciaux: form.commerciaux,
-      region: form.region || 'Kenitra',
-      delai_mois: parseInt(form.delai_mois) || 1,
-      tx_vente: parseFloat(form.tx_vente) || 0,
-      tx_presence: parseFloat(form.tx_presence) || 0,
-      tx_conv_tel: parseFloat(form.tx_conv_tel) || 0,
-      tx_joignabilite: parseFloat(form.tx_joignabilite) || 0,
+      nom_projet: form.nom_projet, commerciaux: form.commerciaux,
+      region: form.region || 'Kenitra', delai_mois: parseInt(form.delai_mois) || 1,
+      tx_vente: parseFloat(form.tx_vente) || 0, tx_presence: parseFloat(form.tx_presence) || 0,
+      tx_conv_tel: parseFloat(form.tx_conv_tel) || 0, tx_joignabilite: parseFloat(form.tx_joignabilite) || 0,
       updated_at: new Date().toISOString()
     }
     let projetId
@@ -133,9 +149,7 @@ function SectionVentesDelais() {
     }
     setSaving(false)
     setMsg({ type: 'success', text: editProjet ? 'Projet mis à jour !' : 'Projet créé !' })
-    setShowForm(false)
-    setEditProjet(null)
-    setForm(emptyProjet)
+    setShowForm(false); setEditProjet(null); setForm(emptyProjet)
     loadProjets()
     setTimeout(() => setMsg(null), 3000)
   }
@@ -148,22 +162,22 @@ function SectionVentesDelais() {
 
   function openEdit(p) {
     setForm({ ...p, biens: p.biens.length > 0 ? p.biens : [{ type_bien: '', stock: 0 }] })
-    setEditProjet(p)
-    setShowForm(true)
+    setEditProjet(p); setShowForm(true)
   }
 
-  function addBien() {
-    setForm(p => ({ ...p, biens: [...p.biens, { type_bien: '', stock: 0 }] }))
+  function addBien() { setForm(p => ({ ...p, biens: [...p.biens, { type_bien: '', stock: 0 }] })) }
+  function removeBien(i) { setForm(p => ({ ...p, biens: p.biens.filter((_, idx) => idx !== i) })) }
+  function updateBien(i, key, val) { setForm(p => ({ ...p, biens: p.biens.map((b, idx) => idx === i ? { ...b, [key]: val } : b) })) }
+
+  function toggleRegion(region) {
+    setExpandedRegions(prev => ({ ...prev, [region]: !prev[region] }))
   }
-  function removeBien(i) {
-    setForm(p => ({ ...p, biens: p.biens.filter((_, idx) => idx !== i) }))
-  }
-  function updateBien(i, key, val) {
-    setForm(p => ({ ...p, biens: p.biens.map((b, idx) => idx === i ? { ...b, [key]: val } : b) }))
+  function toggleProjet(id) {
+    setExpandedProjets(prev => ({ ...prev, [id]: !prev[id] }))
   }
 
   const sty = {
-    card: { background: '#fff', borderRadius: 14, padding: 24, border: '1px solid rgba(201,168,76,0.15)', marginBottom: 16 },
+    card: { background: '#fff', borderRadius: 14, padding: 24, border: '1px solid rgba(201,168,76,0.15)', marginBottom: 12 },
     label: { fontSize: 11, color: '#8A8A7A', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 5, display: 'block' },
     input: { width: '100%', padding: '9px 12px', border: '1.5px solid rgba(201,168,76,0.25)', borderRadius: 8, fontSize: 13, color: '#2C2C2C', background: '#F8F7F4', outline: 'none', boxSizing: 'border-box' },
     th: { fontSize: 11, color: '#5A5A5A', fontWeight: 500, padding: '10px 12px', borderBottom: '1px solid rgba(201,168,76,0.15)', textAlign: 'center', background: '#FAFAF8' },
@@ -171,7 +185,33 @@ function SectionVentesDelais() {
     btn: (bg, col) => ({ background: bg, color: col, border: 'none', padding: '9px 20px', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }),
   }
 
+  // Composant Carte Totaux (réutilisable)
+  function CarteTotaux({ totaux, color = '#C9A84C', size = 'md' }) {
+    const fs = size === 'lg' ? 28 : size === 'md' ? 22 : 16
+    const items = [
+      { label: 'Stock', val: totaux.stock, color: '#2C2C2C' },
+      { label: 'Obj/mois', val: totaux.obj_mois, color },
+      { label: 'Obj/sem.', val: totaux.obj_sem, color },
+      { label: 'Visites/mois', val: totaux.visites, color: '#534AB7' },
+      { label: 'RDV/mois', val: totaux.rdv, color: '#4CAF7D' },
+      { label: 'Échanges/mois', val: totaux.echanges, color },
+      { label: 'Leads/mois', val: totaux.leads, color: '#E8A040' },
+    ]
+    return (
+      <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+        {items.map(k => (
+          <div key={k.label} style={{ textAlign: 'center', flex: 1, minWidth: 60 }}>
+            <div style={{ fontSize: fs, fontWeight: 800, color: k.color }}>{k.val || '—'}</div>
+            <div style={{ fontSize: 10, color: '#8A8A7A', marginTop: 2 }}>{k.label}</div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   if (loading) return <div style={{ textAlign: 'center', color: '#8A8A7A', padding: 40 }}>Chargement...</div>
+
+  const totauxGlobaux = calcTotauxProjets(projets)
 
   return (
     <div>
@@ -179,7 +219,7 @@ function SectionVentesDelais() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
           <div style={{ fontSize: 15, fontWeight: 600, color: '#2C2C2C' }}>Objectifs Ventes / Délais</div>
-          <div style={{ fontSize: 12, color: '#8A8A7A', marginTop: 3 }}>Par projet · Funnel calculé automatiquement</div>
+          <div style={{ fontSize: 12, color: '#8A8A7A', marginTop: 3 }}>{projets.length} projets · {totauxGlobaux.stock} unités au total</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={() => setShowMethodo(!showMethodo)}
@@ -193,7 +233,6 @@ function SectionVentesDelais() {
         </div>
       </div>
 
-      {/* Message */}
       {msg && (
         <div style={{ padding: '10px 16px', borderRadius: 8, marginBottom: 16, fontSize: 13, fontWeight: 500,
           background: msg.type === 'success' ? 'rgba(76,175,125,0.1)' : 'rgba(224,92,92,0.1)',
@@ -202,9 +241,30 @@ function SectionVentesDelais() {
         </div>
       )}
 
+      {/* TAUX GLOBAUX - 1 FOIS EN HAUT */}
+      <div style={{ background: '#fff', borderRadius: 14, padding: '14px 20px', border: '1px solid rgba(201,168,76,0.15)', marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#8A8A7A', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
+          Taux commerciaux appliqués
+        </div>
+        <div style={{ display: 'flex', gap: 12 }}>
+          {[
+            { label: 'Tx Vente', val: '30%', color: '#534AB7', hint: 'Ventes / Visites' },
+            { label: 'Tx Présence', val: '20%', color: '#4CAF7D', hint: 'Visites / RDV' },
+            { label: 'Conv. Tél', val: '35%', color: '#C9A84C', hint: 'RDV / Échanges' },
+            { label: 'Joignabilité', val: '78%', color: '#378ADD', hint: 'Échanges / Leads' },
+          ].map(k => (
+            <div key={k.label} style={{ flex: 1, textAlign: 'center', padding: '10px 8px', background: `${k.color}08`, borderRadius: 8, border: `1px solid ${k.color}20` }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: k.color }}>{k.val}</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#5A5A5A', marginTop: 2 }}>{k.label}</div>
+              <div style={{ fontSize: 10, color: '#8A8A7A', marginTop: 1 }}>{k.hint}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Note Méthodologique */}
       {showMethodo && (
-        <div style={{ background: 'rgba(55,138,221,0.04)', border: '1px solid rgba(55,138,221,0.15)', borderRadius: 14, padding: 20, marginBottom: 20 }}>
+        <div style={{ background: 'rgba(55,138,221,0.04)', border: '1px solid rgba(55,138,221,0.15)', borderRadius: 14, padding: 20, marginBottom: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#378ADD', marginBottom: 12 }}>Méthodologie — Funnel inversé</div>
           <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
             {[
@@ -221,8 +281,7 @@ function SectionVentesDelais() {
           </div>
           <div style={{ fontSize: 12, color: '#5A5A5A', padding: '10px 14px', background: 'rgba(201,168,76,0.06)', borderRadius: 8, borderLeft: '3px solid #C9A84C' }}>
             <strong style={{ color: '#C9A84C' }}>Analyse Avril 2026 · </strong>
-            Joignabilité équipe CC : 78% · Entre 55 et 75 leads/vente selon conseillère.
-            Pour 19 ventes/mois (30% vente / 20% présence / 35% conv. tél) → 1 160 leads nécessaires.
+            Joignabilité équipe CC : 78% · Entre 55 et 75 leads/vente. Pour 19 ventes/mois → 1 160 leads.
           </div>
           <div style={{ marginTop: 10, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
             {[
@@ -275,8 +334,6 @@ function SectionVentesDelais() {
                 onChange={e => setForm(p => ({ ...p, delai_mois: e.target.value }))} min={1} />
             </div>
           </div>
-
-          {/* Taux */}
           <div style={{ padding: '14px 16px', background: 'rgba(201,168,76,0.05)', borderRadius: 10, border: '1px solid rgba(201,168,76,0.15)', marginBottom: 20 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#C9A84C', marginBottom: 12 }}>Taux (communs à tous les types de biens)</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14 }}>
@@ -296,8 +353,6 @@ function SectionVentesDelais() {
               ))}
             </div>
           </div>
-
-          {/* Types de biens */}
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#2C2C2C', marginBottom: 10 }}>Types de biens</div>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -317,9 +372,7 @@ function SectionVentesDelais() {
                         <option value="">-- Choisir --</option>
                         {TYPES_BIENS.filter(t =>
                           t === b.type_bien || !form.biens.some((other, oi) => oi !== i && other.type_bien === t)
-                        ).map(t => (
-                          <option key={t} value={t}>{t}</option>
-                        ))}
+                        ).map(t => <option key={t} value={t}>{t}</option>)}
                       </select>
                     </td>
                     <td style={{ padding: '6px 8px' }}>
@@ -343,10 +396,8 @@ function SectionVentesDelais() {
               </button>
             )}
           </div>
-
           <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={handleSave} disabled={saving}
-              style={sty.btn(saving ? '#E8D5A3' : '#C9A84C', '#fff')}>
+            <button onClick={handleSave} disabled={saving} style={sty.btn(saving ? '#E8D5A3' : '#C9A84C', '#fff')}>
               {saving ? 'Enregistrement...' : editProjet ? 'Mettre à jour' : 'Créer le projet'}
             </button>
             <button onClick={() => { setShowForm(false); setEditProjet(null); setForm(emptyProjet) }}
@@ -355,139 +406,140 @@ function SectionVentesDelais() {
         </div>
       )}
 
-      {/* Liste projets groupés par région */}
-      {projets.length === 0 && !showForm ? (
+      {/* TOTAUX GLOBAUX CLIQUABLES */}
+      {projets.length > 0 && (
+        <div>
+          {/* Carte Totaux ALL */}
+          <div onClick={() => setGlobalExpanded(!globalExpanded)}
+            style={{ background: '#fff', borderRadius: 14, padding: '16px 24px', border: '2px solid rgba(201,168,76,0.25)', marginBottom: 12, cursor: 'pointer',
+              boxShadow: globalExpanded ? '0 4px 20px rgba(201,168,76,0.12)' : 'none',
+              transition: 'box-shadow 0.2s' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#2C2C2C' }}>Tous les projets</div>
+                <div style={{ fontSize: 11, color: '#8A8A7A', marginTop: 2 }}>{projets.length} projets · {REGIONS.filter(r => projets.some(p => p.region === r)).length} régions</div>
+              </div>
+              <div style={{ fontSize: 18, color: '#C9A84C', transition: 'transform 0.2s', transform: globalExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</div>
+            </div>
+            <CarteTotaux totaux={totauxGlobaux} color="#C9A84C" size="lg" />
+          </div>
+
+          {/* Régions (visibles quand global expanded) */}
+          {globalExpanded && REGIONS.map(region => {
+            const projetsRegion = projets.filter(p => p.region === region)
+            if (projetsRegion.length === 0) return null
+            const totauxRegion = calcTotauxProjets(projetsRegion)
+            const isExpanded = expandedRegions[region]
+            const regionColor = region === 'Kenitra' ? '#534AB7' : '#C9A84C'
+
+            return (
+              <div key={region} style={{ marginLeft: 16, marginBottom: 12 }}>
+                {/* Carte Région */}
+                <div onClick={() => toggleRegion(region)}
+                  style={{ background: '#fff', borderRadius: 12, padding: '14px 20px',
+                    border: `1.5px solid ${regionColor}30`, marginBottom: 8, cursor: 'pointer',
+                    boxShadow: isExpanded ? `0 4px 16px ${regionColor}15` : 'none' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: regionColor }}>Équipe {region}</div>
+                      <div style={{ fontSize: 11, color: '#8A8A7A', marginTop: 2 }}>{projetsRegion.length} projets · {totauxRegion.stock} unités</div>
+                    </div>
+                    <div style={{ fontSize: 16, color: regionColor, transition: 'transform 0.2s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</div>
+                  </div>
+                  <CarteTotaux totaux={totauxRegion} color={regionColor} size="md" />
+                </div>
+
+                {/* Projets de la région */}
+                {isExpanded && projetsRegion.map(p => {
+                  const totalStock = p.biens.reduce((s, b) => s + (parseInt(b.stock) || 0), 0)
+                  const totFunnel = calcFunnel(totalStock, p.delai_mois, p.tx_vente, p.tx_presence, p.tx_conv_tel, p.tx_joignabilite)
+                  const isProjetExpanded = expandedProjets[p.id]
+                  const lastUpdate = new Date(p.updated_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+
+                  return (
+                    <div key={p.id} style={{ marginLeft: 16, marginBottom: 8 }}>
+                      {/* Carte Projet cliquable */}
+                      <div style={{ background: '#fff', borderRadius: 10, border: '1px solid rgba(201,168,76,0.15)' }}>
+                        {/* Header projet */}
+                        <div onClick={() => toggleProjet(p.id)}
+                          style={{ padding: '14px 20px', cursor: 'pointer', borderBottom: isProjetExpanded ? '1px solid rgba(201,168,76,0.1)' : 'none' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                            <div>
+                              <div style={{ fontSize: 14, fontWeight: 700, color: '#2C2C2C' }}>{p.nom_projet}</div>
+                              <div style={{ fontSize: 11, color: '#8A8A7A', marginTop: 2 }}>
+                                {p.commerciaux && <span>{p.commerciaux} · </span>}
+                                {p.delai_mois} mois · Mise à jour : {lastUpdate}
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                              <button onClick={e => { e.stopPropagation(); openEdit(p) }}
+                                style={sty.btn('rgba(55,138,221,0.08)', '#378ADD')}>Modifier</button>
+                              <button onClick={e => { e.stopPropagation(); handleDelete(p.id) }}
+                                style={sty.btn('rgba(224,92,92,0.08)', '#E05C5C')}>Supprimer</button>
+                              <div style={{ fontSize: 14, color: '#C9A84C', transition: 'transform 0.2s', transform: isProjetExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</div>
+                            </div>
+                          </div>
+                          {/* Totaux projet (toujours visibles) */}
+                          <CarteTotaux totaux={{ stock: totalStock, obj_mois: totFunnel.obj_mois, obj_sem: totFunnel.obj_semaine, visites: totFunnel.visites, rdv: totFunnel.rdv, echanges: totFunnel.echanges, leads: totFunnel.leads }} color="#C9A84C" size="sm" />
+                        </div>
+
+                        {/* Détail tableau (expandable) */}
+                        {isProjetExpanded && (
+                          <div style={{ padding: '16px 20px' }}>
+                            {p.biens.length > 0 && (
+                              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 14 }}>
+                                <thead>
+                                  <tr>
+                                    {['Type de bien', 'Stock', 'Délai', 'Obj/mois', 'Obj/sem.', 'Visites/mois', 'RDV/mois', 'Échanges/mois', 'Leads/mois'].map(h => (
+                                      <th key={h} style={{ ...sty.th, textAlign: h === 'Type de bien' ? 'left' : 'center' }}>{h}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {p.biens.map((b, i) => {
+                                    const f = calcFunnel(b.stock, p.delai_mois, p.tx_vente, p.tx_presence, p.tx_conv_tel, p.tx_joignabilite)
+                                    return (
+                                      <tr key={i}>
+                                        <td style={{ ...sty.td, textAlign: 'left', fontWeight: 500 }}>{b.type_bien}</td>
+                                        <td style={sty.td}>{b.stock}</td>
+                                        <td style={sty.td}>{p.delai_mois} mois</td>
+                                        <td style={{ ...sty.td, fontWeight: 600, color: '#C9A84C' }}>{f.obj_mois || '—'}</td>
+                                        <td style={{ ...sty.td, color: '#C9A84C' }}>{f.obj_semaine || '—'}</td>
+                                        <td style={{ ...sty.td, color: '#534AB7' }}>{f.visites || '—'}</td>
+                                        <td style={{ ...sty.td, color: '#4CAF7D' }}>{f.rdv || '—'}</td>
+                                        <td style={{ ...sty.td, color: '#C9A84C' }}>{f.echanges || '—'}</td>
+                                        <td style={{ ...sty.td, fontWeight: 600, color: '#E8A040' }}>{f.leads || '—'}</td>
+                                      </tr>
+                                    )
+                                  })}
+                                </tbody>
+                              </table>
+                            )}
+                            {totFunnel.liquide_avant && (
+                              <div style={{ padding: '8px 14px', background: 'rgba(76,175,125,0.08)', borderRadius: 8, border: '1px solid rgba(76,175,125,0.2)' }}>
+                                <span style={{ fontSize: 12, color: '#2d7a54', fontWeight: 500 }}>
+                                  Avec ces taux, le projet sera liquidé en <strong>{totFunnel.mois_reel} mois</strong> — avant le délai de {p.delai_mois} mois !
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {projets.length === 0 && !showForm && (
         <div style={{ ...sty.card, textAlign: 'center', color: '#8A8A7A', padding: 48 }}>
           <div style={{ fontSize: 32, marginBottom: 10 }}>🏗</div>
           <div style={{ fontSize: 14, fontWeight: 500 }}>Aucun projet configuré</div>
           <div style={{ fontSize: 12, marginTop: 5 }}>Cliquez sur "+ Nouveau projet" pour commencer</div>
         </div>
-      ) : (
-        REGIONS.map(region => {
-          const projetsRegion = projets.filter(p => p.region === region)
-          if (projetsRegion.length === 0) return null
-          const totalUnites = projetsRegion.reduce((s, p) => s + p.biens.reduce((ss, b) => ss + (parseInt(b.stock) || 0), 0), 0)
-
-          return (
-            <div key={region} style={{ marginBottom: 32 }}>
-              {/* Séparateur région */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-                <div style={{ height: 2, flex: 1, background: region === 'Kenitra' ? 'rgba(83,74,183,0.2)' : 'rgba(201,168,76,0.3)' }} />
-                <div style={{ fontSize: 13, fontWeight: 700,
-                  color: region === 'Kenitra' ? '#534AB7' : '#C9A84C',
-                  padding: '5px 18px', borderRadius: 20,
-                  background: region === 'Kenitra' ? 'rgba(83,74,183,0.08)' : 'rgba(201,168,76,0.08)',
-                  border: `1px solid ${region === 'Kenitra' ? 'rgba(83,74,183,0.2)' : 'rgba(201,168,76,0.2)'}` }}>
-                  Équipe {region} · {projetsRegion.length} projet{projetsRegion.length > 1 ? 's' : ''} · {totalUnites} unités
-                </div>
-                <div style={{ height: 2, flex: 1, background: region === 'Kenitra' ? 'rgba(83,74,183,0.2)' : 'rgba(201,168,76,0.3)' }} />
-              </div>
-
-              {/* Projets de la région */}
-              {projetsRegion.map(p => {
-                const totalStock = p.biens.reduce((s, b) => s + (parseInt(b.stock) || 0), 0)
-                const totFunnel = calcFunnel(totalStock, p.delai_mois, p.tx_vente, p.tx_presence, p.tx_conv_tel, p.tx_joignabilite)
-                const lastUpdate = new Date(p.updated_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-
-                return (
-                  <div key={p.id} style={sty.card}>
-                    {/* Header projet */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
-                      <div>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: '#2C2C2C' }}>{p.nom_projet}</div>
-                        {p.commerciaux && <div style={{ fontSize: 12, color: '#8A8A7A', marginTop: 2 }}>Commerciaux : {p.commerciaux}</div>}
-                        <div style={{ fontSize: 11, color: '#B0AEA8', marginTop: 2 }}>Mise à jour : {lastUpdate}</div>
-                      </div>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <span style={{ display: 'inline-block', padding: '3px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, color: '#C9A84C', background: 'rgba(201,168,76,0.1)' }}>
-                          {p.delai_mois} mois
-                        </span>
-                        <button onClick={() => openEdit(p)} style={sty.btn('rgba(55,138,221,0.08)', '#378ADD')}>Modifier</button>
-                        <button onClick={() => handleDelete(p.id)} style={sty.btn('rgba(224,92,92,0.08)', '#E05C5C')}>Supprimer</button>
-                      </div>
-                    </div>
-
-                    {/* Taux KPIs */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 14 }}>
-                      {[
-                        { label: 'Tx Vente', val: `${p.tx_vente}%`, color: '#534AB7' },
-                        { label: 'Tx Présence', val: `${p.tx_presence}%`, color: '#4CAF7D' },
-                        { label: 'Conv. Tél', val: `${p.tx_conv_tel}%`, color: '#C9A84C' },
-                        { label: 'Joignabilité', val: `${p.tx_joignabilite}%`, color: '#378ADD' },
-                      ].map(k => (
-                        <div key={k.label} style={{ textAlign: 'center', padding: '8px', background: `${k.color}08`, borderRadius: 8, border: `1px solid ${k.color}20` }}>
-                          <div style={{ fontSize: 15, fontWeight: 700, color: k.color }}>{k.val}</div>
-                          <div style={{ fontSize: 10, color: '#8A8A7A', marginTop: 2 }}>{k.label}</div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Tableau par type de bien */}
-                    {p.biens.length > 0 && (
-                      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 14 }}>
-                        <thead>
-                          <tr>
-                            {['Type de bien', 'Stock', 'Délai', 'Obj/mois', 'Obj/sem.', 'Visites/mois', 'RDV/mois', 'Échanges/mois', 'Leads/mois'].map(h => (
-                              <th key={h} style={{ ...sty.th, textAlign: h === 'Type de bien' ? 'left' : 'center' }}>{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {p.biens.map((b, i) => {
-                            const f = calcFunnel(b.stock, p.delai_mois, p.tx_vente, p.tx_presence, p.tx_conv_tel, p.tx_joignabilite)
-                            return (
-                              <tr key={i}>
-                                <td style={{ ...sty.td, textAlign: 'left', fontWeight: 500 }}>{b.type_bien}</td>
-                                <td style={sty.td}>{b.stock}</td>
-                                <td style={sty.td}>{p.delai_mois} mois</td>
-                                <td style={{ ...sty.td, fontWeight: 600, color: '#C9A84C' }}>{f.obj_mois || '—'}</td>
-                                <td style={{ ...sty.td, color: '#C9A84C' }}>{f.obj_semaine || '—'}</td>
-                                <td style={{ ...sty.td, color: '#534AB7' }}>{f.visites || '—'}</td>
-                                <td style={{ ...sty.td, color: '#4CAF7D' }}>{f.rdv || '—'}</td>
-                                <td style={{ ...sty.td, color: '#C9A84C' }}>{f.echanges || '—'}</td>
-                                <td style={{ ...sty.td, fontWeight: 600, color: '#E8A040' }}>{f.leads || '—'}</td>
-                              </tr>
-                            )
-                          })}
-                        </tbody>
-                      </table>
-                    )}
-
-                    {/* TOTAL EN CARTE */}
-                    <div style={{ padding: '16px 20px', borderRadius: 10, background: 'rgba(201,168,76,0.06)', border: '1.5px solid rgba(201,168,76,0.2)' }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: '#8A8A7A', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
-                        Total projet
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-                        {[
-                          { label: 'Stock total', val: totalStock, color: '#2C2C2C' },
-                          { label: 'Obj/mois', val: totFunnel.obj_mois, color: '#C9A84C' },
-                          { label: 'Obj/semaine', val: totFunnel.obj_semaine, color: '#C9A84C' },
-                          { label: 'Visites/mois', val: totFunnel.visites, color: '#534AB7' },
-                          { label: 'RDV/mois', val: totFunnel.rdv, color: '#4CAF7D' },
-                          { label: 'Échanges/mois', val: totFunnel.echanges, color: '#C9A84C' },
-                          { label: 'Leads/mois', val: totFunnel.leads, color: '#E8A040' },
-                        ].map(k => (
-                          <div key={k.label} style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: 24, fontWeight: 800, color: k.color }}>{k.val || '—'}</div>
-                            <div style={{ fontSize: 10, color: '#8A8A7A', marginTop: 2 }}>{k.label}</div>
-                          </div>
-                        ))}
-                      </div>
-                      {totFunnel.liquide_avant && (
-                        <div style={{ marginTop: 12, padding: '8px 14px', background: 'rgba(76,175,125,0.08)', borderRadius: 8, border: '1px solid rgba(76,175,125,0.2)' }}>
-                          <span style={{ fontSize: 12, color: '#2d7a54', fontWeight: 500 }}>
-                            ✅ Avec ces taux, le projet sera liquidé en <strong>{totFunnel.mois_reel} mois</strong> — avant le délai de {p.delai_mois} mois !
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )
-        })
       )}
     </div>
   )
