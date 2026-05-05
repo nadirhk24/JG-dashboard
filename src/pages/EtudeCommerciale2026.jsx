@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { supabase } from '../lib/supabase'
 import EtudeSourcePicker from '../components/EtudeSourcePicker'
 import { useNavigate } from 'react-router-dom'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell, ReferenceLine, ComposedChart, Area } from 'recharts'
