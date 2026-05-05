@@ -53,7 +53,7 @@ function SectionVentesDelais() {
   const emptyProjet = {
     nom_projet: '', commerciaux: '', delai_mois: 4,
     tx_vente: 30, tx_presence: 20, tx_conv_tel: 35, tx_joignabilite: 78,
-    biens: [{ type_bien: '', stock: 0, obj_total: 0 }]
+    biens: [{ type_bien: '', stock: 0 }]
   }
   const [form, setForm] = useState(emptyProjet)
 
@@ -72,17 +72,28 @@ function SectionVentesDelais() {
     setLoading(false)
   }
 
-  function calcFunnel(obj_mois, tx_vente, tx_presence, tx_conv_tel, tx_joignabilite) {
+  function calcFunnel(stock, delai_mois, tx_vente, tx_presence, tx_conv_tel, tx_joignabilite) {
     const tv = parseFloat(tx_vente) / 100
     const tp = parseFloat(tx_presence) / 100
     const tc = parseFloat(tx_conv_tel) / 100
     const tj = parseFloat(tx_joignabilite) / 100
-    if (!obj_mois || !tv || !tp || !tc || !tj) return {}
+    const s = parseInt(stock) || 0
+    const d = parseInt(delai_mois) || 1
+    if (!s || !tv || !tp || !tc || !tj) return {}
+    // Calcul objectifs
+    const obj_mois_exact = s / d
+    const obj_mois = Math.round(obj_mois_exact)
+    const obj_semaine = Math.round(obj_mois / 4)
+    // Ventes réelles si on respecte obj/mois
+    const ventes_reelles = obj_mois * d
+    const liquide_avant = ventes_reelles > s
+    const mois_reel = +(s / obj_mois).toFixed(1)
+    // Funnel
     const visites = Math.ceil(obj_mois / tv)
     const rdv = Math.ceil(visites / tp)
     const echanges = Math.ceil(rdv / tc)
     const leads = Math.ceil(echanges / tj)
-    return { visites, rdv, echanges, leads }
+    return { obj_mois, obj_semaine, visites, rdv, echanges, leads, liquide_avant, mois_reel }
   }
 
   async function handleSave() {
@@ -110,7 +121,7 @@ function SectionVentesDelais() {
     const biens = form.biens.filter(b => b.type_bien.trim())
     if (biens.length > 0) {
       await supabase.from('objectifs_vente_biens').insert(
-        biens.map(b => ({ projet_id: projetId, type_bien: b.type_bien, stock: parseInt(b.stock) || 0, obj_total: parseInt(b.obj_total) || 0 }))
+        biens.map(b => ({ projet_id: projetId, type_bien: b.type_bien, stock: parseInt(b.stock) || 0 }))
       )
     }
     setSaving(false)
@@ -127,11 +138,11 @@ function SectionVentesDelais() {
   }
 
   function openEdit(p) {
-    setForm({ ...p, biens: p.biens.length > 0 ? p.biens : [{ type_bien: '', stock: 0, obj_total: 0 }] })
+    setForm({ ...p, biens: p.biens.length > 0 ? p.biens : [{ type_bien: '', stock: 0 }] })
     setEditProjet(p); setShowForm(true)
   }
 
-  function addBien() { setForm(p => ({ ...p, biens: [...p.biens, { type_bien: '', stock: 0, obj_total: 0 }] })) }
+  function addBien() { setForm(p => ({ ...p, biens: [...p.biens, { type_bien: '', stock: 0 }] })) }
   function removeBien(i) { setForm(p => ({ ...p, biens: p.biens.filter((_, idx) => idx !== i) })) }
   function updateBien(i, key, val) { setForm(p => ({ ...p, biens: p.biens.map((b, idx) => idx === i ? { ...b, [key]: val } : b) })) }
 
@@ -273,7 +284,7 @@ function SectionVentesDelais() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  {['Type de bien', 'Unités en stock', 'Objectif total', ''].map(h => (
+                  {['Type de bien', 'Unités en stock', ''].map(h => (
                     <th key={h} style={{ ...sty.th, textAlign: h === 'Type de bien' ? 'left' : 'center' }}>{h}</th>
                   ))}
                 </tr>
@@ -289,10 +300,6 @@ function SectionVentesDelais() {
                     <td style={{ padding: '6px 8px' }}>
                       <input style={{ ...sty.input, textAlign: 'center' }} type="number" value={b.stock}
                         onChange={e => updateBien(i, 'stock', e.target.value)} min={0} />
-                    </td>
-                    <td style={{ padding: '6px 8px' }}>
-                      <input style={{ ...sty.input, textAlign: 'center' }} type="number" value={b.obj_total}
-                        onChange={e => updateBien(i, 'obj_total', e.target.value)} min={0} />
                     </td>
                     <td style={{ padding: '6px 8px', textAlign: 'center' }}>
                       {form.biens.length > 1 && (
@@ -331,9 +338,7 @@ function SectionVentesDelais() {
       ) : (
         projets.map(p => {
           const totalStock = p.biens.reduce((s, b) => s + (parseInt(b.stock) || 0), 0)
-          const totalObjTotal = p.biens.reduce((s, b) => s + (parseInt(b.obj_total) || 0), 0)
-          const objMoisTotal = p.delai_mois > 0 ? Math.ceil(totalObjTotal / p.delai_mois) : 0
-          const totFunnel = calcFunnel(objMoisTotal, p.tx_vente, p.tx_presence, p.tx_conv_tel, p.tx_joignabilite)
+          const totFunnel = calcFunnel(totalStock, p.delai_mois, p.tx_vente, p.tx_presence, p.tx_conv_tel, p.tx_joignabilite)
           const lastUpdate = new Date(p.updated_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
           return (
@@ -373,22 +378,21 @@ function SectionVentesDelais() {
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
-                      {['Type de bien', 'Stock', 'Obj. total', 'Délai', 'Obj/mois', 'Visites/mois', 'RDV/mois', 'Échanges/mois', 'Leads/mois'].map(h => (
+                      {['Type de bien', 'Stock', 'Délai', 'Obj/mois', 'Obj/sem.', 'Visites/mois', 'RDV/mois', 'Échanges/mois', 'Leads/mois'].map(h => (
                         <th key={h} style={{ ...sty.th, textAlign: h === 'Type de bien' ? 'left' : 'center' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {p.biens.map((b, i) => {
-                      const objMois = p.delai_mois > 0 ? Math.ceil(parseInt(b.obj_total) / p.delai_mois) : 0
-                      const f = calcFunnel(objMois, p.tx_vente, p.tx_presence, p.tx_conv_tel, p.tx_joignabilite)
+                      const f = calcFunnel(b.stock, p.delai_mois, p.tx_vente, p.tx_presence, p.tx_conv_tel, p.tx_joignabilite)
                       return (
                         <tr key={i}>
                           <td style={{ ...sty.td, textAlign: 'left', fontWeight: 500 }}>{b.type_bien}</td>
                           <td style={sty.td}>{b.stock}</td>
-                          <td style={sty.td}>{b.obj_total}</td>
                           <td style={sty.td}>{p.delai_mois} mois</td>
-                          <td style={{ ...sty.td, fontWeight: 600, color: '#C9A84C' }}>{objMois}</td>
+                          <td style={{ ...sty.td, fontWeight: 600, color: '#C9A84C' }}>{f.obj_mois || '—'}</td>
+                          <td style={{ ...sty.td, fontWeight: 500, color: '#C9A84C' }}>{f.obj_semaine || '—'}</td>
                           <td style={{ ...sty.td, color: '#534AB7' }}>{f.visites || '—'}</td>
                           <td style={{ ...sty.td, color: '#4CAF7D' }}>{f.rdv || '—'}</td>
                           <td style={{ ...sty.td, color: '#C9A84C' }}>{f.echanges || '—'}</td>
@@ -399,14 +403,24 @@ function SectionVentesDelais() {
                     <tr>
                       <td style={{ ...sty.tdTotal, textAlign: 'left' }}>TOTAL</td>
                       <td style={sty.tdTotal}>{totalStock}</td>
-                      <td style={sty.tdTotal}>{totalObjTotal}</td>
                       <td style={sty.tdTotal}>{p.delai_mois} mois</td>
-                      <td style={sty.tdTotal}>{objMoisTotal}</td>
+                      <td style={sty.tdTotal}>{totFunnel.obj_mois || '—'}</td>
+                      <td style={sty.tdTotal}>{totFunnel.obj_semaine || '—'}</td>
                       <td style={{ ...sty.tdTotal, color: '#534AB7' }}>{totFunnel.visites || '—'}</td>
                       <td style={{ ...sty.tdTotal, color: '#4CAF7D' }}>{totFunnel.rdv || '—'}</td>
                       <td style={{ ...sty.tdTotal, color: '#C9A84C' }}>{totFunnel.echanges || '—'}</td>
                       <td style={{ ...sty.tdTotal, color: '#E8A040' }}>{totFunnel.leads || '—'}</td>
                     </tr>
+                    {/* Notification liquidation avant délai */}
+                    {totFunnel.liquide_avant && (
+                      <tr>
+                        <td colSpan={9} style={{ padding: '10px 14px', background: 'rgba(76,175,125,0.08)', borderTop: '1px solid rgba(76,175,125,0.2)' }}>
+                          <span style={{ fontSize: 12, color: '#2d7a54', fontWeight: 500 }}>
+                            ✅ Avec ces taux, le projet sera liquidé en <strong>{totFunnel.mois_reel} mois</strong> — avant le délai de {p.delai_mois} mois !
+                          </span>
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               )}
