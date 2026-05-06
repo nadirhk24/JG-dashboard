@@ -1335,7 +1335,9 @@ function SectionPlansActions() {
     setSaving(false)
     setShowPlanForm(null)
     setFormPlan({ titre: '', statut: 'ouvert' })
-    loadAll()
+    // Mise à jour locale sans rechargement
+    const { data: newPlan } = await supabase.from('plans_etude').select('*').eq('etude_id', 'perf_avril_2026').order('created_at').limit(1).single()
+    if (newPlan) setPlans(prev => [...prev, { ...newPlan, points: [] }])
     setMsg('Plan créé !'); setTimeout(() => setMsg(null), 2500)
   }
 
@@ -1344,18 +1346,28 @@ function SectionPlansActions() {
     setSaving(true)
     await supabase.from('points_actions_etude').insert({ plan_id: planId, ...formPoint })
     setSaving(false); setShowPointForm(null); setFormPoint({ description: '', responsable: '', date_echeance: '' })
-    loadAll()
+    // Mise à jour locale sans rechargement
+    const { data: newPt } = await supabase.from('points_actions_etude').select('*').eq('plan_id', planId).order('created_at')
+    setPlans(prev => prev.map(p => p.id === planId ? { ...p, points: newPt || [] } : p))
   }
 
   async function updateStatut(table, id, statut) {
     await supabase.from(table).update({ statut, updated_at: new Date().toISOString() }).eq('id', id)
-    loadAll()
+    // Mise à jour locale du state
+    if (table === 'plans_etude') {
+      setPlans(prev => prev.map(p => p.id === id ? { ...p, statut } : p))
+    } else {
+      setPlans(prev => prev.map(p => ({
+        ...p,
+        points: p.points.map(pt => pt.id === id ? { ...pt, statut } : pt)
+      })))
+    }
   }
 
   async function deletePlan(id) {
     if (!confirm('Supprimer ce plan ?')) return
     await supabase.from('plans_etude').delete().eq('id', id)
-    loadAll()
+    setPlans(prev => prev.filter(p => p.id !== id))
   }
 
   const S = {
@@ -1458,10 +1470,17 @@ function SectionPlansActions() {
                       {/* Form point */}
                       {showPointForm === plan.id ? (
                         <div style={{ background: '#F8F7F4', borderRadius: 8, padding: 12, border: '1px solid #E8E6DF', marginTop: 6 }}>
-                          <input style={{ ...S.input, marginBottom: 8 }} placeholder="Description du point d'action" value={formPoint.description} onChange={e => setFormPoint(p => ({ ...p, description: e.target.value }))}/>
+                          <input
+                            key={`pt-desc-${plan.id}`}
+                            style={{ ...S.input, marginBottom: 8 }}
+                            placeholder="Description du point d'action"
+                            defaultValue=""
+                            autoFocus
+                            onChange={e => setFormPoint(p => ({ ...p, description: e.target.value }))}
+                          />
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-                            <input style={S.input} placeholder="Responsable" value={formPoint.responsable} onChange={e => setFormPoint(p => ({ ...p, responsable: e.target.value }))}/>
-                            <input style={S.input} type="date" value={formPoint.date_echeance} onChange={e => setFormPoint(p => ({ ...p, date_echeance: e.target.value }))}/>
+                            <input key={`pt-resp-${plan.id}`} style={S.input} placeholder="Responsable" defaultValue="" onChange={e => setFormPoint(p => ({ ...p, responsable: e.target.value }))}/>
+                            <input key={`pt-date-${plan.id}`} style={S.input} type="date" defaultValue="" onChange={e => setFormPoint(p => ({ ...p, date_echeance: e.target.value }))}/>
                           </div>
                           <div style={{ display: 'flex', gap: 6 }}>
                             <button onClick={() => savePoint(plan.id)} disabled={saving} style={S.btnPrimary}>Ajouter</button>
@@ -1483,7 +1502,15 @@ function SectionPlansActions() {
             {showPlanForm === `${segment}_${cibleNom}` ? (
               <div style={{ margin: '8px 16px 12px', background: '#fff', borderRadius: 10, border: '1px solid rgba(201,168,76,0.25)', padding: 14 }}>
                 <div style={{ ...S.label, marginBottom: 8, fontSize: 11 }}>Nouveau plan — {label}</div>
-                <input style={{ ...S.input, marginBottom: 8 }} placeholder="Titre du plan d'action" value={formPlan.titre} onChange={e => setFormPlan(p => ({ ...p, titre: e.target.value }))}/>
+                <input
+                  key={`plan-form-${segment}-${cibleNom}`}
+                  style={{ ...S.input, marginBottom: 8 }}
+                  placeholder="Titre du plan d'action"
+                  defaultValue=""
+                  autoFocus
+                  onBlur={e => setFormPlan(p => ({ ...p, titre: e.target.value }))}
+                  onChange={e => setFormPlan(p => ({ ...p, titre: e.target.value }))}
+                />
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button onClick={() => savePlan(segment, cibleNom)} disabled={saving} style={S.btnPrimary}>{saving ? 'Enregistrement...' : 'Créer'}</button>
                   <button onClick={() => setShowPlanForm(null)} style={S.btnGhost}>Annuler</button>
