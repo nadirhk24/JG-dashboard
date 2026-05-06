@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAbsences } from '../lib/useAbsences'
 import PageHeader from '../components/PageHeader'
 
 const MOIS_LABELS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
@@ -25,8 +26,46 @@ async function getJoursOuvrables(mois, calendrier) {
     const date = new Date(year, month - 1, d)
     const dateStr = date.toISOString().split('T')[0]
     const dayOfWeek = date.getDay()
-    if (dayOfWeek === 0) continue // Dimanche
+    if (dayOfWeek === 0) continue
     if (!nonOuvrables.has(dateStr)) count++
+  }
+  return count
+}
+
+// Calcule les jours de présence = jours ouvrables - absences conseillère
+async function getJoursPresence(mois, calendrier, conseillereId) {
+  const [year, month] = mois.split('-').map(Number)
+  const dateDebut = `${year}-${String(month).padStart(2,'0')}-01`
+  const dateFin = `${year}-${String(month).padStart(2,'0')}-${String(new Date(year, month, 0).getDate()).padStart(2,'0')}`
+  const daysInMonth = new Date(year, month, 0).getDate()
+  const nonOuvrables = new Set(calendrier.filter(j => j.type === 'ferie' || j.type === 'conge').map(j => j.date))
+
+  // Charger les absences de cette conseillère sur ce mois
+  let absencesSet = new Set()
+  if (conseillereId && conseillereId !== 'equipe') {
+    const { data: abs } = await supabase
+      .from('absences_conseilleres')
+      .select('date_debut, date_fin')
+      .eq('conseillere_id', conseillereId)
+      .lte('date_debut', dateFin)
+      .gte('date_fin', dateDebut)
+    for (const a of (abs || [])) {
+      const start = new Date(Math.max(new Date(a.date_debut), new Date(dateDebut)))
+      const end = new Date(Math.min(new Date(a.date_fin), new Date(dateFin)))
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        absencesSet.add(d.toISOString().split('T')[0])
+      }
+    }
+  }
+
+  let count = 0
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(year, month - 1, d)
+    const dateStr = date.toISOString().split('T')[0]
+    if (date.getDay() === 0) continue // Dimanche
+    if (nonOuvrables.has(dateStr)) continue // Férié/Congé équipe
+    if (absencesSet.has(dateStr)) continue // Absence individuelle
+    count++
   }
   return count
 }
@@ -570,7 +609,7 @@ export default function Objectifs({ conseilleres }) {
 
   useEffect(() => {
     if (calendrier.length > 0) {
-      getJoursOuvrables(mois, calendrier).then(j => setJoursOuvrables(j))
+      getJoursPresence(mois, calendrier, selectedConseillere === 'equipe' ? null : selectedConseillere).then(j => setJoursOuvrables(j))
     }
     loadObjectifs()
   }, [mois, selectedConseillere, calendrier])
@@ -720,7 +759,7 @@ export default function Objectifs({ conseilleres }) {
                 {selectedConseillere !== 'equipe' && <span style={{ color: '#5A5A5A', fontSize: 13, fontWeight: 400 }}> · {conseilleres.find(c=>c.id===selectedConseillere)?.nom}</span>}
               </div>
               <div style={{ fontSize: 12, color: '#8A8A7A', marginTop: 4 }}>
-                {joursOuvrables} jours ouvrables ce mois
+                {joursOuvrables} jours {selectedConseillere !== 'equipe' ? 'de présence' : 'ouvrables'} ce mois
                 <span style={{ color: '#C9A84C', marginLeft: 8 }}>→ objectif journalier calculé automatiquement</span>
               </div>
             </div>
@@ -795,7 +834,7 @@ export default function Objectifs({ conseilleres }) {
           </div>
 
           <div style={{ marginTop: 16, padding: '12px 16px', background: 'rgba(201,168,76,0.05)', borderRadius: 10, border: '1px solid rgba(201,168,76,0.15)', fontSize: 12, color: '#5A5A5A' }}>
-            <strong style={{ color: '#C9A84C' }}>Note :</strong> L'objectif journalier = objectif mensuel ÷ {joursOuvrables} jours ouvrables. Les couleurs des KPIs dans le dashboard s'adaptent automatiquement.
+            <strong style={{ color: '#C9A84C' }}>Note :</strong> L'objectif journalier = objectif mensuel ÷ {joursOuvrables} jours {selectedConseillere !== 'equipe' ? 'de présence (absences déduites)' : 'ouvrables'}. Les couleurs des KPIs dans le dashboard s'adaptent automatiquement.
           </div>
         </div>
       )}
