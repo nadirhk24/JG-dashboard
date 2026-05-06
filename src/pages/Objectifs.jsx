@@ -45,7 +45,7 @@ async function getJoursPresence(mois, calendrier, conseillereId) {
   if (conseillereId && conseillereId !== 'equipe') {
     const { data: abs } = await supabase
       .from('absences_conseilleres')
-      .select('date_debut, date_fin')
+      .select('*')
       .eq('conseillere_id', conseillereId)
       .lte('date_debut', dateFin)
       .gte('date_fin', dateDebut)
