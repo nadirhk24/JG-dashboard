@@ -1242,104 +1242,60 @@ const SLIDES = [
 
 
 
-// ── Section Plans d'Actions v3 — Style CE ───────────────────────────────────
+
+// ── Section Plans d'Actions v4 — Cartes expandables style CE ────────────────
 
 const SEGMENTS_PA = [
-  { id: 'cc', label: 'Call Center', resp: 'Nadir HADRAK', color: '#C9A84C' },
-  { id: 'marketing', label: 'Marketing', resp: "Mos'art", color: '#4CAF7D' },
-  { id: 'commercial', label: 'Commercial', resp: 'A. RHALMI', color: '#378ADD' },
+  { id: 'cc', label: 'Call Center', resp: 'Nadir HADRAK', color: '#C9A84C', initial: 'N' },
+  { id: 'marketing', label: 'Marketing', resp: "Mos'art", color: '#4CAF7D', initial: 'M' },
+  { id: 'commercial', label: 'Commercial', resp: 'A. RHALMI / K. SNAIKI', color: '#378ADD', initial: 'A' },
 ]
 
-const CIBLES_PA = {
-  cc: [
-    { id: 'equipe', label: 'Équipe CC', initials: 'CC' },
-    { id: 'Rajaa ELKHANCHAR', label: 'Rajaa ELKHANCHAR', initials: 'RE' },
-    { id: 'Fatima Zahraa AAKIBA', label: 'Fatima Zahraa AAKIBA', initials: 'FZ' },
-    { id: 'Ghizlane ELBAKARI', label: 'Ghizlane ELBAKARI', initials: 'GE' },
-    { id: 'Hala ELAOUAD', label: 'Hala ELAOUAD', initials: 'HE' },
-    { id: 'Kaoutar HRARTI', label: 'Kaoutar HRARTI', initials: 'KH' },
-    { id: 'Siham IBNTABET', label: 'Siham IBNTABET', initials: 'SI' },
-  ],
-  commercial: [
-    { id: 'equipe_sale', label: 'Équipe Sale', initials: 'ES' },
-    { id: 'equipe_kenitra', label: 'Équipe Kénitra', initials: 'EK' },
-    { id: 'Abdelhak Lakouissmi', label: 'Abdelhak Lakouissmi', initials: 'AL' },
-    { id: 'Saad Fellah', label: 'Saad Fellah', initials: 'SF' },
-    { id: 'Khalid Amghoud', label: 'Khalid Amghoud', initials: 'KA' },
-    { id: 'Ismail Hammouch', label: 'Ismail Hammouch', initials: 'IH' },
-    { id: 'Nouhaila Belhadj', label: 'Nouhaila Belhadj', initials: 'NB' },
-  ],
-  marketing: [
-    { id: 'equipe_marketing', label: 'Équipe Marketing', initials: 'MK' },
-  ]
-}
+const CONSEILLERES_CC = [
+  'Equipe CC',
+  'Rajaa ELKHANCHAR',
+  'Fatima Zahraa AAKIBA',
+  'Ghizlane ELBAKARI',
+  'Hala ELAOUAD',
+  'Kaoutar HRARTI',
+  'Siham IBNTABET',
+]
+
+const EQUIPES_COM = [
+  { id: 'equipe_sale', label: 'Équipe Sale', resp: 'Abdelhakim RHALMI', color: '#C9A84C', commerciaux: ['Abdelhak Lakouissmi','Saad Fellah','Nouhaila Belhadj','Khalid Amghoud'] },
+  { id: 'equipe_kenitra', label: 'Équipe Kénitra', resp: 'Karima SNAIKI', color: '#378ADD', commerciaux: ['Ismail Hammouch','Oumaima Benali','Marouane Tazi'] },
+]
 
 const STATUTS_PA = [
-  { id: 'ouvert',     label: 'Ouvert',              color: '#378ADD', bg: '#EEF4FB' },
-  { id: 'en_cours',   label: 'En cours',             color: '#C9A84C', bg: '#FDF6E3' },
-  { id: 'en_attente', label: 'En attente',           color: '#8A8A7A', bg: '#F0EEE8' },
-  { id: 'validation', label: 'En att. validation',   color: '#4CAF7D', bg: '#E6F7EF' },
-  { id: 'annule',     label: 'Annulé',               color: '#E05C5C', bg: '#FEF0F0' },
-  { id: 'cloture',    label: 'Clôturé',              color: '#5A5A5A', bg: '#F0EEE8' },
+  { id: 'ouvert',     label: 'Ouvert',            color: '#378ADD', bg: '#EEF4FB' },
+  { id: 'en_cours',   label: 'En cours',           color: '#C9A84C', bg: '#FDF6E3' },
+  { id: 'en_attente', label: 'En attente',         color: '#8A8A7A', bg: '#F0EEE8' },
+  { id: 'validation', label: 'En att. validation', color: '#4CAF7D', bg: '#E6F7EF' },
+  { id: 'annule',     label: 'Annulé',             color: '#E05C5C', bg: '#FEF0F0' },
+  { id: 'cloture',    label: 'Clôturé',            color: '#5A5A5A', bg: '#F0EEE8' },
 ]
 
-const ORBIT_POS = {
-  cc: [
-    { id: 'equipe',                  x: 340, y: 72,  l1: 'Équipe',   l2: 'CC'          },
-    { id: 'Rajaa ELKHANCHAR',        x: 464, y: 100, l1: 'Rajaa',    l2: 'ELKHANCHAR'  },
-    { id: 'Fatima Zahraa AAKIBA',    x: 496, y: 196, l1: 'Fatima',   l2: 'AAKIBA'      },
-    { id: 'Ghizlane ELBAKARI',       x: 464, y: 292, l1: 'Ghizlane', l2: 'ELBAKARI'    },
-    { id: 'Siham IBNTABET',          x: 340, y: 320, l1: 'Siham',    l2: 'IBNTABET'    },
-    { id: 'Hala ELAOUAD',            x: 216, y: 292, l1: 'Hala',     l2: 'ELAOUAD'     },
-    { id: 'Kaoutar HRARTI',          x: 216, y: 100, l1: 'Kaoutar',  l2: 'HRARTI'      },
-  ],
-  commercial: [
-    { id: 'equipe_sale',             x: 250, y: 72,  l1: 'Équipe',   l2: 'Sale'        },
-    { id: 'equipe_kenitra',          x: 430, y: 72,  l1: 'Équipe',   l2: 'Kénitra'     },
-    { id: 'Abdelhak Lakouissmi',     x: 500, y: 180, l1: 'Abdelhak', l2: 'Lak.'        },
-    { id: 'Saad Fellah',             x: 464, y: 292, l1: 'Saad',     l2: 'Fellah'      },
-    { id: 'Khalid Amghoud',          x: 340, y: 320, l1: 'Khalid',   l2: 'Amghoud'     },
-    { id: 'Ismail Hammouch',         x: 216, y: 292, l1: 'Ismail',   l2: 'Hammouch'    },
-    { id: 'Nouhaila Belhadj',        x: 180, y: 180, l1: 'Nouhaila', l2: 'Belhadj'     },
-  ],
-  marketing: [
-    { id: 'equipe_marketing',        x: 340, y: 80,  l1: 'Équipe',   l2: 'Marketing'   },
-  ]
-}
-
 function SectionPlansActions() {
-  const [seg, setSeg] = useState('cc')
   const [plans, setPlans] = useState([])
   const [loading, setLoading] = useState(true)
-  const [popup, setPopup] = useState(null)
-  const [showForm, setShowForm] = useState(false)
-  const [formPlan, setFormPlan] = useState({ cible_nom: '', titre: '', statut: 'ouvert' })
-  const [showPointForm, setShowPointForm] = useState(null)
-  const [formPoint, setFormPoint] = useState({ description: '', responsable: '', date_echeance: '' })
-  const [saving, setSaving] = useState(false)
+  const [expandedSegs, setExpandedSegs] = useState({ cc: true })
+  const [expandedCibles, setExpandedCibles] = useState({})
+  const [expandedEquipes, setExpandedEquipes] = useState({})
   const [expandedPlans, setExpandedPlans] = useState({})
   const [expandedPoints, setExpandedPoints] = useState({})
+  const [showPlanForm, setShowPlanForm] = useState(null) // cible_nom
+  const [showPointForm, setShowPointForm] = useState(null) // plan_id
+  const [formPlan, setFormPlan] = useState({ titre: '', statut: 'ouvert' })
+  const [formPoint, setFormPoint] = useState({ description: '', responsable: '', date_echeance: '' })
+  const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState(null)
+  const [activeSeg, setActiveSeg] = useState('cc')
 
-  const segData = SEGMENTS_PA.find(s => s.id === seg)
-  const cibles  = CIBLES_PA[seg]  || []
-  const positions = ORBIT_POS[seg] || []
+  useEffect(() => { loadAll() }, [])
 
-  const S = {
-    card:     { background: '#fff', border: '1px solid #E8E6DF', borderRadius: 12, padding: '16px 20px' },
-    input:    { padding: '8px 12px', border: '1px solid #E8E6DF', borderRadius: 8, fontSize: 13, color: '#2C2C2C', background: '#F8F7F4', outline: 'none', width: '100%' },
-    label:    { fontSize: 10, color: '#8A8A7A', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 500, marginBottom: 5, display: 'block' },
-    btnPrimary: { background: '#C9A84C', color: '#fff', border: 'none', padding: '7px 18px', borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: 'pointer' },
-    btnGhost:   { background: '#fff', color: '#5A5A5A', border: '1px solid #E8E6DF', padding: '7px 18px', borderRadius: 20, fontSize: 12, cursor: 'pointer' },
-    smallBtn: (col, bg) => ({ background: bg, color: col, border: `1px solid ${col}33`, padding: '3px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer', fontWeight: 500 }),
-  }
-
-  useEffect(() => { loadPlans() }, [seg])
-
-  async function loadPlans() {
+  async function loadAll() {
     setLoading(true)
-    const { data: ps } = await supabase.from('plans_etude').select('*')
-      .eq('etude_id', 'perf_avril_2026').eq('segment', seg).order('created_at')
+    const { data: ps } = await supabase.from('plans_etude').select('*').eq('etude_id', 'perf_avril_2026').order('created_at')
     const result = []
     for (const p of (ps || [])) {
       const { data: pts } = await supabase.from('points_actions_etude').select('*').eq('plan_id', p.id).order('created_at')
@@ -1349,19 +1305,17 @@ function SectionPlansActions() {
     setLoading(false)
   }
 
-  function getBubbleStyle(cibleId) {
-    const plansCible = plans.filter(p => p.cible_nom === cibleId)
-    if (!plansCible.length) return { fill: '#F8F7F4', stroke: '#D5D2CA', strokeW: 1, dash: '4 3', textColor: '#B8B6AE', hasPlans: false }
-    const hasStat = (s) => plansCible.some(p => p.statut === s)
-    if (hasStat('validation')) return { fill: '#E6F7EF', stroke: '#4CAF7D', strokeW: 1.5, dash: '', textColor: '#2d7a54', hasPlans: true, badgeColor: '#4CAF7D' }
-    if (hasStat('en_cours'))   return { fill: '#FDF6E3', stroke: '#C9A84C', strokeW: 1.5, dash: '', textColor: '#8A6820', hasPlans: true, badgeColor: '#C9A84C' }
-    if (hasStat('en_attente')) return { fill: '#F0EEE8', stroke: '#8A8A7A', strokeW: 1.5, dash: '', textColor: '#5A5A5A', hasPlans: true, badgeColor: '#8A8A7A' }
-    return { fill: '#FDF6E3', stroke: '#C9A84C', strokeW: 1, dash: '', textColor: '#8A6820', hasPlans: true, badgeColor: '#C9A84C' }
+  function getPlans(segment, cibleNom) {
+    return plans.filter(p => p.segment === segment && p.cible_nom === cibleNom)
   }
 
-  function StatutBadge({ statut, small }) {
-    const s = STATUTS_PA.find(x => x.id === statut) || STATUTS_PA[0]
-    return <span style={{ background: s.bg, color: s.color, border: `1px solid ${s.color}33`, borderRadius: 6, padding: small ? '2px 7px' : '3px 10px', fontSize: small ? 10 : 11, fontWeight: 600 }}>{s.label}</span>
+  function getBadge(segment, cibleNom) {
+    const ps = getPlans(segment, cibleNom)
+    if (!ps.length) return null
+    if (ps.some(p => p.statut === 'validation')) return STATUTS_PA.find(s => s.id === 'validation')
+    if (ps.some(p => p.statut === 'en_cours'))   return STATUTS_PA.find(s => s.id === 'en_cours')
+    if (ps.some(p => p.statut === 'en_attente')) return STATUTS_PA.find(s => s.id === 'en_attente')
+    return STATUTS_PA.find(s => s.id === 'ouvert')
   }
 
   function calcPct(plans) {
@@ -1370,254 +1324,147 @@ function SectionPlansActions() {
     return Math.round(all.filter(p => ['validation','cloture'].includes(p.statut)).length / all.length * 100)
   }
 
-  async function savePlan() {
-    if (!formPlan.cible_nom || !formPlan.titre) return
+  async function savePlan(segment, cibleNom) {
+    if (!formPlan.titre.trim()) return
     setSaving(true)
     await supabase.from('plans_etude').insert({
-      etude_id: 'perf_avril_2026', segment: seg,
-      cible_type: formPlan.cible_nom.startsWith('equipe') ? 'equipe' : 'individuel',
-      cible_nom: formPlan.cible_nom, titre: formPlan.titre, statut: formPlan.statut
+      etude_id: 'perf_avril_2026', segment,
+      cible_type: cibleNom.startsWith('equipe') || cibleNom === 'Equipe CC' ? 'equipe' : 'individuel',
+      cible_nom: cibleNom, titre: formPlan.titre, statut: formPlan.statut
     })
-    setSaving(false); setShowForm(false); setFormPlan({ cible_nom: '', titre: '', statut: 'ouvert' })
-    loadPlans(); setMsg({ text: 'Plan créé !' }); setTimeout(() => setMsg(null), 2500)
+    setSaving(false)
+    setShowPlanForm(null)
+    setFormPlan({ titre: '', statut: 'ouvert' })
+    loadAll()
+    setMsg('Plan créé !'); setTimeout(() => setMsg(null), 2500)
   }
 
   async function savePoint(planId) {
-    if (!formPoint.description) return
+    if (!formPoint.description.trim()) return
     setSaving(true)
     await supabase.from('points_actions_etude').insert({ plan_id: planId, ...formPoint })
     setSaving(false); setShowPointForm(null); setFormPoint({ description: '', responsable: '', date_echeance: '' })
-    loadPlans()
+    loadAll()
   }
 
   async function updateStatut(table, id, statut) {
     await supabase.from(table).update({ statut, updated_at: new Date().toISOString() }).eq('id', id)
-    loadPlans()
+    loadAll()
   }
 
-  const CX = 340, CY = 196
+  async function deletePlan(id) {
+    if (!confirm('Supprimer ce plan ?')) return
+    await supabase.from('plans_etude').delete().eq('id', id)
+    loadAll()
+  }
 
-  if (loading) return <div style={{ padding: 48, textAlign: 'center', color: '#8A8A7A', fontSize: 13 }}>Chargement...</div>
+  const S = {
+    card: { background: '#fff', border: '1px solid #E8E6DF', borderRadius: 12, marginBottom: 10, overflow: 'hidden' },
+    input: { padding: '8px 12px', border: '1px solid #E8E6DF', borderRadius: 8, fontSize: 13, color: '#2C2C2C', background: '#F8F7F4', outline: 'none', width: '100%' },
+    label: { fontSize: 10, color: '#8A8A7A', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 500, marginBottom: 4, display: 'block' },
+    btnPrimary: { background: '#C9A84C', color: '#fff', border: 'none', padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer' },
+    btnGhost: { background: '#fff', color: '#5A5A5A', border: '1px solid #E8E6DF', padding: '7px 16px', borderRadius: 8, fontSize: 12, cursor: 'pointer' },
+    badge: (s) => { const st = STATUTS_PA.find(x => x.id === s) || STATUTS_PA[0]; return { background: st.bg, color: st.color, border: `1px solid ${st.color}33`, borderRadius: 6, padding: '2px 8px', fontSize: 10, fontWeight: 600 } },
+    smallBtn: (col, bg) => ({ background: bg, color: col, border: `1px solid ${col}33`, padding: '2px 8px', borderRadius: 5, fontSize: 11, cursor: 'pointer', fontWeight: 500 }),
+    noPlan: { background: '#F0EEE8', color: '#8A8A7A', border: '1px solid #D5D2CA', borderRadius: 6, padding: '2px 8px', fontSize: 10, fontWeight: 500 },
+  }
 
-  return (
-    <div>
-      {msg && <div style={{ padding: '10px 16px', borderRadius: 8, marginBottom: 14, fontSize: 13, background: '#E6F7EF', color: '#2d7a54', border: '1px solid #4CAF7D33' }}>{msg.text}</div>}
+  function NoPlanBadge() {
+    return <span style={S.noPlan}>Aucun plan</span>
+  }
 
-      {/* Segments — même style que les toggles CE */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-        {SEGMENTS_PA.map(s => (
-          <button key={s.id} onClick={() => setSeg(s.id)} style={{
-            padding: '5px 14px', borderRadius: 16, fontSize: 11, cursor: 'pointer',
-            border: `1px solid ${seg === s.id ? s.color : '#E8E6DF'}`,
-            background: seg === s.id ? s.color + '18' : '#fff',
-            color: seg === s.id ? s.color : '#5A5A5A',
-            fontWeight: seg === s.id ? 500 : 400, transition: 'all 0.15s'
-          }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: seg === s.id ? s.color : '#D0CEC7', display: 'inline-block', marginRight: 6, verticalAlign: 'middle' }}/>
-            {s.label} — {s.resp}
-          </button>
-        ))}
-        <button onClick={() => setShowForm(p => !p)} style={{ ...S.btnPrimary, marginLeft: 'auto' }}>
-          {showForm ? '✕ Annuler' : '+ Nouveau plan'}
-        </button>
-      </div>
+  function CibleRow({ segment, cibleNom, label, level = 0 }) {
+    const ps = getPlans(segment, cibleNom)
+    const badge = getBadge(segment, cibleNom)
+    const isOpen = expandedCibles[`${segment}_${cibleNom}`]
+    const pct = calcPct(ps)
 
-      {/* Formulaire — style CE */}
-      {showForm && (
-        <div style={{ ...S.card, marginBottom: 18, borderLeft: `3px solid ${segData.color}` }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#2C2C2C', marginBottom: 14 }}>Nouveau plan d'action</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
-            <div>
-              <label style={S.label}>Cible *</label>
-              <select style={S.input} value={formPlan.cible_nom} onChange={e => setFormPlan(p => ({ ...p, cible_nom: e.target.value }))}>
-                <option value="">-- Choisir --</option>
-                {cibles.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-              </select>
-            </div>
-            <div style={{ gridColumn: '2/4' }}>
-              <label style={S.label}>Titre *</label>
-              <input style={S.input} value={formPlan.titre} onChange={e => setFormPlan(p => ({ ...p, titre: e.target.value }))} placeholder="ex: Améliorer le taux de joignabilité"/>
-            </div>
+    return (
+      <div>
+        {/* Header cible */}
+        <div onClick={() => setExpandedCibles(p => ({ ...p, [`${segment}_${cibleNom}`]: !p[`${segment}_${cibleNom}`] }))}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: `10px 18px 10px ${18 + level * 16}px`, cursor: 'pointer', borderBottom: '1px solid #F0EEE9', background: isOpen ? '#FAFAF8' : '#fff', transition: 'background 0.1s' }}>
+          <div style={{ width: 7, height: 7, borderRadius: '50%', background: badge ? badge.color : '#D5D2CA', flexShrink: 0 }}/>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, color: '#2C2C2C', fontWeight: badge ? 500 : 400 }}>{label}</div>
+            {ps.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
+                <div style={{ width: 60, height: 3, background: '#F0EEE8', borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: pct + '%', background: pct >= 80 ? '#4CAF7D' : '#C9A84C', borderRadius: 2 }}/>
+                </div>
+                <span style={{ fontSize: 10, color: '#8A8A7A' }}>{ps.length} plan{ps.length > 1 ? 's' : ''} · {pct}%</span>
+              </div>
+            )}
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={savePlan} disabled={saving} style={{ ...S.btnPrimary, opacity: saving ? 0.6 : 1 }}>{saving ? 'Enregistrement...' : 'Créer'}</button>
-            <button onClick={() => setShowForm(false)} style={S.btnGhost}>Annuler</button>
-          </div>
+          {badge ? <span style={S.badge(badge.id)}>{badge.label}</span> : <NoPlanBadge/>}
+          <span style={{ fontSize: 9, color: '#8A8A7A', transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
         </div>
-      )}
 
-      {/* ORBITAL — style CE */}
-      <div style={{ ...S.card, padding: 0, overflow: 'hidden', marginBottom: 16 }}>
-        <svg viewBox="0 0 680 400" style={{ width: '100%', display: 'block' }}>
-          {/* Orbits */}
-          <circle cx={CX} cy={CY} r="138" fill="none" stroke="#E8E6DF" strokeWidth="1" strokeDasharray="2 6"/>
-          <circle cx={CX} cy={CY} r="80"  fill="none" stroke="#E8E6DF" strokeWidth="0.5"/>
-
-          {/* Connecteurs */}
-          {positions.map(pos => {
-            const dx = pos.x - CX, dy = pos.y - CY
-            const dist = Math.sqrt(dx*dx + dy*dy)
-            const x1 = CX + dx*(44/dist), y1 = CY + dy*(44/dist)
-            const x2 = pos.x - dx*(28/dist), y2 = pos.y - dy*(28/dist)
-            return <line key={pos.id} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#E8E6DF" strokeWidth="1"/>
-          })}
-
-          {/* Centre */}
-          <circle cx={CX} cy={CY} r="44" fill={segData.color + '15'} stroke={segData.color} strokeWidth="1.5"/>
-          <text x={CX} y={CY - 5} textAnchor="middle" fontSize="13" fontWeight="600" fill={segData.color}>{segData.label}</text>
-          <text x={CX} y={CY + 11} textAnchor="middle" fontSize="9" fill={segData.color} opacity="0.8">{segData.resp}</text>
-
-          {/* Satellites */}
-          {positions.map(pos => {
-            const bs = getBubbleStyle(pos.id)
-            const plansCible = plans.filter(p => p.cible_nom === pos.id)
-            const totalPts = plansCible.reduce((s, p) => s + p.points.length, 0)
-            return (
-              <g key={pos.id} style={{ cursor: 'pointer' }} onClick={() => setPopup({ cibleId: pos.id, cibleLabel: cibles.find(c => c.id === pos.id)?.label || pos.id, plans: plansCible })}>
-                <circle cx={pos.x} cy={pos.y} r="28" fill={bs.fill} stroke={bs.stroke} strokeWidth={bs.strokeW} strokeDasharray={bs.dash}/>
-                <text x={pos.x} y={pos.y - 3} textAnchor="middle" fontSize="10" fontWeight={bs.hasPlans ? '600' : '400'} fill={bs.textColor}>{pos.l1}</text>
-                <text x={pos.x} y={pos.y + 10} textAnchor="middle" fontSize="9" fill={bs.textColor} opacity="0.85">{pos.l2}</text>
-                {bs.hasPlans && totalPts > 0 && <>
-                  <circle cx={pos.x + 20} cy={pos.y - 20} r="9" fill={bs.badgeColor}/>
-                  <text x={pos.x + 20} y={pos.y - 16} textAnchor="middle" fontSize="9" fill="white" fontWeight="600">{totalPts}</text>
-                </>}
-                {!bs.hasPlans && <text x={pos.x} y={pos.y + 40} textAnchor="middle" fontSize="8" fill="#C0BEBC">Aucun plan</text>}
-              </g>
-            )
-          })}
-
-          {/* Légende */}
-          {[
-            { cx: 24,  color: '#C9A84C', bg: '#FDF6E3', label: 'Plan actif' },
-            { cx: 108, color: '#4CAF7D', bg: '#E6F7EF', label: 'En att. validation' },
-            { cx: 222, color: '#8A8A7A', bg: '#F0EEE8', label: 'En attente' },
-            { cx: 310, color: '#C0BEBC', bg: '#F8F7F4', dash: '4 3', label: 'Aucun plan' },
-          ].map((l, i) => (
-            <g key={i}>
-              <circle cx={l.cx} cy={386} r="7" fill={l.bg} stroke={l.color} strokeWidth="1.5" strokeDasharray={l.dash || ''}/>
-              <text x={l.cx + 12} y={390} fontSize="9" fill="#8A8A7A">{l.label}</text>
-            </g>
-          ))}
-        </svg>
-      </div>
-
-      {/* POPUP — style CE */}
-      {popup && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,44,44,0.3)', zIndex: 200, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 48, overflowY: 'auto' }}
-          onClick={() => setPopup(null)}>
-          <div style={{ background: '#fff', borderRadius: 14, width: 540, maxWidth: '95vw', border: '1px solid #E8E6DF', marginBottom: 48, overflow: 'hidden', boxShadow: '0 4px 24px rgba(44,44,44,0.08)' }}
-            onClick={e => e.stopPropagation()}>
-
-            {/* Header */}
-            <div style={{ padding: '16px 20px', background: '#F8F7F4', borderBottom: '1px solid #E8E6DF', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: '#2C2C2C' }}>{popup.cibleLabel}</div>
-                <div style={{ fontSize: 11, color: '#8A8A7A', marginTop: 2 }}>
-                  {popup.plans.length} plan{popup.plans.length !== 1 ? 's' : ''} · {popup.plans.reduce((s, p) => s + p.points.length, 0)} points d'actions
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => { setFormPlan({ cible_nom: popup.cibleId, titre: '', statut: 'ouvert' }); setShowForm(true); setPopup(null) }}
-                  style={{ ...S.btnGhost, fontSize: 11, padding: '5px 12px', borderRadius: 8 }}>+ Plan</button>
-                <button onClick={() => setPopup(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: '#8A8A7A' }}>✕</button>
-              </div>
-            </div>
-
-            {/* Progression */}
-            {popup.plans.length > 0 && (() => {
-              const pct = calcPct(popup.plans)
-              const allPts = popup.plans.flatMap(p => p.points)
+        {/* Corps cible */}
+        {isOpen && (
+          <div style={{ background: '#F8F7F4', borderBottom: '1px solid #F0EEE9' }}>
+            {/* Plans existants */}
+            {ps.map(plan => {
+              const isPlanOpen = expandedPlans[plan.id]
+              const st = STATUTS_PA.find(s => s.id === plan.statut) || STATUTS_PA[0]
               return (
-                <div style={{ padding: '14px 20px', borderBottom: '1px solid #E8E6DF' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#8A8A7A', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
-                    <span>Progression globale</span>
-                    <span style={{ color: '#C9A84C', fontWeight: 600 }}>{pct}%</span>
-                  </div>
-                  <div style={{ height: 4, background: '#F0EEE8', borderRadius: 2, overflow: 'hidden', marginBottom: 14 }}>
-                    <div style={{ height: '100%', width: pct + '%', background: pct >= 80 ? '#4CAF7D' : '#C9A84C', borderRadius: 2, transition: 'width 0.8s ease' }}/>
-                  </div>
-                  {/* Steps */}
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    {[
-                      { label: 'Ouvert', count: allPts.filter(p => p.statut === 'ouvert').length, color: '#378ADD', bg: '#EEF4FB' },
-                      { label: 'En cours', count: allPts.filter(p => p.statut === 'en_cours').length, color: '#C9A84C', bg: '#FDF6E3' },
-                      { label: 'En att. valid.', count: allPts.filter(p => p.statut === 'validation').length, color: '#4CAF7D', bg: '#E6F7EF' },
-                      { label: 'Clôturé', count: allPts.filter(p => p.statut === 'cloture').length, color: '#5A5A5A', bg: '#F0EEE8' },
-                    ].map((s, i, arr) => (
-                      <React.Fragment key={s.label}>
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-                          <div style={{ width: 26, height: 26, borderRadius: '50%', background: s.count > 0 ? s.bg : '#F8F7F4', border: `1px solid ${s.count > 0 ? s.color : '#E8E6DF'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, color: s.count > 0 ? s.color : '#C0BEBC' }}>
-                            {s.count}
-                          </div>
-                          <div style={{ fontSize: 9, color: s.count > 0 ? s.color : '#C0BEBC', textAlign: 'center' }}>{s.label}</div>
-                        </div>
-                        {i < arr.length - 1 && <div style={{ height: 1, flex: 1, background: '#E8E6DF', marginBottom: 14 }}/>}
-                      </React.Fragment>
-                    ))}
-                  </div>
-                </div>
-              )
-            })()}
-
-            {/* Plans & Points */}
-            <div style={{ maxHeight: 360, overflowY: 'auto', padding: '14px 20px' }}>
-              {popup.plans.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '28px 0', color: '#8A8A7A', fontSize: 13 }}>
-                  <div style={{ fontSize: 22, marginBottom: 8, opacity: 0.4 }}>📋</div>
-                  Aucun plan — cliquez sur "+ Plan" pour commencer
-                </div>
-              ) : popup.plans.map(plan => (
-                <div key={plan.id} style={{ marginBottom: 10, border: '1px solid #E8E6DF', borderRadius: 10, overflow: 'hidden' }}>
+                <div key={plan.id} style={{ margin: '8px 16px', background: '#fff', border: '1px solid #E8E6DF', borderRadius: 10, overflow: 'hidden', borderLeft: `3px solid ${st.color}` }}>
                   {/* Plan header */}
-                  <div style={{ padding: '10px 14px', background: '#F8F7F4', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', borderLeft: `3px solid ${STATUTS_PA.find(s=>s.id===plan.statut)?.color || '#E8E6DF'}` }}
-                    onClick={() => setExpandedPlans(p => ({ ...p, [plan.id]: !p[plan.id] }))}>
+                  <div onClick={() => setExpandedPlans(p => ({ ...p, [plan.id]: !p[plan.id] }))}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', cursor: 'pointer', background: isPlanOpen ? '#FAFAF8' : '#fff' }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#2C2C2C' }}>{plan.titre}</div>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C' }}>{plan.titre}</div>
                       <div style={{ fontSize: 11, color: '#8A8A7A', marginTop: 2 }}>{plan.points.length} point{plan.points.length !== 1 ? 's' : ''}</div>
                     </div>
-                    <StatutBadge statut={plan.statut} small/>
-                    <span style={{ fontSize: 9, color: '#8A8A7A' }}>{expandedPlans[plan.id] ? '▲' : '▼'}</span>
+                    <span style={S.badge(plan.statut)}>{st.label}</span>
+                    <button onClick={e => { e.stopPropagation(); deletePlan(plan.id) }} style={{ background: 'none', border: 'none', color: '#D5D2CA', cursor: 'pointer', fontSize: 14, padding: '0 4px' }}>×</button>
+                    <span style={{ fontSize: 9, color: '#8A8A7A', transition: 'transform 0.2s', transform: isPlanOpen ? 'rotate(180deg)' : 'rotate(0)' }}>▼</span>
                   </div>
 
                   {/* Points */}
-                  {expandedPlans[plan.id] && (
-                    <div style={{ padding: '10px 14px 12px' }}>
-                      {plan.points.map(pt => (
-                        <div key={pt.id} style={{ marginBottom: 6, border: '1px solid #F0EEE9', borderRadius: 8, overflow: 'hidden' }}>
-                          <div style={{ padding: '8px 12px', background: '#F8F7F4', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-                            onClick={() => setExpandedPoints(p => ({ ...p, [pt.id]: !p[pt.id] }))}>
-                            <div style={{ width: 7, height: 7, borderRadius: '50%', background: STATUTS_PA.find(s=>s.id===pt.statut)?.color || '#8A8A7A', flexShrink: 0 }}/>
-                            <span style={{ flex: 1, fontSize: 12, color: '#2C2C2C' }}>{pt.description.length > 55 ? pt.description.substring(0,55)+'…' : pt.description}</span>
-                            <StatutBadge statut={pt.statut} small/>
-                            <span style={{ fontSize: 8, color: '#8A8A7A' }}>{expandedPoints[pt.id] ? '▲' : '▼'}</span>
-                          </div>
-                          {expandedPoints[pt.id] && (
-                            <div style={{ padding: '10px 12px', borderTop: '1px solid #F0EEE9' }}>
-                              <div style={{ fontSize: 12, color: '#2C2C2C', marginBottom: 6, lineHeight: 1.5 }}>{pt.description}</div>
-                              <div style={{ display: 'flex', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
-                                {pt.responsable && <span style={{ fontSize: 11, color: '#8A8A7A' }}>Resp : {pt.responsable}</span>}
-                                {pt.date_echeance && <span style={{ fontSize: 11, color: '#8A8A7A' }}>Échéance : {new Date(pt.date_echeance).toLocaleDateString('fr-FR')}</span>}
-                              </div>
-                              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                                {!['validation','cloture'].includes(pt.statut) && <button style={S.smallBtn('#4CAF7D','#E6F7EF')} onClick={() => updateStatut('points_actions_etude', pt.id, 'validation')}>Valider</button>}
-                                {['ouvert','en_cours'].includes(pt.statut) && <button style={S.smallBtn('#8A8A7A','#F0EEE8')} onClick={() => updateStatut('points_actions_etude', pt.id, 'en_attente')}>Suspendre</button>}
-                                {pt.statut !== 'cloture' && <button style={S.smallBtn('#C9A84C','#FDF6E3')} onClick={() => updateStatut('points_actions_etude', pt.id, 'cloture')}>Clôturer</button>}
-                                <button style={S.smallBtn('#8A8A7A','#F0EEE8')} onClick={() => updateStatut('points_actions_etude', pt.id, 'annule')}>Archiver</button>
-                              </div>
+                  {isPlanOpen && (
+                    <div style={{ padding: '8px 14px 12px', borderTop: '1px solid #F0EEE9' }}>
+                      {plan.points.map(pt => {
+                        const spt = STATUTS_PA.find(s => s.id === pt.statut) || STATUTS_PA[0]
+                        const isPtOpen = expandedPoints[pt.id]
+                        return (
+                          <div key={pt.id} style={{ marginBottom: 6, border: '1px solid #F0EEE9', borderRadius: 8, overflow: 'hidden' }}>
+                            <div onClick={() => setExpandedPoints(p => ({ ...p, [pt.id]: !p[pt.id] }))}
+                              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', cursor: 'pointer', background: isPtOpen ? '#FAFAF8' : '#fff' }}>
+                              <div style={{ width: 6, height: 6, borderRadius: '50%', background: spt.color, flexShrink: 0 }}/>
+                              <span style={{ flex: 1, fontSize: 12, color: '#2C2C2C' }}>{pt.description.length > 55 ? pt.description.substring(0,55)+'…' : pt.description}</span>
+                              <span style={S.badge(pt.statut)}>{spt.label}</span>
+                              <span style={{ fontSize: 8, color: '#8A8A7A' }}>{isPtOpen ? '▲' : '▼'}</span>
                             </div>
-                          )}
-                        </div>
-                      ))}
+                            {isPtOpen && (
+                              <div style={{ padding: '10px 12px', borderTop: '1px solid #F0EEE9' }}>
+                                <div style={{ fontSize: 12, color: '#2C2C2C', marginBottom: 6, lineHeight: 1.5 }}>{pt.description}</div>
+                                <div style={{ display: 'flex', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
+                                  {pt.responsable && <span style={{ fontSize: 11, color: '#8A8A7A' }}>Resp : {pt.responsable}</span>}
+                                  {pt.date_echeance && <span style={{ fontSize: 11, color: '#8A8A7A' }}>Échéance : {new Date(pt.date_echeance).toLocaleDateString('fr-FR')}</span>}
+                                </div>
+                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                  {!['validation','cloture'].includes(pt.statut) && <button style={S.smallBtn('#4CAF7D','#E6F7EF')} onClick={() => updateStatut('points_actions_etude', pt.id, 'validation')}>Valider</button>}
+                                  {['ouvert','en_cours'].includes(pt.statut) && <button style={S.smallBtn('#8A8A7A','#F0EEE8')} onClick={() => updateStatut('points_actions_etude', pt.id, 'en_attente')}>Suspendre</button>}
+                                  {pt.statut !== 'cloture' && <button style={S.smallBtn('#C9A84C','#FDF6E3')} onClick={() => updateStatut('points_actions_etude', pt.id, 'cloture')}>Clôturer</button>}
+                                  <button style={S.smallBtn('#8A8A7A','#F0EEE8')} onClick={() => updateStatut('points_actions_etude', pt.id, 'annule')}>Archiver</button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
 
+                      {/* Form point */}
                       {showPointForm === plan.id ? (
-                        <div style={{ background: '#F8F7F4', borderRadius: 8, padding: 12, marginTop: 6, border: '1px solid #E8E6DF' }}>
+                        <div style={{ background: '#F8F7F4', borderRadius: 8, padding: 12, border: '1px solid #E8E6DF', marginTop: 6 }}>
                           <input style={{ ...S.input, marginBottom: 8 }} placeholder="Description du point d'action" value={formPoint.description} onChange={e => setFormPoint(p => ({ ...p, description: e.target.value }))}/>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
                             <input style={S.input} placeholder="Responsable" value={formPoint.responsable} onChange={e => setFormPoint(p => ({ ...p, responsable: e.target.value }))}/>
                             <input style={S.input} type="date" value={formPoint.date_echeance} onChange={e => setFormPoint(p => ({ ...p, date_echeance: e.target.value }))}/>
                           </div>
                           <div style={{ display: 'flex', gap: 6 }}>
-                            <button onClick={() => savePoint(plan.id)} style={S.btnPrimary}>Ajouter</button>
+                            <button onClick={() => savePoint(plan.id)} disabled={saving} style={S.btnPrimary}>Ajouter</button>
                             <button onClick={() => setShowPointForm(null)} style={S.btnGhost}>Annuler</button>
                           </div>
                         </div>
@@ -1629,15 +1476,118 @@ function SectionPlansActions() {
                     </div>
                   )}
                 </div>
-              ))}
-            </div>
+              )
+            })}
 
-            <div style={{ padding: '12px 20px', borderTop: '1px solid #E8E6DF', display: 'flex', justifyContent: 'flex-end' }}>
-              <button onClick={() => setPopup(null)} style={S.btnGhost}>Fermer</button>
-            </div>
+            {/* Form nouveau plan */}
+            {showPlanForm === `${segment}_${cibleNom}` ? (
+              <div style={{ margin: '8px 16px 12px', background: '#fff', borderRadius: 10, border: '1px solid rgba(201,168,76,0.25)', padding: 14 }}>
+                <div style={{ ...S.label, marginBottom: 8, fontSize: 11 }}>Nouveau plan — {label}</div>
+                <input style={{ ...S.input, marginBottom: 8 }} placeholder="Titre du plan d'action" value={formPlan.titre} onChange={e => setFormPlan(p => ({ ...p, titre: e.target.value }))}/>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => savePlan(segment, cibleNom)} disabled={saving} style={S.btnPrimary}>{saving ? 'Enregistrement...' : 'Créer'}</button>
+                  <button onClick={() => setShowPlanForm(null)} style={S.btnGhost}>Annuler</button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setShowPlanForm(`${segment}_${cibleNom}`)} style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '8px 16px 12px', padding: '6px 12px', border: '1px dashed rgba(201,168,76,0.3)', borderRadius: 8, cursor: 'pointer', color: '#C9A84C', fontSize: 12, background: 'transparent' }}>
+                + Nouveau plan pour {label}
+              </button>
+            )}
           </div>
+        )}
+      </div>
+    )
+  }
+
+  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#8A8A7A', fontSize: 13 }}>Chargement...</div>
+
+  // Compter les plans par segment
+  const countSeg = (seg) => plans.filter(p => p.segment === seg).length
+
+  return (
+    <div>
+      {msg && <div style={{ padding: '10px 16px', borderRadius: 8, marginBottom: 14, fontSize: 13, background: '#E6F7EF', color: '#2d7a54', border: '1px solid #4CAF7D33' }}>{msg}</div>}
+
+      {/* ── Call Center ── */}
+      <div style={S.card}>
+        <div onClick={() => setExpandedSegs(p => ({ ...p, cc: !p.cc }))}
+          style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', cursor: 'pointer', borderLeft: '4px solid #C9A84C', background: expandedSegs.cc ? '#FAFAF8' : '#fff' }}>
+          <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(201,168,76,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 500, color: '#8A6820', flexShrink: 0 }}>N</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#2C2C2C' }}>Call Center</div>
+            <div style={{ fontSize: 12, color: '#8A8A7A', marginTop: 2 }}>Nadir HADRAK · {CONSEILLERES_CC.length} cibles</div>
+          </div>
+          {countSeg('cc') > 0 ? <span style={{ fontSize: 12, color: '#C9A84C', fontWeight: 500 }}>{countSeg('cc')} plan{countSeg('cc') > 1 ? 's' : ''}</span> : <span style={S.noPlan}>Aucun plan</span>}
+          <span style={{ fontSize: 10, color: '#8A8A7A', transition: 'transform 0.2s', transform: expandedSegs.cc ? 'rotate(180deg)' : 'rotate(0)' }}>▼</span>
         </div>
-      )}
+        {expandedSegs.cc && (
+          <div style={{ borderTop: '1px solid #E8E6DF' }}>
+            {CONSEILLERES_CC.map(c => <CibleRow key={c} segment="cc" cibleNom={c} label={c}/>)}
+          </div>
+        )}
+      </div>
+
+      {/* ── Marketing ── */}
+      <div style={S.card}>
+        <div onClick={() => setExpandedSegs(p => ({ ...p, mkt: !p.mkt }))}
+          style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', cursor: 'pointer', borderLeft: '4px solid #4CAF7D', background: expandedSegs.mkt ? '#FAFAF8' : '#fff' }}>
+          <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(76,175,125,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 500, color: '#2d7a54', flexShrink: 0 }}>M</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#2C2C2C' }}>Marketing</div>
+            <div style={{ fontSize: 12, color: '#8A8A7A', marginTop: 2 }}>Mos'art · 1 cible</div>
+          </div>
+          {countSeg('marketing') > 0 ? <span style={{ fontSize: 12, color: '#4CAF7D', fontWeight: 500 }}>{countSeg('marketing')} plan{countSeg('marketing') > 1 ? 's' : ''}</span> : <span style={S.noPlan}>Aucun plan</span>}
+          <span style={{ fontSize: 10, color: '#8A8A7A', transition: 'transform 0.2s', transform: expandedSegs.mkt ? 'rotate(180deg)' : 'rotate(0)' }}>▼</span>
+        </div>
+        {expandedSegs.mkt && (
+          <div style={{ borderTop: '1px solid #E8E6DF' }}>
+            <CibleRow segment="marketing" cibleNom="equipe_marketing" label="Équipe Marketing"/>
+          </div>
+        )}
+      </div>
+
+      {/* ── Commercial ── */}
+      <div style={S.card}>
+        <div onClick={() => setExpandedSegs(p => ({ ...p, com: !p.com }))}
+          style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', cursor: 'pointer', borderLeft: '4px solid #378ADD', background: expandedSegs.com ? '#FAFAF8' : '#fff' }}>
+          <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(55,138,221,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 500, color: '#185FA5', flexShrink: 0 }}>A</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#2C2C2C' }}>Commercial</div>
+            <div style={{ fontSize: 12, color: '#8A8A7A', marginTop: 2 }}>2 équipes · {EQUIPES_COM.reduce((s,e) => s+e.commerciaux.length, 0)} commerciaux</div>
+          </div>
+          {countSeg('commercial') > 0 ? <span style={{ fontSize: 12, color: '#378ADD', fontWeight: 500 }}>{countSeg('commercial')} plan{countSeg('commercial') > 1 ? 's' : ''}</span> : <span style={S.noPlan}>Aucun plan</span>}
+          <span style={{ fontSize: 10, color: '#8A8A7A', transition: 'transform 0.2s', transform: expandedSegs.com ? 'rotate(180deg)' : 'rotate(0)' }}>▼</span>
+        </div>
+        {expandedSegs.com && (
+          <div style={{ borderTop: '1px solid #E8E6DF' }}>
+            {EQUIPES_COM.map(eq => (
+              <div key={eq.id}>
+                {/* Sous-header équipe */}
+                <div onClick={() => setExpandedEquipes(p => ({ ...p, [eq.id]: !p[eq.id] }))}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', cursor: 'pointer', background: expandedEquipes[eq.id] ? '#FAFAF8' : 'rgba(248,247,244,0.5)', borderBottom: '1px solid #F0EEE9', borderLeft: `3px solid ${eq.color}` }}>
+                  <div style={{ width: 26, height: 26, borderRadius: '50%', background: `rgba(${eq.color === '#C9A84C' ? '201,168,76' : '55,138,221'},0.1)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 500, color: eq.color, flexShrink: 0 }}>
+                    {eq.label.charAt(8)}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C' }}>{eq.label}</div>
+                    <div style={{ fontSize: 11, color: '#8A8A7A', marginTop: 1 }}>{eq.resp}</div>
+                  </div>
+                  <span style={{ fontSize: 10, color: '#8A8A7A', transition: 'transform 0.2s', transform: expandedEquipes[eq.id] ? 'rotate(180deg)' : 'rotate(0)' }}>▼</span>
+                </div>
+
+                {/* Cibles équipe + commerciaux */}
+                {expandedEquipes[eq.id] && (
+                  <div>
+                    <CibleRow segment="commercial" cibleNom={eq.id} label={eq.label} level={1}/>
+                    {eq.commerciaux.map(c => <CibleRow key={c} segment="commercial" cibleNom={c} label={c} level={1}/>)}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
