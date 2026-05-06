@@ -1241,12 +1241,13 @@ const SLIDES = [
 
 
 
-// ── Section Plans d'Actions v2 ───────────────────────────────────────────────
+
+// ── Section Plans d'Actions v3 — Style CE ───────────────────────────────────
 
 const SEGMENTS_PA = [
-  { id: 'cc', label: 'Call Center', resp: 'Nadir HADRAK', color: '#C9A84C', bg: 'rgba(201,168,76,0.08)', border: 'rgba(201,168,76,0.3)' },
-  { id: 'marketing', label: 'Marketing', resp: "Mos'art", color: '#4CAF7D', bg: 'rgba(76,175,125,0.08)', border: 'rgba(76,175,125,0.25)' },
-  { id: 'commercial', label: 'Commercial', resp: 'A. RHALMI', color: '#378ADD', bg: 'rgba(55,138,221,0.08)', border: 'rgba(55,138,221,0.25)' },
+  { id: 'cc', label: 'Call Center', resp: 'Nadir HADRAK', color: '#C9A84C' },
+  { id: 'marketing', label: 'Marketing', resp: "Mos'art", color: '#4CAF7D' },
+  { id: 'commercial', label: 'Commercial', resp: 'A. RHALMI', color: '#378ADD' },
 ]
 
 const CIBLES_PA = {
@@ -1274,36 +1275,35 @@ const CIBLES_PA = {
 }
 
 const STATUTS_PA = [
-  { id: 'ouvert', label: 'Ouvert', color: '#378ADD', bg: 'rgba(55,138,221,0.08)' },
-  { id: 'en_cours', label: 'En cours', color: '#C9A84C', bg: 'rgba(201,168,76,0.1)' },
-  { id: 'en_attente', label: 'En attente', color: '#8A8A7A', bg: 'rgba(138,138,122,0.08)' },
-  { id: 'validation', label: 'En att. validation', color: '#4CAF7D', bg: 'rgba(76,175,125,0.1)' },
-  { id: 'annule', label: 'Annulé', color: '#E05C5C', bg: 'rgba(224,92,92,0.08)' },
-  { id: 'cloture', label: 'Clôturé', color: '#5A5A5A', bg: 'rgba(90,90,90,0.08)' },
+  { id: 'ouvert',     label: 'Ouvert',              color: '#378ADD', bg: '#EEF4FB' },
+  { id: 'en_cours',   label: 'En cours',             color: '#C9A84C', bg: '#FDF6E3' },
+  { id: 'en_attente', label: 'En attente',           color: '#8A8A7A', bg: '#F0EEE8' },
+  { id: 'validation', label: 'En att. validation',   color: '#4CAF7D', bg: '#E6F7EF' },
+  { id: 'annule',     label: 'Annulé',               color: '#E05C5C', bg: '#FEF0F0' },
+  { id: 'cloture',    label: 'Clôturé',              color: '#5A5A5A', bg: '#F0EEE8' },
 ]
 
-// Positions orbitales
 const ORBIT_POS = {
   cc: [
-    { id: 'equipe', x: 340, y: 72, l1: 'Équipe', l2: 'CC' },
-    { id: 'Rajaa ELKHANCHAR', x: 464, y: 100, l1: 'Rajaa', l2: 'ELKHANCHAR' },
-    { id: 'Fatima Zahraa AAKIBA', x: 496, y: 196, l1: 'Fatima', l2: 'AAKIBA' },
-    { id: 'Ghizlane ELBAKARI', x: 464, y: 292, l1: 'Ghizlane', l2: 'ELBAKARI' },
-    { id: 'Siham IBNTABET', x: 340, y: 320, l1: 'Siham', l2: 'IBNTABET' },
-    { id: 'Hala ELAOUAD', x: 216, y: 292, l1: 'Hala', l2: 'ELAOUAD' },
-    { id: 'Kaoutar HRARTI', x: 216, y: 100, l1: 'Kaoutar', l2: 'HRARTI' },
+    { id: 'equipe',                  x: 340, y: 72,  l1: 'Équipe',   l2: 'CC'          },
+    { id: 'Rajaa ELKHANCHAR',        x: 464, y: 100, l1: 'Rajaa',    l2: 'ELKHANCHAR'  },
+    { id: 'Fatima Zahraa AAKIBA',    x: 496, y: 196, l1: 'Fatima',   l2: 'AAKIBA'      },
+    { id: 'Ghizlane ELBAKARI',       x: 464, y: 292, l1: 'Ghizlane', l2: 'ELBAKARI'    },
+    { id: 'Siham IBNTABET',          x: 340, y: 320, l1: 'Siham',    l2: 'IBNTABET'    },
+    { id: 'Hala ELAOUAD',            x: 216, y: 292, l1: 'Hala',     l2: 'ELAOUAD'     },
+    { id: 'Kaoutar HRARTI',          x: 216, y: 100, l1: 'Kaoutar',  l2: 'HRARTI'      },
   ],
   commercial: [
-    { id: 'equipe_sale', x: 250, y: 72, l1: 'Équipe', l2: 'Sale' },
-    { id: 'equipe_kenitra', x: 430, y: 72, l1: 'Équipe', l2: 'Kénitra' },
-    { id: 'Abdelhak Lakouissmi', x: 500, y: 180, l1: 'Abdelhak', l2: 'Lak.' },
-    { id: 'Saad Fellah', x: 464, y: 292, l1: 'Saad', l2: 'Fellah' },
-    { id: 'Khalid Amghoud', x: 340, y: 320, l1: 'Khalid', l2: 'Amghoud' },
-    { id: 'Ismail Hammouch', x: 216, y: 292, l1: 'Ismail', l2: 'Hammouch' },
-    { id: 'Nouhaila Belhadj', x: 180, y: 180, l1: 'Nouhaila', l2: 'Belhadj' },
+    { id: 'equipe_sale',             x: 250, y: 72,  l1: 'Équipe',   l2: 'Sale'        },
+    { id: 'equipe_kenitra',          x: 430, y: 72,  l1: 'Équipe',   l2: 'Kénitra'     },
+    { id: 'Abdelhak Lakouissmi',     x: 500, y: 180, l1: 'Abdelhak', l2: 'Lak.'        },
+    { id: 'Saad Fellah',             x: 464, y: 292, l1: 'Saad',     l2: 'Fellah'      },
+    { id: 'Khalid Amghoud',          x: 340, y: 320, l1: 'Khalid',   l2: 'Amghoud'     },
+    { id: 'Ismail Hammouch',         x: 216, y: 292, l1: 'Ismail',   l2: 'Hammouch'    },
+    { id: 'Nouhaila Belhadj',        x: 180, y: 180, l1: 'Nouhaila', l2: 'Belhadj'     },
   ],
   marketing: [
-    { id: 'equipe_marketing', x: 340, y: 80, l1: 'Équipe', l2: 'Marketing' },
+    { id: 'equipe_marketing',        x: 340, y: 80,  l1: 'Équipe',   l2: 'Marketing'   },
   ]
 }
 
@@ -1322,8 +1322,17 @@ function SectionPlansActions() {
   const [msg, setMsg] = useState(null)
 
   const segData = SEGMENTS_PA.find(s => s.id === seg)
-  const cibles = CIBLES_PA[seg] || []
+  const cibles  = CIBLES_PA[seg]  || []
   const positions = ORBIT_POS[seg] || []
+
+  const S = {
+    card:     { background: '#fff', border: '1px solid #E8E6DF', borderRadius: 12, padding: '16px 20px' },
+    input:    { padding: '8px 12px', border: '1px solid #E8E6DF', borderRadius: 8, fontSize: 13, color: '#2C2C2C', background: '#F8F7F4', outline: 'none', width: '100%' },
+    label:    { fontSize: 10, color: '#8A8A7A', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 500, marginBottom: 5, display: 'block' },
+    btnPrimary: { background: '#C9A84C', color: '#fff', border: 'none', padding: '7px 18px', borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: 'pointer' },
+    btnGhost:   { background: '#fff', color: '#5A5A5A', border: '1px solid #E8E6DF', padding: '7px 18px', borderRadius: 20, fontSize: 12, cursor: 'pointer' },
+    smallBtn: (col, bg) => ({ background: bg, color: col, border: `1px solid ${col}33`, padding: '3px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer', fontWeight: 500 }),
+  }
 
   useEffect(() => { loadPlans() }, [seg])
 
@@ -1333,8 +1342,7 @@ function SectionPlansActions() {
       .eq('etude_id', 'perf_avril_2026').eq('segment', seg).order('created_at')
     const result = []
     for (const p of (ps || [])) {
-      const { data: pts } = await supabase.from('points_actions_etude').select('*')
-        .eq('plan_id', p.id).order('created_at')
+      const { data: pts } = await supabase.from('points_actions_etude').select('*').eq('plan_id', p.id).order('created_at')
       result.push({ ...p, points: pts || [] })
     }
     setPlans(result)
@@ -1343,14 +1351,17 @@ function SectionPlansActions() {
 
   function getBubbleStyle(cibleId) {
     const plansCible = plans.filter(p => p.cible_nom === cibleId)
-    if (plansCible.length === 0) return { fill: '#F0EEE8', stroke: '#D5D2CA', strokeW: 1, dash: '4 3', textColor: '#B0AEA8', hasPlans: false }
-    const hasValidation = plansCible.some(p => p.statut === 'validation')
-    const hasEnCours = plansCible.some(p => p.statut === 'en_cours')
-    const hasAttente = plansCible.some(p => p.statut === 'en_attente')
-    if (hasValidation) return { fill: 'rgba(76,175,125,0.1)', stroke: '#4CAF7D', strokeW: 1.5, dash: '', textColor: '#2d7a54', hasPlans: true, badgeColor: '#4CAF7D' }
-    if (hasEnCours) return { fill: 'rgba(201,168,76,0.1)', stroke: '#C9A84C', strokeW: 1.5, dash: '', textColor: '#8A6820', hasPlans: true, badgeColor: '#C9A84C' }
-    if (hasAttente) return { fill: 'rgba(138,138,122,0.08)', stroke: '#8A8A7A', strokeW: 1.5, dash: '', textColor: '#5A5A5A', hasPlans: true, badgeColor: '#8A8A7A' }
-    return { fill: 'rgba(201,168,76,0.06)', stroke: 'rgba(201,168,76,0.4)', strokeW: 1, dash: '', textColor: '#8A6820', hasPlans: true, badgeColor: '#C9A84C' }
+    if (!plansCible.length) return { fill: '#F8F7F4', stroke: '#D5D2CA', strokeW: 1, dash: '4 3', textColor: '#B8B6AE', hasPlans: false }
+    const hasStat = (s) => plansCible.some(p => p.statut === s)
+    if (hasStat('validation')) return { fill: '#E6F7EF', stroke: '#4CAF7D', strokeW: 1.5, dash: '', textColor: '#2d7a54', hasPlans: true, badgeColor: '#4CAF7D' }
+    if (hasStat('en_cours'))   return { fill: '#FDF6E3', stroke: '#C9A84C', strokeW: 1.5, dash: '', textColor: '#8A6820', hasPlans: true, badgeColor: '#C9A84C' }
+    if (hasStat('en_attente')) return { fill: '#F0EEE8', stroke: '#8A8A7A', strokeW: 1.5, dash: '', textColor: '#5A5A5A', hasPlans: true, badgeColor: '#8A8A7A' }
+    return { fill: '#FDF6E3', stroke: '#C9A84C', strokeW: 1, dash: '', textColor: '#8A6820', hasPlans: true, badgeColor: '#C9A84C' }
+  }
+
+  function StatutBadge({ statut, small }) {
+    const s = STATUTS_PA.find(x => x.id === statut) || STATUTS_PA[0]
+    return <span style={{ background: s.bg, color: s.color, border: `1px solid ${s.color}33`, borderRadius: 6, padding: small ? '2px 7px' : '3px 10px', fontSize: small ? 10 : 11, fontWeight: 600 }}>{s.label}</span>
   }
 
   function calcPct(plans) {
@@ -1382,20 +1393,6 @@ function SectionPlansActions() {
   async function updateStatut(table, id, statut) {
     await supabase.from(table).update({ statut, updated_at: new Date().toISOString() }).eq('id', id)
     loadPlans()
-    // Refresh popup si ouvert
-    if (popup) {
-      setTimeout(() => {
-        const updated = plans.filter(p => p.cible_nom === popup.cibleId)
-        setPopup(prev => prev ? { ...prev, plans: plans.filter(p => p.cible_nom === prev.cibleId) } : null)
-      }, 300)
-    }
-  }
-
-  const sty = {
-    input: { padding: '8px 12px', border: '1px solid rgba(201,168,76,0.2)', borderRadius: 8, fontSize: 13, color: '#2C2C2C', background: '#F8F7F4', outline: 'none', fontFamily: 'DM Sans, sans-serif', width: '100%' },
-    label: { fontSize: 10, color: '#8A8A7A', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 500, marginBottom: 5, display: 'block' },
-    btn: (bg, col, border) => ({ background: bg, color: col, border: `1px solid ${border || bg}`, padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }),
-    smallBtn: (col, border) => ({ background: 'transparent', color: col, border: `1px solid ${border}`, padding: '3px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }),
   }
 
   const CX = 340, CY = 196
@@ -1403,74 +1400,72 @@ function SectionPlansActions() {
   if (loading) return <div style={{ padding: 48, textAlign: 'center', color: '#8A8A7A', fontSize: 13 }}>Chargement...</div>
 
   return (
-    <div style={{ fontFamily: 'DM Sans, sans-serif' }}>
+    <div>
+      {msg && <div style={{ padding: '10px 16px', borderRadius: 8, marginBottom: 14, fontSize: 13, background: '#E6F7EF', color: '#2d7a54', border: '1px solid #4CAF7D33' }}>{msg.text}</div>}
 
-      {msg && <div style={{ padding: '10px 16px', borderRadius: 8, marginBottom: 12, fontSize: 13, background: 'rgba(76,175,125,0.08)', color: '#2d7a54', border: '1px solid rgba(76,175,125,0.15)' }}>{msg.text}</div>}
-
-      {/* Segments + bouton */}
+      {/* Segments — même style que les toggles CE */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         {SEGMENTS_PA.map(s => (
           <button key={s.id} onClick={() => setSeg(s.id)} style={{
-            padding: '7px 16px', borderRadius: 20, fontSize: 12, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
-            border: `1px solid ${seg === s.id ? s.border : 'rgba(201,168,76,0.15)'}`,
-            background: seg === s.id ? s.bg : '#fff',
-            color: seg === s.id ? s.color : '#8A8A7A',
-            fontWeight: seg === s.id ? 500 : 400,
-            transition: 'all 0.15s'
+            padding: '5px 14px', borderRadius: 16, fontSize: 11, cursor: 'pointer',
+            border: `1px solid ${seg === s.id ? s.color : '#E8E6DF'}`,
+            background: seg === s.id ? s.color + '18' : '#fff',
+            color: seg === s.id ? s.color : '#5A5A5A',
+            fontWeight: seg === s.id ? 500 : 400, transition: 'all 0.15s'
           }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: seg === s.id ? s.color : '#D0CEC7', display: 'inline-block', marginRight: 6, verticalAlign: 'middle' }}/>
             {s.label} — {s.resp}
           </button>
         ))}
-        <button onClick={() => setShowForm(p => !p)}
-          style={{ ...sty.btn('#C9A84C', '#fff'), marginLeft: 'auto', borderRadius: 20 }}>
-          {showForm ? '✕' : '+ Nouveau plan'}
+        <button onClick={() => setShowForm(p => !p)} style={{ ...S.btnPrimary, marginLeft: 'auto' }}>
+          {showForm ? '✕ Annuler' : '+ Nouveau plan'}
         </button>
       </div>
 
-      {/* Formulaire */}
+      {/* Formulaire — style CE */}
       {showForm && (
-        <div style={{ background: '#fff', borderRadius: 12, border: '1px solid rgba(201,168,76,0.2)', padding: 18, marginBottom: 18 }}>
-          <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C', marginBottom: 14 }}>Nouveau plan d'action</div>
+        <div style={{ ...S.card, marginBottom: 18, borderLeft: `3px solid ${segData.color}` }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#2C2C2C', marginBottom: 14 }}>Nouveau plan d'action</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
             <div>
-              <label style={sty.label}>Cible *</label>
-              <select style={sty.input} value={formPlan.cible_nom} onChange={e => setFormPlan(p => ({ ...p, cible_nom: e.target.value }))}>
+              <label style={S.label}>Cible *</label>
+              <select style={S.input} value={formPlan.cible_nom} onChange={e => setFormPlan(p => ({ ...p, cible_nom: e.target.value }))}>
                 <option value="">-- Choisir --</option>
                 {cibles.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
               </select>
             </div>
             <div style={{ gridColumn: '2/4' }}>
-              <label style={sty.label}>Titre du plan *</label>
-              <input style={sty.input} value={formPlan.titre} onChange={e => setFormPlan(p => ({ ...p, titre: e.target.value }))} placeholder="ex: Améliorer le taux de joignabilité" />
+              <label style={S.label}>Titre *</label>
+              <input style={S.input} value={formPlan.titre} onChange={e => setFormPlan(p => ({ ...p, titre: e.target.value }))} placeholder="ex: Améliorer le taux de joignabilité"/>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={savePlan} disabled={saving} style={sty.btn(saving ? '#E8D5A3' : '#C9A84C', '#fff')}>{saving ? 'En cours...' : 'Créer'}</button>
-            <button onClick={() => setShowForm(false)} style={sty.btn('#F0EEE8', '#5A5A5A')}>Annuler</button>
+            <button onClick={savePlan} disabled={saving} style={{ ...S.btnPrimary, opacity: saving ? 0.6 : 1 }}>{saving ? 'Enregistrement...' : 'Créer'}</button>
+            <button onClick={() => setShowForm(false)} style={S.btnGhost}>Annuler</button>
           </div>
         </div>
       )}
 
-      {/* ORBITAL */}
-      <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(201,168,76,0.12)', overflow: 'hidden', marginBottom: 16 }}>
-        <svg viewBox="0 0 680 390" style={{ width: '100%', display: 'block' }}>
+      {/* ORBITAL — style CE */}
+      <div style={{ ...S.card, padding: 0, overflow: 'hidden', marginBottom: 16 }}>
+        <svg viewBox="0 0 680 400" style={{ width: '100%', display: 'block' }}>
           {/* Orbits */}
-          <circle cx={CX} cy={CY} r="138" fill="none" stroke="rgba(201,168,76,0.1)" strokeWidth="1" strokeDasharray="2 6"/>
-          <circle cx={CX} cy={CY} r="80" fill="none" stroke="rgba(201,168,76,0.07)" strokeWidth="1"/>
+          <circle cx={CX} cy={CY} r="138" fill="none" stroke="#E8E6DF" strokeWidth="1" strokeDasharray="2 6"/>
+          <circle cx={CX} cy={CY} r="80"  fill="none" stroke="#E8E6DF" strokeWidth="0.5"/>
 
           {/* Connecteurs */}
           {positions.map(pos => {
             const dx = pos.x - CX, dy = pos.y - CY
             const dist = Math.sqrt(dx*dx + dy*dy)
-            const x1 = CX + dx * (44/dist), y1 = CY + dy * (44/dist)
-            const x2 = pos.x - dx * (28/dist), y2 = pos.y - dy * (28/dist)
-            return <line key={pos.id} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(201,168,76,0.2)" strokeWidth="1"/>
+            const x1 = CX + dx*(44/dist), y1 = CY + dy*(44/dist)
+            const x2 = pos.x - dx*(28/dist), y2 = pos.y - dy*(28/dist)
+            return <line key={pos.id} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#E8E6DF" strokeWidth="1"/>
           })}
 
           {/* Centre */}
-          <circle cx={CX} cy={CY} r="44" fill={segData.bg} stroke={segData.color} strokeWidth="1.5"/>
-          <text x={CX} y={CY - 5} textAnchor="middle" fontSize="13" fontWeight="500" fill={segData.color} fontFamily="DM Sans, sans-serif">{segData.label}</text>
-          <text x={CX} y={CY + 11} textAnchor="middle" fontSize="9" fill={segData.color} fontFamily="DM Sans, sans-serif" opacity="0.8">{segData.resp}</text>
+          <circle cx={CX} cy={CY} r="44" fill={segData.color + '15'} stroke={segData.color} strokeWidth="1.5"/>
+          <text x={CX} y={CY - 5} textAnchor="middle" fontSize="13" fontWeight="600" fill={segData.color}>{segData.label}</text>
+          <text x={CX} y={CY + 11} textAnchor="middle" fontSize="9" fill={segData.color} opacity="0.8">{segData.resp}</text>
 
           {/* Satellites */}
           {positions.map(pos => {
@@ -1480,55 +1475,51 @@ function SectionPlansActions() {
             return (
               <g key={pos.id} style={{ cursor: 'pointer' }} onClick={() => setPopup({ cibleId: pos.id, cibleLabel: cibles.find(c => c.id === pos.id)?.label || pos.id, plans: plansCible })}>
                 <circle cx={pos.x} cy={pos.y} r="28" fill={bs.fill} stroke={bs.stroke} strokeWidth={bs.strokeW} strokeDasharray={bs.dash}/>
-                <text x={pos.x} y={pos.y - 3} textAnchor="middle" fontSize="10" fontWeight={bs.hasPlans ? '500' : '400'} fill={bs.textColor} fontFamily="DM Sans, sans-serif">{pos.l1}</text>
-                <text x={pos.x} y={pos.y + 10} textAnchor="middle" fontSize="9" fill={bs.textColor} fontFamily="DM Sans, sans-serif" opacity="0.85">{pos.l2}</text>
-                {bs.hasPlans && totalPts > 0 && (
-                  <g>
-                    <circle cx={pos.x + 20} cy={pos.y - 20} r="9" fill={bs.badgeColor}/>
-                    <text x={pos.x + 20} y={pos.y - 16} textAnchor="middle" fontSize="9" fill="white" fontFamily="DM Sans, sans-serif" fontWeight="500">{totalPts}</text>
-                  </g>
-                )}
-                {!bs.hasPlans && (
-                  <text x={pos.x} y={pos.y + 40} textAnchor="middle" fontSize="8" fill="#C0BEBC" fontFamily="DM Sans, sans-serif">Aucun plan</text>
-                )}
+                <text x={pos.x} y={pos.y - 3} textAnchor="middle" fontSize="10" fontWeight={bs.hasPlans ? '600' : '400'} fill={bs.textColor}>{pos.l1}</text>
+                <text x={pos.x} y={pos.y + 10} textAnchor="middle" fontSize="9" fill={bs.textColor} opacity="0.85">{pos.l2}</text>
+                {bs.hasPlans && totalPts > 0 && <>
+                  <circle cx={pos.x + 20} cy={pos.y - 20} r="9" fill={bs.badgeColor}/>
+                  <text x={pos.x + 20} y={pos.y - 16} textAnchor="middle" fontSize="9" fill="white" fontWeight="600">{totalPts}</text>
+                </>}
+                {!bs.hasPlans && <text x={pos.x} y={pos.y + 40} textAnchor="middle" fontSize="8" fill="#C0BEBC">Aucun plan</text>}
               </g>
             )
           })}
 
           {/* Légende */}
           {[
-            { cx: 24, color: segData.color, bg: segData.bg, label: 'Plan actif' },
-            { cx: 110, color: '#4CAF7D', bg: 'rgba(76,175,125,0.1)', label: 'En att. validation' },
-            { cx: 225, color: '#8A8A7A', bg: 'rgba(138,138,122,0.08)', label: 'En attente' },
-            { cx: 315, color: '#C0BEBC', bg: '#F0EEE8', dash: '3 3', label: 'Aucun plan' },
+            { cx: 24,  color: '#C9A84C', bg: '#FDF6E3', label: 'Plan actif' },
+            { cx: 108, color: '#4CAF7D', bg: '#E6F7EF', label: 'En att. validation' },
+            { cx: 222, color: '#8A8A7A', bg: '#F0EEE8', label: 'En attente' },
+            { cx: 310, color: '#C0BEBC', bg: '#F8F7F4', dash: '4 3', label: 'Aucun plan' },
           ].map((l, i) => (
             <g key={i}>
-              <circle cx={l.cx} cy={374} r="7" fill={l.bg} stroke={l.color} strokeWidth="1.5" strokeDasharray={l.dash || ''}/>
-              <text x={l.cx + 12} y={378} fontSize="9" fill="#8A8A7A" fontFamily="DM Sans, sans-serif">{l.label}</text>
+              <circle cx={l.cx} cy={386} r="7" fill={l.bg} stroke={l.color} strokeWidth="1.5" strokeDasharray={l.dash || ''}/>
+              <text x={l.cx + 12} y={390} fontSize="9" fill="#8A8A7A">{l.label}</text>
             </g>
           ))}
         </svg>
       </div>
 
-      {/* POPUP */}
+      {/* POPUP — style CE */}
       {popup && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,44,44,0.35)', zIndex: 200, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 48, overflowY: 'auto', backdropFilter: 'blur(2px)' }}
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,44,44,0.3)', zIndex: 200, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 48, overflowY: 'auto' }}
           onClick={() => setPopup(null)}>
-          <div style={{ background: '#fff', borderRadius: 16, width: 540, maxWidth: '95vw', border: '1px solid rgba(201,168,76,0.15)', marginBottom: 48, overflow: 'hidden', boxShadow: '0 8px 40px rgba(44,44,44,0.1)' }}
+          <div style={{ background: '#fff', borderRadius: 14, width: 540, maxWidth: '95vw', border: '1px solid #E8E6DF', marginBottom: 48, overflow: 'hidden', boxShadow: '0 4px 24px rgba(44,44,44,0.08)' }}
             onClick={e => e.stopPropagation()}>
 
-            {/* Popup header */}
-            <div style={{ padding: '18px 22px', background: '#FAFAF8', borderBottom: '1px solid rgba(201,168,76,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            {/* Header */}
+            <div style={{ padding: '16px 20px', background: '#F8F7F4', borderBottom: '1px solid #E8E6DF', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 500, color: '#2C2C2C' }}>{popup.cibleLabel}</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#2C2C2C' }}>{popup.cibleLabel}</div>
                 <div style={{ fontSize: 11, color: '#8A8A7A', marginTop: 2 }}>
                   {popup.plans.length} plan{popup.plans.length !== 1 ? 's' : ''} · {popup.plans.reduce((s, p) => s + p.points.length, 0)} points d'actions
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => { setFormPlan({ cible_nom: popup.cibleId, titre: '', statut: 'ouvert' }); setShowForm(true); setPopup(null) }}
-                  style={sty.btn('rgba(201,168,76,0.08)', '#C9A84C', 'rgba(201,168,76,0.25)')}>+ Plan</button>
-                <button onClick={() => setPopup(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#8A8A7A', padding: '4px 8px' }}>✕</button>
+                  style={{ ...S.btnGhost, fontSize: 11, padding: '5px 12px', borderRadius: 8 }}>+ Plan</button>
+                <button onClick={() => setPopup(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: '#8A8A7A' }}>✕</button>
               </div>
             </div>
 
@@ -1536,31 +1527,31 @@ function SectionPlansActions() {
             {popup.plans.length > 0 && (() => {
               const pct = calcPct(popup.plans)
               const allPts = popup.plans.flatMap(p => p.points)
-              const stepData = [
-                { label: 'Ouvert', count: allPts.filter(p => p.statut === 'ouvert').length, color: '#378ADD' },
-                { label: 'En cours', count: allPts.filter(p => p.statut === 'en_cours').length, color: '#C9A84C' },
-                { label: 'En att. valid.', count: allPts.filter(p => p.statut === 'validation').length, color: '#4CAF7D' },
-                { label: 'Clôturé', count: allPts.filter(p => p.statut === 'cloture').length, color: '#8A8A7A' },
-              ]
               return (
-                <div style={{ padding: '14px 22px', borderBottom: '1px solid rgba(201,168,76,0.08)' }}>
+                <div style={{ padding: '14px 20px', borderBottom: '1px solid #E8E6DF' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#8A8A7A', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
-                    <span>Progression</span>
-                    <span style={{ color: '#C9A84C', fontWeight: 500 }}>{pct}%</span>
+                    <span>Progression globale</span>
+                    <span style={{ color: '#C9A84C', fontWeight: 600 }}>{pct}%</span>
                   </div>
                   <div style={{ height: 4, background: '#F0EEE8', borderRadius: 2, overflow: 'hidden', marginBottom: 14 }}>
                     <div style={{ height: '100%', width: pct + '%', background: pct >= 80 ? '#4CAF7D' : '#C9A84C', borderRadius: 2, transition: 'width 0.8s ease' }}/>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-                    {stepData.map((s, i) => (
+                  {/* Steps */}
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    {[
+                      { label: 'Ouvert', count: allPts.filter(p => p.statut === 'ouvert').length, color: '#378ADD', bg: '#EEF4FB' },
+                      { label: 'En cours', count: allPts.filter(p => p.statut === 'en_cours').length, color: '#C9A84C', bg: '#FDF6E3' },
+                      { label: 'En att. valid.', count: allPts.filter(p => p.statut === 'validation').length, color: '#4CAF7D', bg: '#E6F7EF' },
+                      { label: 'Clôturé', count: allPts.filter(p => p.statut === 'cloture').length, color: '#5A5A5A', bg: '#F0EEE8' },
+                    ].map((s, i, arr) => (
                       <React.Fragment key={s.label}>
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-                          <div style={{ width: 26, height: 26, borderRadius: '50%', background: s.count > 0 ? `${s.color}15` : '#F8F7F4', border: `1px solid ${s.count > 0 ? s.color : '#E8E6DF'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 500, color: s.count > 0 ? s.color : '#C0BEBC' }}>
+                          <div style={{ width: 26, height: 26, borderRadius: '50%', background: s.count > 0 ? s.bg : '#F8F7F4', border: `1px solid ${s.count > 0 ? s.color : '#E8E6DF'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, color: s.count > 0 ? s.color : '#C0BEBC' }}>
                             {s.count}
                           </div>
                           <div style={{ fontSize: 9, color: s.count > 0 ? s.color : '#C0BEBC', textAlign: 'center' }}>{s.label}</div>
                         </div>
-                        {i < stepData.length - 1 && <div style={{ height: 1, flex: 1, background: '#F0EEE8', marginBottom: 14 }}/>}
+                        {i < arr.length - 1 && <div style={{ height: 1, flex: 1, background: '#E8E6DF', marginBottom: 14 }}/>}
                       </React.Fragment>
                     ))}
                   </div>
@@ -1569,85 +1560,80 @@ function SectionPlansActions() {
             })()}
 
             {/* Plans & Points */}
-            <div style={{ maxHeight: 360, overflowY: 'auto', padding: '12px 22px' }}>
+            <div style={{ maxHeight: 360, overflowY: 'auto', padding: '14px 20px' }}>
               {popup.plans.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '28px 0', color: '#8A8A7A' }}>
-                  <div style={{ fontSize: 24, marginBottom: 8, opacity: 0.5 }}>📋</div>
-                  <div style={{ fontSize: 13 }}>Aucun plan — cliquez sur "+ Plan" pour commencer</div>
+                <div style={{ textAlign: 'center', padding: '28px 0', color: '#8A8A7A', fontSize: 13 }}>
+                  <div style={{ fontSize: 22, marginBottom: 8, opacity: 0.4 }}>📋</div>
+                  Aucun plan — cliquez sur "+ Plan" pour commencer
                 </div>
-              ) : popup.plans.map(plan => {
-                const statutPlan = STATUTS_PA.find(s => s.id === plan.statut)
-                return (
-                  <div key={plan.id} style={{ marginBottom: 10, border: '1px solid rgba(201,168,76,0.12)', borderRadius: 10, overflow: 'hidden' }}>
-                    <div style={{ padding: '10px 14px', background: '#FAFAF8', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-                      onClick={() => setExpandedPlans(p => ({ ...p, [plan.id]: !p[plan.id] }))}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C' }}>{plan.titre}</div>
-                        <div style={{ fontSize: 11, color: '#8A8A7A', marginTop: 1 }}>{plan.points.length} point{plan.points.length !== 1 ? 's' : ''}</div>
-                      </div>
-                      <span style={{ padding: '2px 10px', borderRadius: 10, fontSize: 10, fontWeight: 500, background: statutPlan?.bg, color: statutPlan?.color }}>{statutPlan?.label}</span>
-                      <span style={{ fontSize: 9, color: '#8A8A7A' }}>{expandedPlans[plan.id] ? '▲' : '▼'}</span>
+              ) : popup.plans.map(plan => (
+                <div key={plan.id} style={{ marginBottom: 10, border: '1px solid #E8E6DF', borderRadius: 10, overflow: 'hidden' }}>
+                  {/* Plan header */}
+                  <div style={{ padding: '10px 14px', background: '#F8F7F4', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', borderLeft: `3px solid ${STATUTS_PA.find(s=>s.id===plan.statut)?.color || '#E8E6DF'}` }}
+                    onClick={() => setExpandedPlans(p => ({ ...p, [plan.id]: !p[plan.id] }))}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#2C2C2C' }}>{plan.titre}</div>
+                      <div style={{ fontSize: 11, color: '#8A8A7A', marginTop: 2 }}>{plan.points.length} point{plan.points.length !== 1 ? 's' : ''}</div>
                     </div>
-
-                    {expandedPlans[plan.id] && (
-                      <div style={{ padding: '10px 14px 12px' }}>
-                        {plan.points.map(pt => {
-                          const spt = STATUTS_PA.find(s => s.id === pt.statut)
-                          return (
-                            <div key={pt.id} style={{ marginBottom: 6, border: '1px solid #F0EEE8', borderRadius: 8, overflow: 'hidden' }}>
-                              <div style={{ padding: '8px 12px', background: '#FAFAF8', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-                                onClick={() => setExpandedPoints(p => ({ ...p, [pt.id]: !p[pt.id] }))}>
-                                <div style={{ width: 7, height: 7, borderRadius: '50%', background: spt?.color || '#8A8A7A', flexShrink: 0 }}/>
-                                <span style={{ flex: 1, fontSize: 12, color: '#2C2C2C' }}>{pt.description.length > 55 ? pt.description.substring(0,55)+'…' : pt.description}</span>
-                                <span style={{ padding: '2px 8px', borderRadius: 8, fontSize: 9, fontWeight: 500, background: spt?.bg, color: spt?.color }}>{spt?.label}</span>
-                                <span style={{ fontSize: 8, color: '#8A8A7A' }}>{expandedPoints[pt.id] ? '▲' : '▼'}</span>
-                              </div>
-                              {expandedPoints[pt.id] && (
-                                <div style={{ padding: '10px 12px', borderTop: '1px solid #F8F7F4' }}>
-                                  <div style={{ fontSize: 12, color: '#2C2C2C', marginBottom: 6, lineHeight: 1.5 }}>{pt.description}</div>
-                                  <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
-                                    {pt.responsable && <span style={{ fontSize: 11, color: '#8A8A7A' }}>Resp : {pt.responsable}</span>}
-                                    {pt.date_echeance && <span style={{ fontSize: 11, color: '#8A8A7A' }}>Échéance : {new Date(pt.date_echeance).toLocaleDateString('fr-FR')}</span>}
-                                  </div>
-                                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                                    {!['validation','cloture'].includes(pt.statut) && <button style={sty.smallBtn('#4CAF7D','rgba(76,175,125,0.3)')} onClick={() => updateStatut('points_actions_etude', pt.id, 'validation')}>Valider</button>}
-                                    {['ouvert','en_cours'].includes(pt.statut) && <button style={sty.smallBtn('#8A8A7A','rgba(138,138,122,0.3)')} onClick={() => updateStatut('points_actions_etude', pt.id, 'en_attente')}>Suspendre</button>}
-                                    {pt.statut !== 'cloture' && <button style={sty.smallBtn('#C9A84C','rgba(201,168,76,0.3)')} onClick={() => updateStatut('points_actions_etude', pt.id, 'cloture')}>Clôturer</button>}
-                                    <button style={sty.smallBtn('#8A8A7A','rgba(138,138,122,0.2)')} onClick={() => updateStatut('points_actions_etude', pt.id, 'annule')}>Archiver</button>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })}
-
-                        {/* Formulaire point */}
-                        {showPointForm === plan.id ? (
-                          <div style={{ background: '#F8F7F4', borderRadius: 8, padding: 12, marginTop: 6 }}>
-                            <input style={{ ...sty.input, marginBottom: 8 }} placeholder="Description du point d'action" value={formPoint.description} onChange={e => setFormPoint(p => ({ ...p, description: e.target.value }))}/>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-                              <input style={sty.input} placeholder="Responsable" value={formPoint.responsable} onChange={e => setFormPoint(p => ({ ...p, responsable: e.target.value }))}/>
-                              <input style={sty.input} type="date" value={formPoint.date_echeance} onChange={e => setFormPoint(p => ({ ...p, date_echeance: e.target.value }))}/>
-                            </div>
-                            <div style={{ display: 'flex', gap: 6 }}>
-                              <button onClick={() => savePoint(plan.id)} style={sty.btn('#C9A84C','#fff')}>Ajouter</button>
-                              <button onClick={() => setShowPointForm(null)} style={sty.btn('#F0EEE8','#5A5A5A')}>Annuler</button>
-                            </div>
-                          </div>
-                        ) : (
-                          <button onClick={() => setShowPointForm(plan.id)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', border: '1px dashed rgba(201,168,76,0.25)', borderRadius: 8, cursor: 'pointer', color: '#C9A84C', fontSize: 12, background: 'transparent', marginTop: 6, fontFamily: 'DM Sans, sans-serif' }}>
-                            + Ajouter un point
-                          </button>
-                        )}
-                      </div>
-                    )}
+                    <StatutBadge statut={plan.statut} small/>
+                    <span style={{ fontSize: 9, color: '#8A8A7A' }}>{expandedPlans[plan.id] ? '▲' : '▼'}</span>
                   </div>
-                )
-              })}
+
+                  {/* Points */}
+                  {expandedPlans[plan.id] && (
+                    <div style={{ padding: '10px 14px 12px' }}>
+                      {plan.points.map(pt => (
+                        <div key={pt.id} style={{ marginBottom: 6, border: '1px solid #F0EEE9', borderRadius: 8, overflow: 'hidden' }}>
+                          <div style={{ padding: '8px 12px', background: '#F8F7F4', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+                            onClick={() => setExpandedPoints(p => ({ ...p, [pt.id]: !p[pt.id] }))}>
+                            <div style={{ width: 7, height: 7, borderRadius: '50%', background: STATUTS_PA.find(s=>s.id===pt.statut)?.color || '#8A8A7A', flexShrink: 0 }}/>
+                            <span style={{ flex: 1, fontSize: 12, color: '#2C2C2C' }}>{pt.description.length > 55 ? pt.description.substring(0,55)+'…' : pt.description}</span>
+                            <StatutBadge statut={pt.statut} small/>
+                            <span style={{ fontSize: 8, color: '#8A8A7A' }}>{expandedPoints[pt.id] ? '▲' : '▼'}</span>
+                          </div>
+                          {expandedPoints[pt.id] && (
+                            <div style={{ padding: '10px 12px', borderTop: '1px solid #F0EEE9' }}>
+                              <div style={{ fontSize: 12, color: '#2C2C2C', marginBottom: 6, lineHeight: 1.5 }}>{pt.description}</div>
+                              <div style={{ display: 'flex', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
+                                {pt.responsable && <span style={{ fontSize: 11, color: '#8A8A7A' }}>Resp : {pt.responsable}</span>}
+                                {pt.date_echeance && <span style={{ fontSize: 11, color: '#8A8A7A' }}>Échéance : {new Date(pt.date_echeance).toLocaleDateString('fr-FR')}</span>}
+                              </div>
+                              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                {!['validation','cloture'].includes(pt.statut) && <button style={S.smallBtn('#4CAF7D','#E6F7EF')} onClick={() => updateStatut('points_actions_etude', pt.id, 'validation')}>Valider</button>}
+                                {['ouvert','en_cours'].includes(pt.statut) && <button style={S.smallBtn('#8A8A7A','#F0EEE8')} onClick={() => updateStatut('points_actions_etude', pt.id, 'en_attente')}>Suspendre</button>}
+                                {pt.statut !== 'cloture' && <button style={S.smallBtn('#C9A84C','#FDF6E3')} onClick={() => updateStatut('points_actions_etude', pt.id, 'cloture')}>Clôturer</button>}
+                                <button style={S.smallBtn('#8A8A7A','#F0EEE8')} onClick={() => updateStatut('points_actions_etude', pt.id, 'annule')}>Archiver</button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+
+                      {showPointForm === plan.id ? (
+                        <div style={{ background: '#F8F7F4', borderRadius: 8, padding: 12, marginTop: 6, border: '1px solid #E8E6DF' }}>
+                          <input style={{ ...S.input, marginBottom: 8 }} placeholder="Description du point d'action" value={formPoint.description} onChange={e => setFormPoint(p => ({ ...p, description: e.target.value }))}/>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                            <input style={S.input} placeholder="Responsable" value={formPoint.responsable} onChange={e => setFormPoint(p => ({ ...p, responsable: e.target.value }))}/>
+                            <input style={S.input} type="date" value={formPoint.date_echeance} onChange={e => setFormPoint(p => ({ ...p, date_echeance: e.target.value }))}/>
+                          </div>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button onClick={() => savePoint(plan.id)} style={S.btnPrimary}>Ajouter</button>
+                            <button onClick={() => setShowPointForm(null)} style={S.btnGhost}>Annuler</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button onClick={() => setShowPointForm(plan.id)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', border: '1px dashed #E8E6DF', borderRadius: 8, cursor: 'pointer', color: '#8A8A7A', fontSize: 12, background: 'transparent', marginTop: 6 }}>
+                          + Ajouter un point
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
 
-            <div style={{ padding: '12px 22px', borderTop: '1px solid rgba(201,168,76,0.08)', display: 'flex', justifyContent: 'flex-end' }}>
-              <button onClick={() => setPopup(null)} style={sty.btn('#F0EEE8','#5A5A5A')}>Fermer</button>
+            <div style={{ padding: '12px 20px', borderTop: '1px solid #E8E6DF', display: 'flex', justifyContent: 'flex-end' }}>
+              <button onClick={() => setPopup(null)} style={S.btnGhost}>Fermer</button>
             </div>
           </div>
         </div>
@@ -1655,7 +1641,6 @@ function SectionPlansActions() {
     </div>
   )
 }
-
 
 export default function EtudeCommerciale2026() {
   const navigate = useNavigate()
