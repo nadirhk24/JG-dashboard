@@ -1243,6 +1243,47 @@ const SLIDES = [
 
 
 
+
+function PlanForm({ onSave, onCancel, label, saving }) {
+  const [titre, setTitre] = React.useState('')
+  return (
+    <div style={{ margin: '8px 16px 12px', background: '#fff', borderRadius: 10, border: '1px solid rgba(201,168,76,0.25)', padding: 14 }}>
+      <div style={{ fontSize: 10, color: '#8A8A7A', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 500, marginBottom: 8 }}>Nouveau plan — {label}</div>
+      <input
+        autoFocus
+        style={{ padding: '8px 12px', border: '1px solid #E8E6DF', borderRadius: 8, fontSize: 13, color: '#2C2C2C', background: '#F8F7F4', outline: 'none', width: '100%', marginBottom: 8, boxSizing: 'border-box' }}
+        placeholder="Titre du plan d'action"
+        value={titre}
+        onChange={e => setTitre(e.target.value)}
+      />
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button onClick={() => onSave(titre)} disabled={saving || !titre.trim()} style={{ background: !titre.trim() ? '#E8D5A3' : '#C9A84C', color: '#fff', border: 'none', padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>{saving ? 'Enregistrement...' : 'Créer'}</button>
+        <button onClick={onCancel} style={{ background: '#fff', color: '#5A5A5A', border: '1px solid #E8E6DF', padding: '7px 16px', borderRadius: 8, fontSize: 12, cursor: 'pointer' }}>Annuler</button>
+      </div>
+    </div>
+  )
+}
+
+function PointForm({ onSave, onCancel, saving }) {
+  const [description, setDescription] = React.useState('')
+  const [responsable, setResponsable] = React.useState('')
+  const [date_echeance, setDate] = React.useState('')
+  const inputStyle = { padding: '8px 12px', border: '1px solid #E8E6DF', borderRadius: 8, fontSize: 13, color: '#2C2C2C', background: '#F8F7F4', outline: 'none', width: '100%', boxSizing: 'border-box' }
+  return (
+    <div style={{ background: '#F8F7F4', borderRadius: 8, padding: 12, border: '1px solid #E8E6DF', marginTop: 6 }}>
+      <input autoFocus style={{ ...inputStyle, marginBottom: 8 }} placeholder="Description du point d'action" value={description} onChange={e => setDescription(e.target.value)}/>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+        <input style={inputStyle} placeholder="Responsable" value={responsable} onChange={e => setResponsable(e.target.value)}/>
+        <input style={inputStyle} type="date" value={date_echeance} onChange={e => setDate(e.target.value)}/>
+      </div>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <button onClick={() => onSave({ description, responsable, date_echeance })} disabled={saving || !description.trim()} style={{ background: !description.trim() ? '#E8D5A3' : '#C9A84C', color: '#fff', border: 'none', padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>Ajouter</button>
+        <button onClick={onCancel} style={{ background: '#fff', color: '#5A5A5A', border: '1px solid #E8E6DF', padding: '7px 16px', borderRadius: 8, fontSize: 12, cursor: 'pointer' }}>Annuler</button>
+      </div>
+    </div>
+  )
+}
+
 // ── Section Plans d'Actions v4 — Cartes expandables style CE ────────────────
 
 const SEGMENTS_PA = [
@@ -1324,28 +1365,27 @@ function SectionPlansActions() {
     return Math.round(all.filter(p => ['validation','cloture'].includes(p.statut)).length / all.length * 100)
   }
 
-  async function savePlan(segment, cibleNom) {
-    if (!formPlan.titre.trim()) return
+  async function savePlan(segment, cibleNom, titre) {
+    if (!titre || !titre.trim()) return
     setSaving(true)
     await supabase.from('plans_etude').insert({
       etude_id: 'perf_avril_2026', segment,
       cible_type: cibleNom.startsWith('equipe') || cibleNom === 'Equipe CC' ? 'equipe' : 'individuel',
-      cible_nom: cibleNom, titre: formPlan.titre, statut: formPlan.statut
+      cible_nom: cibleNom, titre: titre, statut: 'ouvert'
     })
     setSaving(false)
     setShowPlanForm(null)
-    setFormPlan({ titre: '', statut: 'ouvert' })
     // Mise à jour locale sans rechargement
     const { data: newPlan } = await supabase.from('plans_etude').select('*').eq('etude_id', 'perf_avril_2026').order('created_at').limit(1).single()
     if (newPlan) setPlans(prev => [...prev, { ...newPlan, points: [] }])
     setMsg('Plan créé !'); setTimeout(() => setMsg(null), 2500)
   }
 
-  async function savePoint(planId) {
-    if (!formPoint.description.trim()) return
+  async function savePoint(planId, data) {
+    if (!data.description.trim()) return
     setSaving(true)
-    await supabase.from('points_actions_etude').insert({ plan_id: planId, ...formPoint })
-    setSaving(false); setShowPointForm(null); setFormPoint({ description: '', responsable: '', date_echeance: '' })
+    await supabase.from('points_actions_etude').insert({ plan_id: planId, ...data })
+    setSaving(false); setShowPointForm(null)
     // Mise à jour locale sans rechargement
     const { data: newPt } = await supabase.from('points_actions_etude').select('*').eq('plan_id', planId).order('created_at')
     setPlans(prev => prev.map(p => p.id === planId ? { ...p, points: newPt || [] } : p))
@@ -1469,24 +1509,12 @@ function SectionPlansActions() {
 
                       {/* Form point */}
                       {showPointForm === plan.id ? (
-                        <div style={{ background: '#F8F7F4', borderRadius: 8, padding: 12, border: '1px solid #E8E6DF', marginTop: 6 }}>
-                          <input
-                            key={`pt-desc-${plan.id}`}
-                            style={{ ...S.input, marginBottom: 8 }}
-                            placeholder="Description du point d'action"
-                            defaultValue=""
-                            autoFocus
-                            onChange={e => setFormPoint(p => ({ ...p, description: e.target.value }))}
-                          />
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-                            <input key={`pt-resp-${plan.id}`} style={S.input} placeholder="Responsable" defaultValue="" onChange={e => setFormPoint(p => ({ ...p, responsable: e.target.value }))}/>
-                            <input key={`pt-date-${plan.id}`} style={S.input} type="date" defaultValue="" onChange={e => setFormPoint(p => ({ ...p, date_echeance: e.target.value }))}/>
-                          </div>
-                          <div style={{ display: 'flex', gap: 6 }}>
-                            <button onClick={() => savePoint(plan.id)} disabled={saving} style={S.btnPrimary}>Ajouter</button>
-                            <button onClick={() => setShowPointForm(null)} style={S.btnGhost}>Annuler</button>
-                          </div>
-                        </div>
+                        <PointForm
+                          key={`pt-form-${plan.id}`}
+                          saving={saving}
+                          onSave={(data) => savePoint(plan.id, data)}
+                          onCancel={() => setShowPointForm(null)}
+                        />
                       ) : (
                         <button onClick={() => setShowPointForm(plan.id)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', border: '1px dashed #E8E6DF', borderRadius: 8, cursor: 'pointer', color: '#8A8A7A', fontSize: 12, background: 'transparent', marginTop: 6 }}>
                           + Ajouter un point
@@ -1500,22 +1528,13 @@ function SectionPlansActions() {
 
             {/* Form nouveau plan */}
             {showPlanForm === `${segment}_${cibleNom}` ? (
-              <div style={{ margin: '8px 16px 12px', background: '#fff', borderRadius: 10, border: '1px solid rgba(201,168,76,0.25)', padding: 14 }}>
-                <div style={{ ...S.label, marginBottom: 8, fontSize: 11 }}>Nouveau plan — {label}</div>
-                <input
-                  key={`plan-form-${segment}-${cibleNom}`}
-                  style={{ ...S.input, marginBottom: 8 }}
-                  placeholder="Titre du plan d'action"
-                  defaultValue=""
-                  autoFocus
-                  onBlur={e => setFormPlan(p => ({ ...p, titre: e.target.value }))}
-                  onChange={e => setFormPlan(p => ({ ...p, titre: e.target.value }))}
-                />
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={() => savePlan(segment, cibleNom)} disabled={saving} style={S.btnPrimary}>{saving ? 'Enregistrement...' : 'Créer'}</button>
-                  <button onClick={() => setShowPlanForm(null)} style={S.btnGhost}>Annuler</button>
-                </div>
-              </div>
+              <PlanForm
+                key={`plan-form-${segment}-${cibleNom}`}
+                label={label}
+                saving={saving}
+                onSave={(titre) => savePlan(segment, cibleNom, titre)}
+                onCancel={() => setShowPlanForm(null)}
+              />
             ) : (
               <button onClick={() => setShowPlanForm(`${segment}_${cibleNom}`)} style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '8px 16px 12px', padding: '6px 12px', border: '1px dashed rgba(201,168,76,0.3)', borderRadius: 8, cursor: 'pointer', color: '#C9A84C', fontSize: 12, background: 'transparent' }}>
                 + Nouveau plan pour {label}
