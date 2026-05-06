@@ -4,7 +4,7 @@ import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, R
 import PageHeader from '../components/PageHeader'
 import ConseillereFilter from '../components/ConseillereFilter'
 import KpiCard from '../components/KpiCard'
-import { getColorFromObjectif, getObjectifsPourPeriode, clearObjectifsCache } from '../lib/objectifs'
+import { getColorFromObjectif, getObjectifsPourPeriode, getObjectifsConseillere, clearObjectifsCache } from '../lib/objectifs'
 import SectionTitle from '../components/SectionTitle'
 import { getGroupFunction, formatGroupLabel, filtrerParSelection } from '../lib/dates'
 import { agregerParPeriode, calcCV, calcConversionTel, calcTauxPresence, calcEfficaciteComm } from '../lib/kpi'
@@ -106,6 +106,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   })
   const [drillConseillere, setDrillConseillere] = useState(null)
   const [objectifs, setObjectifs] = useState({})
+  const [objectifsIndiv, setObjectifsIndiv] = useState({}) // Objectifs individuels par conseillère
   const [hiddenRankCols, setHiddenRankCols] = useState({})
   const [showRankCols, setShowRankCols] = useState(false)
   const [showSaisie, setShowSaisie] = useState(false)
@@ -136,6 +137,17 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
     clearObjectifsCache()
     const obj = await getObjectifsPourPeriode(selected)
     setObjectifs(obj)
+    // Si une conseillère est sélectionnée → charger aussi ses objectifs individuels
+    if (filtreConseillere && filtreConseillere !== 'all') {
+      const objIndiv = await getObjectifsConseillere(filtreConseillere, selected)
+      if (objIndiv && objIndiv.obj_echanges_nb > 0) {
+        setObjectifsIndiv(objIndiv)
+      } else {
+        setObjectifsIndiv({})
+      }
+    } else {
+      setObjectifsIndiv({})
+    }
   }
 
   const saisiesFiltrees = useMemo(() => {
@@ -158,10 +170,15 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   }), [objectifs, nbConseilleres])
 
   const kpisGlobal = useMemo(() => {
-    const objEch = (isConseillere || filtreConseillere !== 'all') ? objParConseillere.obj_echanges_nb : objectifs.obj_echanges_nb
+    // Vue conseillère → utiliser son objectif individuel si disponible, sinon objectif équipe ÷ 6
+    const objEchIndiv = objectifsIndiv?.obj_echanges_nb || 0
+    const objEchEquipe = objParConseillere.obj_echanges_nb
+    const objEch = (isConseillere || filtreConseillere !== 'all')
+      ? (objEchIndiv > 0 ? objEchIndiv : objEchEquipe)
+      : objectifs.obj_echanges_nb
     if (isConseillere && myConseillereId) return agregerParPeriode(saisiesFiltrees, myConseillereId, { objEchangesNb: objEch })
     return agregerParPeriode(saisiesFiltrees, null, { objEchangesNb: objEch })
-  }, [saisiesFiltrees, isConseillere, myConseillereId, filtreConseillere, objParConseillere, objectifs])
+  }, [saisiesFiltrees, isConseillere, myConseillereId, filtreConseillere, objParConseillere, objectifs, objectifsIndiv])
   // Ranking : utilise saisiesParPeriode (toutes les conseillères, filtrées par période seulement)
   // Même pour une conseillère connectée, le ranking doit montrer tout le monde avec ses vraies données
   const kpisParConseillere = useMemo(() => conseilleres.map(c => ({ ...c, ...agregerParPeriode(
@@ -582,7 +599,13 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
 
       <SectionTitle>KPIs Globaux — {selected.label}</SectionTitle>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 16, marginBottom: 16 }}>
-        <KpiCard label="Productivité" value={kpisGlobal.productivite} sub="(Leads nets + Éch. nets) / Objectif" badge={`Obj: ${(isConseillere || filtreConseillere !== 'all') ? objParConseillere.obj_echanges_nb : objectifs.obj_echanges_nb}`} objectifPct={objectifs.obj_productivite_pct} />
+        <KpiCard label="Productivité" value={kpisGlobal.productivite} sub="(Leads nets + Éch. nets) / Objectif" badge={`Obj: ${
+          isConseillere
+            ? (objectifsIndiv?.obj_echanges_nb > 0 ? objectifsIndiv.obj_echanges_nb : objParConseillere.obj_echanges_nb)
+            : filtreConseillere !== 'all'
+              ? (objectifsIndiv?.obj_echanges_nb > 0 ? objectifsIndiv.obj_echanges_nb : objParConseillere.obj_echanges_nb)
+              : objectifs.obj_echanges_nb
+        }`} objectifPct={objectifs.obj_productivite_pct} />
         <KpiCard label="Conv. Téléphonique" value={kpisGlobal.conversion_tel} sub="RDV / Échanges" badge={`CV: ${cvConvTel}%`} objectifPct={objectifs.obj_conv_tel_pct} objectifNb={objectifs.obj_conv_tel_nb} valeurNb={kpisGlobal.rdv} />
         <KpiCard label="Taux de Présence" value={kpisGlobal.taux_presence} sub="Visites / RDV" badge={`CV: ${cvPresence}%`} objectifPct={objectifs.obj_presence_pct} />
       </div>
