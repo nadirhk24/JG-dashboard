@@ -186,6 +186,7 @@ export default function AnalyseCV({ conseilleres, saisies }) {
   const [segment, setSegment] = useState(() => localStorage.getItem('jg_segment_cv') || defaultSegment)
   const [kpiKey, setKpiKey] = useState('conversion_tel')
   const [periode, setPeriode] = useState(() => localStorage.getItem('jg_periode_cv') || 'mois')
+  const [moisFiltre, setMoisFiltre] = useState(() => localStorage.getItem('jg_mois_cv') || 'tout')
   const [marketingData, setMarketingData] = useState([])
   const [fluxData, setFluxData] = useState([])
   const [fluxCommerciaux, setFluxCommerciaux] = useState([])
@@ -228,13 +229,31 @@ export default function AnalyseCV({ conseilleres, saisies }) {
   }, [segment])
   useEffect(() => { localStorage.setItem('jg_periode_cv', periode) }, [periode])
   useEffect(() => { localStorage.setItem('jg_segment_cv', segment) }, [segment])
+  useEffect(() => { localStorage.setItem('jg_mois_cv', moisFiltre) }, [moisFiltre])
+
+  const MOIS_OPTIONS = [
+    { key: 'tout', label: 'Tout 2026' },
+    { key: '2026-01', label: 'Janvier' },
+    { key: '2026-02', label: 'Fevrier' },
+    { key: '2026-03', label: 'Mars' },
+    { key: '2026-04', label: 'Avril' },
+  ]
+
+  function filtrerParMois(items, dateKey) {
+    if (moisFiltre === 'tout') return items
+    return items.filter(item => {
+      const d = item[dateKey] || item.date || ''
+      return d.startsWith(moisFiltre)
+    })
+  }
 
   const kpis = segment === 'callcenter' ? CC_KPIS : segment === 'marketing' ? MKT_KPIS : FLUX_KPIS
   const selectedKpi = kpis.find(k => k.key === kpiKey) || kpis[0]
   const groupFn = useMemo(() => getGroupFunction(periode), [periode])
   const chartData = useMemo(() => {
     if (segment === 'callcenter') {
-      const groups = groupFn(saisies)
+      const saisiesFiltrees = filtrerParMois(saisies, 'date')
+      const groups = groupFn(saisiesFiltrees)
       return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([key, items]) => {
         const agg = agregerParPeriode(items)
         return { label: formatGroupLabel(key, periode), taux: agg[kpiKey] || 0, cv_intercomm: agg[kpiKey] || 0, moy: agg[kpiKey] || 0 }
@@ -243,7 +262,8 @@ export default function AnalyseCV({ conseilleres, saisies }) {
       const filteredComms = fluxEquipe === 'all'
         ? fluxCommerciaux.filter(c => !c.nom.includes('Non reconnu'))
         : fluxCommerciaux.filter(c => c.equipe === fluxEquipe && !c.nom.includes('Non reconnu'))
-      const fluxGroups = groupFn(fluxData.map(f => ({ ...f, date: f.date_debut })))
+      const fluxDataFiltres = filtrerParMois(fluxData, 'date_debut')
+      const fluxGroups = groupFn(fluxDataFiltres.map(f => ({ ...f, date: f.date_debut })))
       function getCommVal(dRaw, key) {
         const ventes = parseFloat(dRaw.ventes || 0)
         const visSaisies = parseFloat(dRaw.visites || 0)
@@ -278,7 +298,8 @@ export default function AnalyseCV({ conseilleres, saisies }) {
         return { label: formatGroupLabel(key, periode), taux: cvPeriode, moy, cv_intercomm: cvPeriode }
       })
     } else {
-      const groups = groupFn(marketingData)
+      const mktFiltres = filtrerParMois(marketingData, 'date')
+      const groups = groupFn(mktFiltres)
       return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([key, items]) => {
         const t = items.reduce((acc, s) => ({
           injections: acc.injections + (s.injections || 0),
@@ -301,7 +322,7 @@ export default function AnalyseCV({ conseilleres, saisies }) {
         return { label: formatGroupLabel(key, periode), taux: agg[kpiKey] || 0 }
       })
     }
-  }, [segment, saisies, marketingData, kpiKey, periode, groupFn, fluxData, fluxCommerciaux, fluxEquipe])
+  }, [segment, saisies, marketingData, kpiKey, periode, groupFn, fluxData, fluxCommerciaux, fluxEquipe, moisFiltre])
   const cvData = useMemo(() => {
     if (chartData.length === 0) return []
     const result = []
@@ -366,6 +387,14 @@ export default function AnalyseCV({ conseilleres, saisies }) {
             ))}
           </div>
         </div>
+        <div>
+          <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, fontWeight: 500 }}>Mois</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {MOIS_OPTIONS.map(m => (
+              <button key={m.key} style={btnStyle(moisFiltre === m.key)} onClick={() => setMoisFiltre(m.key)}>{m.label}</button>
+            ))}
+          </div>
+        </div>
       </div>
       {segment === 'flux' && (
         <div style={{ marginBottom: 16 }}>
@@ -424,7 +453,7 @@ export default function AnalyseCV({ conseilleres, saisies }) {
         <CVBrutBloc
           fluxEquipe={fluxEquipe}
           fluxCommerciaux={fluxCommerciaux}
-          fluxData={fluxData}
+          fluxData={filtrerParMois(fluxData, 'date_debut')}
           groupFn={groupFn}
           InfoBulleComp={InfoBulle}
         />
