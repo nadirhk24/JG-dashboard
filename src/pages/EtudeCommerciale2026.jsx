@@ -1410,6 +1410,15 @@ function SectionPlansActions() {
     setPlans(prev => prev.filter(p => p.id !== id))
   }
 
+  async function deletePoint(planId, pointId) {
+    if (!confirm('Supprimer ce point ?')) return
+    await supabase.from('points_actions_etude').delete().eq('id', pointId)
+    setPlans(prev => prev.map(p => p.id === planId
+      ? { ...p, points: p.points.filter(pt => pt.id !== pointId) }
+      : p
+    ))
+  }
+
   const S = {
     card: { background: '#fff', border: '1px solid #E8E6DF', borderRadius: 12, marginBottom: 10, overflow: 'hidden' },
     input: { padding: '8px 12px', border: '1px solid #E8E6DF', borderRadius: 8, fontSize: 13, color: '#2C2C2C', background: '#F8F7F4', outline: 'none', width: '100%' },
@@ -1486,6 +1495,7 @@ function SectionPlansActions() {
                               <div style={{ width: 6, height: 6, borderRadius: '50%', background: spt.color, flexShrink: 0 }}/>
                               <span style={{ flex: 1, fontSize: 12, color: '#2C2C2C' }}>{pt.description.length > 55 ? pt.description.substring(0,55)+'…' : pt.description}</span>
                               <span style={S.badge(pt.statut)}>{spt.label}</span>
+                              <button onClick={e => { e.stopPropagation(); deletePoint(plan.id, pt.id) }} style={{ background: 'none', border: 'none', color: '#D5D2CA', cursor: 'pointer', fontSize: 14, padding: '0 4px' }}>×</button>
                               <span style={{ fontSize: 8, color: '#8A8A7A' }}>{isPtOpen ? '▲' : '▼'}</span>
                             </div>
                             {isPtOpen && (
