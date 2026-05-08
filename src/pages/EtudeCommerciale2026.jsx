@@ -140,25 +140,25 @@ const COMMS_JJ = {
     equipe: 'Sale',
     rdv:     [5.0, 8.0, 10.0, 4.0, 16.0, 9.0, 7.0, 7.0, 4.0, 7.0, 7.0, 3.0, 2.0, 0.0, 4.0, 1.0, 2.0, 2.0, 1.0, 1.0, 3.0, 2.0, 2.0, 4.0, 0.0, null],
     visites: [0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 3.0, 2.0, 0.0, 2.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 1.0, 1.0, 2.0, 2.0, 1.0, null],
-    ventes:  [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0, null],
-    tv:      [0.0, 0.0, 0.0, 100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 50.0, 100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 100.0, 100.0, 0.0, 50.0, 100.0, null],
-    cv_cumul:[null, null, null, null, null, null, null, null, null, null, null, null, 33.3, 28.3, 28.3, 28.3, 28.3, 28.3, 28.3, 28.3, 24.7, 22.2, 22.2, 28.3, 26.4, 26.4],
+    ventes:  [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, null],
+    tv:      [0.0, 0.0, 0.0, 50.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 33.3, 50.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 50.0, 0.0, 33.3, 50.0, null],
+    cv_cumul:[null, null, null, 200.0, 223.6, 244.9, 264.6, 282.8, 300.0, 316.2, 331.7, 346.4, 244.1, 198.7, 207.0, 215.0, 222.7, 230.1, 237.3, 244.2, 251.0, 217.1, 222.8, 199.1, 181.6, 181.6],
   },
   'Najlaa Maarouf': {
     equipe: 'Sale',
     rdv:     [null, null, null, 0.0, 0.0, null, 0.0, 1.0, null, null, 5.0, 1.0, 2.0, 2.0, 6.0, 2.0, 6.0, 8.0, 4.0, 6.0, 8.0, 3.0, 3.0, 8.0, null, null],
     visites: [null, null, null, 1.0, 2.0, null, 1.0, 1.0, null, null, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 3.0, 0.0, 1.0, 2.0, 0.0, 0.0, null, null],
-    ventes:  [null, null, null, 0.0, 0.0, null, 1.0, 0.0, null, null, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, null, null],
-    tv:      [null, null, null, 0.0, 0.0, null, 100.0, 0.0, null, null, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 33.3, 0.0, 0.0, 0.0, 0.0, 0.0, null, null],
-    cv_cumul:[null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0],
+    ventes:  [null, null, null, 0.0, 0.0, null, 0.0, 0.0, null, null, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, null, null],
+    tv:      [null, null, null, 0.0, 0.0, null, 0.0, 0.0, null, null, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 25.0, 0.0, 0.0, 0.0, 0.0, 0.0, null, null],
+    cv_cumul:[null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 360.6, 374.2, 387.3, 400.0, 412.3, 424.3, 424.3, 424.3],
   },
   'Nouhaila Belhadj': {
     equipe: 'Sale',
     rdv:     [2.0, 8.0, 10.0, 0.0, 10.0, 13.0, 20.0, 22.0, 13.0, 9.0, 14.0, 10.0, 4.0, 1.0, 5.0, 2.0, 1.0, 3.0, 16.0, 11.0, 8.0, 4.0, 16.0, 10.0, null, 0.0],
     visites: [1.0, 1.0, 1.0, 2.0, 3.0, 3.0, 0.0, 5.0, 2.0, 4.0, 3.0, 2.0, 3.0, 2.0, 0.0, 0.0, 3.0, 2.0, 0.0, 2.0, 0.0, 3.0, 6.0, 4.0, null, 2.0],
-    ventes:  [0.0, 0.0, 0.0, 1.0, 0.0, 2.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, null, 1.0],
-    tv:      [0.0, 0.0, 0.0, 50.0, 0.0, 66.7, 0.0, 0.0, 0.0, 25.0, 0.0, 0.0, 33.3, 0.0, 0.0, 0.0, 66.7, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, null, 50.0],
-    cv_cumul:[null, null, null, null, null, 14.3, 14.3, 14.3, 14.3, 36.3, 36.3, 36.3, 36.6, 36.6, 36.6, 36.6, 35.2, 35.2, 35.2, 35.2, 35.2, 35.2, 35.2, 35.2, 35.2, 32.0],
+    ventes:  [0.0, 0.0, 0.0, 1.0, 0.0, 2.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, null, 0.0],
+    tv:      [0.0, 0.0, 0.0, 33.3, 0.0, 40.0, 0.0, 0.0, 0.0, 20.0, 0.0, 0.0, 25.0, 0.0, 0.0, 0.0, 40.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, null, 0.0],
+    cv_cumul:[null, null, null, 200.0, 223.6, 167.3, 183.6, 198.4, 212.1, 174.8, 185.4, 195.4, 169.1, 177.3, 185.2, 192.7, 173.0, 179.4, 185.7, 191.7, 197.5, 203.1, 208.6, 214.0, 214.0, 219.2],
   },
   'Saad Fellah': {
     equipe: 'Sale',
@@ -181,9 +181,9 @@ const COMMS_JJ = {
 // ── TV% mensuel + CV cumulatif par commercial ──
 const COMMS_MM = {
   'Abdelhak Lakouissmi': { equipe: 'Sale', tv: [null, null, null, 5.8], cv_cumul: [null, null, null, null] },
-  'Khalid Amghoud': { equipe: 'Sale', tv: [25.9, 0, 2.8, 33.3], cv_cumul: [null, null, 80.5, 62.9] },
-  'Najlaa Maarouf': { equipe: 'Sale', tv: [null, null, null, 14.3], cv_cumul: [null, null, null, null] },
-  'Nouhaila Belhadj': { equipe: 'Sale', tv: [0, 0, 0, 14.8], cv_cumul: [null, null, null, null] },
+  'Khalid Amghoud': { equipe: 'Sale', tv: [25.9, 0, 2.8, 22.2], cv_cumul: [null, null, 80.5, 62.9] },
+  'Najlaa Maarouf': { equipe: 'Sale', tv: [null, null, null, 6.7], cv_cumul: [null, null, null, null] },
+  'Nouhaila Belhadj': { equipe: 'Sale', tv: [0, 0, 0, 11.5], cv_cumul: [null, null, null, null] },
   'Saad Fellah': { equipe: 'Sale', tv: [22.2, 7.1, 5.3, 8.3], cv_cumul: [null, 51.5, 65.7, 62.6] },
   'Yasmina Souaq': { equipe: 'Sale', tv: [7.4, 0, 3.2, 0], cv_cumul: [null, null, 39.6, 39.6] },
   'Alae Elmoussaid': { equipe: 'Kenitra', tv: [0, 0, 15.4, 0], cv_cumul: [null, null, null, null] },
@@ -287,9 +287,9 @@ const CV_ROLLING_JJ = {
   'Souad Acoine': [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
   'Youssef Saadouni': [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
   'Abdelhak Lakouissmi': [null, null, null, null, null, null, null, null, null, 173.2, 200.0, 122.5, 122.5, 122.5, 200.0, 200.0, null, null, null, null, null, null, null, null, 200.0, 128.7],
-  'Khalid Amghoud': [null, null, null, 173.2, 200.0, 200.0, 200.0, 200.0, null, null, null, null, 200.0, 133.3, 133.3, 133.3, 133.3, 200.0, null, null, 200.0, 122.5, 122.5, 89.4, 57.1, 57.1],
-  'Najlaa Maarouf': [null, null, null, null, null, null, 141.4, 173.2, 173.2, 173.2, 200.0, 200.0, 200.0, null, null, null, null, null, 200.0, 200.0, 200.0, 200.0, 200.0, null, null, null],
-  'Nouhaila Belhadj': [null, null, null, 173.2, 200.0, 124.5, 124.5, 124.5, 200.0, 142.0, 200.0, 200.0, 124.5, 124.5, 200.0, 200.0, 133.4, 200.0, 200.0, 200.0, 200.0, null, null, null, null, 200.0],
+  'Khalid Amghoud': [null, null, null, 200.0, 223.6, 244.9, 264.6, 282.8, 300.0, 316.2, 331.7, 346.4, 244.1, 198.7, 207.0, 215.0, 222.7, 230.1, 237.3, 244.2, 251.0, 217.1, 222.8, 199.1, 181.6, 181.6],
+  'Najlaa Maarouf': [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 360.6, 374.2, 387.3, 400.0, 412.3, 424.3, 424.3, 424.3],
+  'Nouhaila Belhadj': [null, null, null, 200.0, 223.6, 167.3, 183.6, 198.4, 212.1, 174.8, 185.4, 195.4, 169.1, 177.3, 185.2, 192.7, 173.0, 179.4, 185.7, 191.7, 197.5, 203.1, 208.6, 214.0, 214.0, 219.2],
   'Saad Fellah': [null, null, null, 173.2, 128.7, 128.7, 128.7, 128.7, 200.0, null, 200.0, 200.0, 144.2, 144.2, 144.2, 200.0, 200.0, null, null, null, null, 200.0, 200.0, 200.0, 200.0, 200.0],
   'Yasmina Souaq': [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
 }
@@ -306,9 +306,9 @@ const CV_ROLLING_CONS_JJ = {
 // ── CV global mensuel (ecart-type/moyenne sur 4 mois, = formule regularite) ──
 const CV_GLOBAL_MM = {
   'Abdelhak Lakouissmi': { equipe: 'Sale', tv: [null, null, null, 5.8], cv_mois: [null, null, null, null] },
-  'Khalid Amghoud': { equipe: 'Sale', tv: [25.9, 0, 2.8, 33.3], cv_mois: [null, 100.0, 121.3, 92.7] },
-  'Najlaa Maarouf': { equipe: 'Sale', tv: [null, null, null, 14.3], cv_mois: [null, null, null, null] },
-  'Nouhaila Belhadj': { equipe: 'Sale', tv: [0, 0, 0, 14.8], cv_mois: [null, null, null, 173.2] },
+  'Khalid Amghoud': { equipe: 'Sale', tv: [25.9, 0, 2.8, 22.2], cv_mois: [null, 100.0, 121.3, 92.7] },
+  'Najlaa Maarouf': { equipe: 'Sale', tv: [null, null, null, 6.7], cv_mois: [null, null, null, null] },
+  'Nouhaila Belhadj': { equipe: 'Sale', tv: [0, 0, 0, 11.5], cv_mois: [null, null, null, 173.2] },
   'Saad Fellah': { equipe: 'Sale', tv: [22.2, 7.1, 5.3, 8.3], cv_mois: [null, 51.5, 65.7, 62.6] },
   'Yasmina Souaq': { equipe: 'Sale', tv: [7.4, 0, 3.2, 0], cv_mois: [null, 100.0, 85.8, 114.6] },
   'Alae Elmoussaid': { equipe: 'Kenitra', tv: [0, 0, 15.4, 0], cv_mois: [null, null, 141.4, 173.2] },
@@ -324,11 +324,11 @@ const CV_GLOBAL_MM = {
 // ── CV global (ecart-type/moyenne sur tous les points) ──
 const CV_GLOBAL_JJ_COMMS = {
   'Yasmina Souaq': null,
-  'Nouhaila Belhadj': 189.5,
+  'Nouhaila Belhadj': 219.2,
   'Abdelhak Lakouissmi': 222.3,
   'Saad Fellah': 220.6,
-  'Khalid Amghoud': 167.9,
-  'Najlaa Maarouf': 320.2,
+  'Khalid Amghoud': 181.6,
+  'Najlaa Maarouf': 424.3,
   'Ismail Hammouch': 469.0,
   'Alae Elmoussaid': null,
   'Marouane Cachchi': null,
@@ -395,8 +395,8 @@ const TV_GLOBAL_AVR_COMMS = {
   'Meryem Elbouchikhi': 6.7, 'Nawfal Jdia': 0.0, 'Nissrine Irfden': 0.0,
   'Oumaima Belbacha': 0.0, 'Rim Snaiki': 0.0, 'Salima Fikri': 0.0,
   'Samia Ahalay': 33.3, 'Souad Acoine': 0.0, 'Youssef Saadouni': 0.0,
-  'Abdelhak Lakouissmi': 5.8, 'Khalid Amghoud': 33.3, 'Najlaa Maarouf': 14.3,
-  'Nouhaila Belhadj': 14.8, 'Saad Fellah': 8.3, 'Yasmina Souaq': 0.0,
+  'Abdelhak Lakouissmi': 5.8, 'Khalid Amghoud': 22.2, 'Najlaa Maarouf': 6.7,
+  'Nouhaila Belhadj': 11.5, 'Saad Fellah': 8.3, 'Yasmina Souaq': 0.0,
 }
 
 const FUNNEL_MM = [
@@ -1048,9 +1048,9 @@ const SEGMENTATION = {
     seuils: 'Tier 1 >= 12% · Tier 2 5-11.9% · Tier 3 < 5%',
     tiers: [
       { tier: 1, nom: 'Khalid Amghoud', tv: 17, delai: '1j' },
-      { tier: 1, nom: 'Najlaa Maarouf', tv: 14.3, delai: '2j' },
       { tier: 2, nom: 'Saad Fellah', tv: 8.7, delai: '5j' },
-      { tier: 2, nom: 'Nouhaila Belhadj', tv: 8, delai: '1j' },
+      { tier: 2, nom: 'Najlaa Maarouf', tv: 6.7, delai: '2j' },
+      { tier: 2, nom: 'Nouhaila Belhadj', tv: 6.3, delai: '1j' },
       { tier: 2, nom: 'Abdelhak L.', tv: 6.2, delai: '2.5j' },
       { tier: 3, nom: 'Yasmina Souaq', tv: 1.4, delai: '5j' },
     ]
@@ -1068,12 +1068,12 @@ const SEGMENTATION = {
   }
 }
 const CV_REG = [
-  { nom: 'Khalid', tv: 33.3, cv: 167.9, tier: 'r' },
-  { nom: 'Nouhaila', tv: 14.8, cv: 189.5, tier: 'r' },
+  { nom: 'Khalid', tv: 22.2, cv: 181.6, tier: 'r' },
+  { nom: 'Nouhaila', tv: 11.5, cv: 219.2, tier: 'r' },
   { nom: 'Saad', tv: 8.3, cv: 220.6, tier: 'v' },
   { nom: 'Abdelhak', tv: 5.8, cv: 222.3, tier: 'v' },
   { nom: 'Samia (K)', tv: 33.3, cv: 249.4, tier: 'v' },
-  { nom: 'Najlaa', tv: 14.3, cv: 320.2, tier: 'tv' },
+  { nom: 'Najlaa', tv: 6.7, cv: 424.3, tier: 'tv' },
   { nom: 'Meryem (K)', tv: 6.7, cv: 458.3, tier: 'tv' },
   { nom: 'Ismail (K)', tv: 11.1, cv: 469, tier: 'tv' },
 ]
