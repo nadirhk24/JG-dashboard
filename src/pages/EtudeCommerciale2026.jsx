@@ -1047,10 +1047,10 @@ const SEGMENTATION = {
   sale: {
     seuils: 'Tier 1 >= 12% · Tier 2 5-11.9% · Tier 3 < 5%',
     tiers: [
-      { tier: 1, nom: 'Khalid Amghoud', tv: 17, delai: '1j' },
+      { tier: 1, nom: 'Khalid Amghoud', tv: 22.2, delai: '1j' },
       { tier: 2, nom: 'Saad Fellah', tv: 8.7, delai: '5j' },
       { tier: 2, nom: 'Najlaa Maarouf', tv: 6.7, delai: '2j' },
-      { tier: 2, nom: 'Nouhaila Belhadj', tv: 6.3, delai: '1j' },
+      { tier: 2, nom: 'Nouhaila Belhadj', tv: 11.5, delai: '1j' },
       { tier: 2, nom: 'Abdelhak L.', tv: 6.2, delai: '2.5j' },
       { tier: 3, nom: 'Yasmina Souaq', tv: 1.4, delai: '5j' },
     ]
@@ -1157,7 +1157,7 @@ function SectionSegmentation() {
 
 // ── Section Cohorte ────────────────────────────────────────────────────────
 const COHORTE = [
-  { nom: 'Khalid', tv: 17, vtes: 8, moy: 10.1, med: 1, j3: 5, j14: 3 },
+  { nom: 'Khalid', tv: 22.2, vtes: 6, moy: 10.1, med: 1, j3: 5, j14: 3 },
   { nom: 'Najlaa', tv: 14.3, vtes: 2, moy: 2, med: 2, j3: 2, j14: 0 },
   { nom: 'Nouhaila', tv: 8, vtes: 8, moy: 1.5, med: 1, j3: 7, j14: 0 },
   { nom: 'Saad', tv: 8.7, vtes: 9, moy: 3.8, med: 5, j3: 4, j14: 0 },
@@ -1203,8 +1203,8 @@ function SectionCohorte() {
 
 // ── Section Synthèse ──────────────────────────────────────────────────────
 const MESSAGES = [
-  { color:'#4CAF7D', titre:'Avril : meilleur mois', texte:'31 ventes operationnelles · TV% 9.0% · +108% vs Fev' },
-  { color:'#C9A84C', titre:'Sale domine', texte:'27/31 ventes · TV% 10.9% vs 4.3% Kenitra · Khalid #1 (33.3%)' },
+  { color:'#4CAF7D', titre:'Avril : meilleur mois', texte:'28 ventes operationnelles · TV% 9.4% · +108% vs Fev' },
+  { color:'#C9A84C', titre:'Sale domine', texte:'24/28 ventes · TV% 9.4% vs 4.5% Kenitra · Khalid #1 (22.2%)' },
   { color:'#E05C5C', titre:'Funnel : tension amont', texte:'Indispos avril +132% vs mars · Base nette +22% · Volume injections en hausse' },
   { color:'#534AB7', titre:'Delais courts = meilleures ventes', texte:'72.7% des ventes realisees en <=3j · Mediane globale = 2j' },
   { color:'#E8A040', titre:'Kenitra : potentiel a activer', texte:'Samia 36.4% TV% · Nissrine 22.2% · mais delais >10j a corriger' },
@@ -1684,7 +1684,7 @@ export default function EtudeCommerciale2026() {
           <div style={{ fontSize: 12, color: '#8A8A7A', marginTop: 3 }}>Avril 2026 · Sale + Kenitra · Lecture seule</div>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          {[{v:31,l:'Ventes Avr'},{v:'4',l:'Mois'},{v:'2',l:'Equipes'}].map(k=>(
+          {[{v:28,l:'Ventes Avr'},{v:'4',l:'Mois'},{v:'2',l:'Equipes'}].map(k=>(
             <div key={k.l} style={S.kpiCard}><div style={S.kpiVal}>{k.v}</div><div style={S.kpiLabel}>{k.l}</div></div>
           ))}
         </div>
