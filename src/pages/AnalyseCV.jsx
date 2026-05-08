@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { BarChart, Bar, LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, LabelList } from 'recharts'
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, LabelList } from 'recharts'
 import PageHeader from '../components/PageHeader'
 import SectionTitle from '../components/SectionTitle'
 import { supabase } from '../lib/supabase'
@@ -458,7 +458,9 @@ export default function AnalyseCV({ conseilleres, saisies }) {
           InfoBulleComp={InfoBulle}
         />
       )}
+      {/* LIGNE HAUTE : Graphe barres + Tableau detaille cote a cote */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
+        {/* Graphe barres */}
         <div style={cardStyle}>
           <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C', marginBottom: 4 }}>{selectedKpi.label}</div>
           <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 16, display: 'flex', alignItems: 'center' }}>
@@ -484,133 +486,149 @@ export default function AnalyseCV({ conseilleres, saisies }) {
             </ResponsiveContainer>
           )}
         </div>
+        {/* Tableau detaille */}
         <div style={cardStyle}>
-          <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C', marginBottom: 4, display: 'flex', alignItems: 'center' }}>
-            CV inter-periodes
-            <InfoBulle text="CV calcule periode par periode. Mesure la dispersion entre les periodes successives." />
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C' }}>Tableau detaille</div>
+            <InfoBulle text={segment === 'flux' ? 'Moy. = moyenne du KPI par commercial. CV inter-commerciaux = dispersion entre les commerciaux.' : 'Valeur du KPI par periode avec le CV cumule et le statut de maitrise.'} />
           </div>
-          <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 16 }}>Evolution du CV par periode</div>
-          {cvData.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px 0', color: '#5A5A5A', fontSize: 13 }}>Pas assez de donnees</div>
+          {chartData.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 0', color: '#5A5A5A', fontSize: 13 }}>Pas de donnees</div>
           ) : (
-            <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={cvData} margin={{ top: 20, right: 10, bottom: 0, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.08)" />
-                <XAxis dataKey="label" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} tickFormatter={v => v + '%'} domain={[0, 'auto']} />
-                <Tooltip contentStyle={tooltipStyle} formatter={v => [v + '%', 'CV']} />
-                <Line type="monotone" dataKey="cv" stroke="#C9A84C" strokeWidth={2.5} dot={{ r: 5, fill: '#C9A84C' }} name="CV">
-                  <LabelList dataKey="cv" content={<CustomDotLabel />} />
-                </Line>
-              </LineChart>
-            </ResponsiveContainer>
+            <div style={{ overflowY: 'auto', maxHeight: 280 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    {(segment === 'flux'
+                      ? ['Periode', 'Moy. ' + selectedKpi.label, 'CV inter-comm.', 'Statut']
+                      : ['Periode', selectedKpi.label, 'CV cumule', 'Statut']
+                    ).map(h => (
+                      <th key={h} style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '8px 10px', borderBottom: '1px solid rgba(201,168,76,0.15)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 500, position: 'sticky', top: 0, background: '#fff' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {chartData.map((row, i) => {
+                    const cvVal = segment === 'flux' ? (row.cv_intercomm || 0) : (cvData.find(c => c.label === row.label) ? cvData.find(c => c.label === row.label).cv : 0)
+                    const statut = cvVal === 0 ? { label: '-', color: '#8A8A7A' } :
+                      cvVal < 15 ? { label: 'Maitrise', color: '#1a6b3c' } :
+                      cvVal < 30 ? { label: 'Modere', color: '#C9A84C' } :
+                      cvVal < 50 ? { label: 'Variable', color: '#E07B30' } :
+                      { label: 'Hors controle', color: '#E05C5C' }
+                    const displayVal = segment === 'flux' ? row.moy : row.taux
+                    const displayUnit = selectedKpi && selectedKpi.isAbsolute ? '' : '%'
+                    return (
+                      <tr key={i} onMouseEnter={e => e.currentTarget.style.background = '#F7F0DC'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                        <td style={{ padding: '9px 10px', fontSize: 12, fontWeight: 500, color: '#C9A84C', borderBottom: '1px solid rgba(201,168,76,0.06)' }}>{row.label}</td>
+                        <td style={{ padding: '9px 10px', fontSize: 12, fontWeight: 500, color: selectedKpi.color, borderBottom: '1px solid rgba(201,168,76,0.06)' }}>{displayVal}{displayUnit}</td>
+                        <td style={{ padding: '9px 10px', fontSize: 12, color: statut.color, fontWeight: 500, borderBottom: '1px solid rgba(201,168,76,0.06)' }}>{cvVal > 0 ? cvVal + '%' : '-'}</td>
+                        <td style={{ padding: '9px 10px', fontSize: 12, borderBottom: '1px solid rgba(201,168,76,0.06)' }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: statut.color, flexShrink: 0 }} />
+                            <span style={{ color: statut.color, fontWeight: 500 }}>{statut.label}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
-      {bellCurveData.length > 0 && (
-        <div style={cardStyle}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-            <div style={{ cursor: 'pointer' }} onClick={() => setExpandedChart(expandedChart === 'bell' ? null : 'bell')}>
-              <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C', marginBottom: 4, display: 'flex', alignItems: 'center' }}>
-                Distribution - Loi normale
-                <InfoBulle text="Distribution des valeurs selon une loi normale. La zone entre LCL et UCL represente 95% des valeurs attendues." />
-                <span style={{ marginLeft: 'auto', fontSize: 11, color: '#C9A84C' }}>{expandedChart === 'bell' ? 'v' : '>'}</span>
+
+      {/* CV CUMULATIF — cliquable plein ecran */}
+      {chartData.length > 0 && (
+        <>
+          <div
+            style={{ ...cardStyle, cursor: 'pointer', transition: 'box-shadow 0.2s', position: 'relative' }}
+            onClick={() => setExpandedChart(expandedChart === 'cv' ? null : 'cv')}
+            onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 20px rgba(201,168,76,0.18)'}
+            onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+              <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C' }}>
+                CV cumulatif
               </div>
-              <div style={{ fontSize: 10, color: '#5A5A5A', marginBottom: 8 }}>
-                Moy: <strong>{stats.moy}{selectedKpi && selectedKpi.isAbsolute ? '' : '%'}</strong> UCL: <strong style={{ color: '#E05C5C' }}>{stats.ucl}</strong> LCL: <strong style={{ color: '#4CAF7D' }}>{stats.lcl}</strong>
-              </div>
-              <div style={{ fontSize: 11, color: maitrise.color, marginBottom: 8, fontWeight: 500 }}><span style={{width:8,height:8,borderRadius:'50%',background:maitrise.color,display:'inline-block',marginRight:6,flexShrink:0,verticalAlign:'middle'}}></span>{maitrise.label}</div>
-              <ResponsiveContainer width="100%" height={expandedChart === 'bell' ? 300 : 180}>
-                <AreaChart data={bellCurveData} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
-                  <defs>
-                    <linearGradient id="bellGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={selectedKpi.color} stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor={selectedKpi.color} stopOpacity={0.05}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.08)" />
-                  <XAxis dataKey="x" tick={{ fontSize: 9 }} />
-                  <YAxis tick={{ fontSize: 9 }} tickFormatter={v => v.toFixed(3)} />
-                  <Tooltip contentStyle={tooltipStyle} />
-                  {stats.ucl > 0 && <ReferenceLine x={stats.ucl} stroke="#E05C5C" strokeDasharray="4 4" label={{ value: 'UCL', fill: '#E05C5C', fontSize: 10 }} />}
-                  {stats.lcl > 0 && <ReferenceLine x={stats.lcl} stroke="#4CAF7D" strokeDasharray="4 4" label={{ value: 'LCL', fill: '#4CAF7D', fontSize: 10 }} />}
-                  {stats.moy > 0 && <ReferenceLine x={stats.moy} stroke="#C9A84C" strokeWidth={2} label={{ value: 'moy', fill: '#C9A84C', fontSize: 10 }} />}
-                  <Area type="monotone" dataKey="y" stroke={selectedKpi.color} strokeWidth={2.5} fill="url(#bellGrad)" dot={false} />
-                </AreaChart>
-              </ResponsiveContainer>
+              <InfoBulle text="CV calcule de maniere cumulative : chaque point inclut toutes les donnees depuis le debut. Indique si le processus se stabilise dans le temps." />
+              <span style={{ marginLeft: 'auto', fontSize: 11, color: '#C9A84C', fontWeight: 500 }}>
+                {expandedChart === 'cv' ? 'Reduire' : 'Agrandir'}
+                <span style={{ marginLeft: 6, display: 'inline-block', transform: expandedChart === 'cv' ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>&#9654;</span>
+              </span>
             </div>
-            {chartData.length > 0 && (
-              <div style={{ cursor: 'pointer' }} onClick={() => setExpandedChart(expandedChart === 'cv' ? null : 'cv')}>
-                <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C', marginBottom: 4, display: 'flex', alignItems: 'center' }}>
+            <div style={{ fontSize: 10, color: '#5A5A5A', marginBottom: 4 }}>
+              CV Global: <strong style={{ color: cvGlobal < 15 ? '#1a6b3c' : cvGlobal < 30 ? '#C9A84C' : '#E07B30' }}>{cvGlobal}%</strong>
+              <span style={{ marginLeft: 12, color: maitrise.color, fontWeight: 500 }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: maitrise.color, display: 'inline-block', marginRight: 5, verticalAlign: 'middle' }}></span>
+                {maitrise.label}
+              </span>
+            </div>
+            <ResponsiveContainer width="100%" height={expandedChart === 'cv' ? 360 : 200}>
+              <LineChart data={chartData.map((d, i) => ({ ...d, cvCumul: cvData[i] ? cvData[i].cv : 0 }))} margin={{ top: 10, right: 50, bottom: 0, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.08)" />
+                <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 9 }} tickFormatter={v => v + '%'} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v, name) => [v + '%', name]} />
+                <ReferenceLine y={15} stroke="#4CAF7D" strokeDasharray="4 4" label={{ value: '15%', fill: '#4CAF7D', fontSize: 9, position: 'right' }} />
+                <ReferenceLine y={30} stroke="#E07B30" strokeDasharray="4 4" label={{ value: '30%', fill: '#E07B30', fontSize: 9, position: 'right' }} />
+                {segment === 'flux' ? (
+                  <Line type="monotone" dataKey="cv_intercomm" stroke={selectedKpi ? selectedKpi.color : '#C9A84C'} strokeWidth={2.5} dot={{ r: 4, stroke: '#fff', strokeWidth: 2 }} name="CV inter-commerciaux" />
+                ) : (
+                  <Line type="monotone" dataKey="cvCumul" stroke={selectedKpi ? selectedKpi.color : '#C9A84C'} strokeWidth={2.5} dot={{ r: 4, stroke: '#fff', strokeWidth: 2 }} name="CV" />
+                )}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* MODAL PLEIN ECRAN */}
+          {expandedChart === 'cv' && (
+            <div
+              style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              onClick={() => setExpandedChart(null)}
+            >
+              <div
+                style={{ background: '#fff', borderRadius: 18, padding: 36, width: '90vw', maxWidth: 1100, boxShadow: '0 8px 48px rgba(0,0,0,0.25)', position: 'relative' }}
+                onClick={e => e.stopPropagation()}
+              >
+                <button
+                  onClick={() => setExpandedChart(null)}
+                  style={{ position: 'absolute', top: 16, right: 20, background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#5A5A5A', lineHeight: 1 }}
+                >&#x2715;</button>
+                <div style={{ fontSize: 16, fontWeight: 600, color: '#2C2C2C', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
                   CV cumulatif
-                  <InfoBulle text="CV calcule de maniere cumulative : chaque point inclut toutes les donnees depuis le debut. Indique si le processus se stabilise dans le temps." />
-                  <span style={{ marginLeft: 'auto', fontSize: 11, color: '#C9A84C' }}>{expandedChart === 'cv' ? 'v' : '>'}</span>
+                  <span style={{ fontSize: 12, color: maitrise.color, fontWeight: 500, background: maitrise.color + '18', borderRadius: 20, padding: '2px 10px' }}>{maitrise.label}</span>
                 </div>
-                <div style={{ fontSize: 10, color: '#5A5A5A', marginBottom: 8 }}>CV Global: <strong style={{ color: cvGlobal < 15 ? '#1a6b3c' : cvGlobal < 30 ? '#C9A84C' : '#E07B30' }}>{cvGlobal}%</strong></div>
-                <div style={{ fontSize: 11, color: maitrise.color, marginBottom: 8, fontWeight: 500 }}><span style={{width:8,height:8,borderRadius:'50%',background:maitrise.color,display:'inline-block',marginRight:6,flexShrink:0,verticalAlign:'middle'}}></span>{maitrise.label}</div>
-                <ResponsiveContainer width="100%" height={expandedChart === 'cv' ? 300 : 180}>
-                  <LineChart data={chartData.map((d,i) => ({ ...d, cvCumul: cvData[i] ? cvData[i].cv : 0 }))} margin={{ top: 10, right: 40, bottom: 0, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.08)"/>
-                    <XAxis dataKey="label" tick={{ fontSize: 10 }}/>
-                    <YAxis tick={{ fontSize: 9 }} tickFormatter={v => v + '%'}/>
-                    <Tooltip contentStyle={tooltipStyle} formatter={(v, name) => [v + '%', name]}/>
-                    <ReferenceLine y={15} stroke="#4CAF7D" strokeDasharray="4 4" label={{ value: '15%', fill: '#4CAF7D', fontSize: 9, position: 'right' }}/>
-                    <ReferenceLine y={30} stroke="#E07B30" strokeDasharray="4 4" label={{ value: '30%', fill: '#E07B30', fontSize: 9, position: 'right' }}/>
+                <div style={{ fontSize: 12, color: '#5A5A5A', marginBottom: 20 }}>
+                  CV Global: <strong style={{ color: cvGlobal < 15 ? '#1a6b3c' : cvGlobal < 30 ? '#C9A84C' : '#E07B30', fontSize: 16 }}>{cvGlobal}%</strong>
+                  <span style={{ marginLeft: 16 }}>Moy: <strong>{stats.moy}{selectedKpi && selectedKpi.isAbsolute ? '' : '%'}</strong></span>
+                  <span style={{ marginLeft: 16 }}>UCL: <strong style={{ color: '#E05C5C' }}>{stats.ucl}{selectedKpi && selectedKpi.isAbsolute ? '' : '%'}</strong></span>
+                  <span style={{ marginLeft: 12 }}>LCL: <strong style={{ color: '#4CAF7D' }}>{stats.lcl}{selectedKpi && selectedKpi.isAbsolute ? '' : '%'}</strong></span>
+                </div>
+                <ResponsiveContainer width="100%" height={420}>
+                  <LineChart data={chartData.map((d, i) => ({ ...d, cvCumul: cvData[i] ? cvData[i].cv : 0 }))} margin={{ top: 10, right: 60, bottom: 10, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.1)" />
+                    <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={v => v + '%'} />
+                    <Tooltip contentStyle={tooltipStyle} formatter={(v, name) => [v + '%', name]} />
+                    <ReferenceLine y={15} stroke="#4CAF7D" strokeDasharray="4 4" label={{ value: '15% - Maitrise', fill: '#4CAF7D', fontSize: 11, position: 'right' }} />
+                    <ReferenceLine y={30} stroke="#E07B30" strokeDasharray="4 4" label={{ value: '30% - Variable', fill: '#E07B30', fontSize: 11, position: 'right' }} />
                     {segment === 'flux' ? (
-                      <Line type="monotone" dataKey="cv_intercomm" stroke={selectedKpi ? selectedKpi.color : '#C9A84C'} strokeWidth={2.5} dot={{ r: 4, stroke: '#fff', strokeWidth: 2 }} name="CV inter-commerciaux"/>
+                      <Line type="monotone" dataKey="cv_intercomm" stroke={selectedKpi ? selectedKpi.color : '#C9A84C'} strokeWidth={3} dot={{ r: 5, stroke: '#fff', strokeWidth: 2 }} name="CV inter-commerciaux">
+                        <LabelList dataKey="cv_intercomm" content={<CustomDotLabel />} />
+                      </Line>
                     ) : (
-                      <Line type="monotone" dataKey="cvCumul" stroke={selectedKpi ? selectedKpi.color : '#C9A84C'} strokeWidth={2.5} dot={{ r: 4, stroke: '#fff', strokeWidth: 2 }} name="CV"/>
+                      <Line type="monotone" dataKey="cvCumul" stroke={selectedKpi ? selectedKpi.color : '#C9A84C'} strokeWidth={3} dot={{ r: 5, stroke: '#fff', strokeWidth: 2 }} name="CV">
+                        <LabelList dataKey="cvCumul" content={<CustomDotLabel />} />
+                      </Line>
                     )}
                   </LineChart>
                 </ResponsiveContainer>
               </div>
-            )}
-          </div>
-        </div>
+            </div>
+          )}
+        </>
       )}
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8, marginTop: 24 }}>
-        <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C' }}>Tableau detaille</div>
-        <InfoBulle text={segment === 'flux' ? 'Moy. = moyenne du KPI par commercial. CV inter-commerciaux = dispersion entre les commerciaux.' : 'Valeur du KPI par periode avec le CV cumule et le statut de maitrise.'} />
-      </div>
-      <div style={{ ...cardStyle, marginTop: 8 }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              {(segment === 'flux'
-                ? ['Periode', 'Moy. ' + selectedKpi.label, 'CV inter-commerciaux', 'Statut']
-                : ['Periode', selectedKpi.label, 'CV cumule', 'Statut']
-              ).map(h => (
-                <th key={h} style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '8px 10px', borderBottom: '1px solid rgba(201,168,76,0.15)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 500 }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {chartData.map((row, i) => {
-              const cvVal = segment === 'flux' ? (row.cv_intercomm || 0) : (cvData.find(c => c.label === row.label) ? cvData.find(c => c.label === row.label).cv : 0)
-              const statut = cvVal === 0 ? { label: '-', color: '#8A8A7A' } :
-                cvVal < 15 ? { label: 'Maitrise', color: '#1a6b3c' } :
-                cvVal < 30 ? { label: 'Modere', color: '#C9A84C' } :
-                cvVal < 50 ? { label: 'Variable', color: '#E07B30' } :
-                { label: 'Hors controle', color: '#E05C5C' }
-              const displayVal = segment === 'flux' ? row.moy : row.taux
-              const displayUnit = selectedKpi && selectedKpi.isAbsolute ? '' : '%'
-              return (
-                <tr key={i} onMouseEnter={e => e.currentTarget.style.background = '#F7F0DC'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                  <td style={{ padding: '9px 10px', fontSize: 12, fontWeight: 500, color: '#C9A84C', borderBottom: '1px solid rgba(201,168,76,0.06)' }}>{row.label}</td>
-                  <td style={{ padding: '9px 10px', fontSize: 12, fontWeight: 500, color: selectedKpi.color, borderBottom: '1px solid rgba(201,168,76,0.06)' }}>{displayVal}{displayUnit}</td>
-                  <td style={{ padding: '9px 10px', fontSize: 12, color: statut.color, fontWeight: 500, borderBottom: '1px solid rgba(201,168,76,0.06)' }}>{cvVal > 0 ? cvVal + '%' : '-'}</td>
-                  <td style={{ padding: '9px 10px', fontSize: 12, borderBottom: '1px solid rgba(201,168,76,0.06)' }}>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: statut.color, flexShrink: 0 }} />
-                      <span style={{ color: statut.color, fontWeight: 500 }}>{statut.label}</span>
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
     </div>
   )
 }
