@@ -80,14 +80,14 @@ const KPI_FIELDS = [
 
 // ── Rythme réel/mois par projet (données avril 2026) ─────────────────────────
 const RYTHME_REEL = {
-  'Riad El Kheir I':    { stock: 150, rythme: 5.2 },
-  'La Cascade':         { stock: 235, rythme: 9.2 },
-  'La Capitale':        { stock: 329, rythme: 7.0 },
-  'La Defense':         { stock: 112, rythme: 4.5 },
-  'Jirari Mall':        { stock: 77,  rythme: 0.5 },
-  'Marina Square':      { stock: 26,  rythme: 4.8 },
-  'Cleopatra':          { stock: 16,  rythme: 2.2 },
-  'El Jirari Prestige': { stock: 19,  rythme: 0.8 },
+  'RIAD EL KHEIR I':           { stock: 150, rythme: 5.2 },
+  'La Cascade':                { stock: 235, rythme: 9.2 },
+  'La Capitale':               { stock: 329, rythme: 7.0 },
+  'RESIDENCE LA DEFENSE':      { stock: 112, rythme: 4.5 },
+  'JIRARI MALL':               { stock: 77,  rythme: 0.5 },
+  'Résidence Marina Square':   { stock: 26,  rythme: 4.8 },
+  'Résidence Cleopatra':       { stock: 16,  rythme: 2.2 },
+  'RESIDENCE EL JIRARI PRESTIGE': { stock: 19, rythme: 0.8 },
 }
 
 function SectionVentesDelais() {
