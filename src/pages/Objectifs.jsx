@@ -78,7 +78,17 @@ const KPI_FIELDS = [
 ]
 
 
-// ── Section Objectifs Ventes/Délais ─────────────────────────────────────────
+// ── Rythme réel/mois par projet (données avril 2026) ─────────────────────────
+const RYTHME_REEL = {
+  'Riad El Kheir I':    { stock: 150, rythme: 5.2 },
+  'La Cascade':         { stock: 235, rythme: 9.2 },
+  'La Capitale':        { stock: 329, rythme: 7.0 },
+  'La Defense':         { stock: 112, rythme: 4.5 },
+  'Jirari Mall':        { stock: 77,  rythme: 0.5 },
+  'Marina Square':      { stock: 26,  rythme: 4.8 },
+  'Cleopatra':          { stock: 16,  rythme: 2.2 },
+  'El Jirari Prestige': { stock: 19,  rythme: 0.8 },
+}
 
 function SectionVentesDelais() {
   const TYPES_BIENS = ['Appartement', 'Bureau', 'Magasin', 'Boutique']
@@ -527,11 +537,68 @@ function SectionVentesDelais() {
                           <CarteTotaux totaux={{ stock: totalStock, obj_mois: totFunnel.obj_mois, obj_sem: totFunnel.obj_semaine, visites: totFunnel.visites, rdv: totFunnel.rdv, echanges: totFunnel.echanges, leads: totFunnel.leads }} color="#C9A84C" size="sm" />
                         </div>
 
-                        {/* Détail tableau (expandable) */}
+                        {/* Détail expandable */}
                         {isProjetExpanded && (
                           <div style={{ padding: '16px 20px' }}>
+                            {/* Note rythme réel */}
+                            {(() => {
+                              const reel = Object.entries(RYTHME_REEL).find(([k]) =>
+                                p.nom_projet.toLowerCase().includes(k.toLowerCase()) ||
+                                k.toLowerCase().includes(p.nom_projet.toLowerCase())
+                              )
+                              if (!reel) return null
+                              const [, { stock: stockRef, rythme }] = reel
+                              const totalStock = p.biens.reduce((s, b) => s + (parseInt(b.stock) || 0), 0)
+                              const delaiReel = rythme > 0 ? Math.round(totalStock / rythme) : null
+                              const obj_mois_cible = p.delai_mois > 0 ? Math.ceil(totalStock / p.delai_mois) : null
+                              const ecart = obj_mois_cible && rythme ? (rythme - obj_mois_cible) : null
+                              const ecartColor = ecart === null ? '#8A8A7A' : ecart >= 0 ? '#4CAF7D' : '#E05C5C'
+                              return (
+                                <div style={{
+                                  background: '#FFF9EC', border: '1.5px solid #C9A84C40',
+                                  borderLeft: '4px solid #C9A84C', borderRadius: 8,
+                                  padding: '12px 16px', marginBottom: 14
+                                }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                                    <span style={{ fontSize: 14 }}>⚠️</span>
+                                    <span style={{ fontSize: 12, fontWeight: 700, color: '#C9A84C', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                      Note importante — Rythme réel (Avril 2026)
+                                    </span>
+                                  </div>
+                                  <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+                                    <div>
+                                      <div style={{ fontSize: 10, color: '#8A8A7A', marginBottom: 2 }}>Stock de référence</div>
+                                      <div style={{ fontSize: 15, fontWeight: 700, color: '#2C2C2C' }}>{stockRef} unités</div>
+                                    </div>
+                                    <div>
+                                      <div style={{ fontSize: 10, color: '#8A8A7A', marginBottom: 2 }}>Rythme réel/mois</div>
+                                      <div style={{ fontSize: 15, fontWeight: 700, color: '#534AB7' }}>{rythme} ventes</div>
+                                    </div>
+                                    {delaiReel && (
+                                      <div>
+                                        <div style={{ fontSize: 10, color: '#8A8A7A', marginBottom: 2 }}>Délai réel estimé</div>
+                                        <div style={{ fontSize: 15, fontWeight: 700, color: '#E05C5C' }}>{delaiReel} mois</div>
+                                      </div>
+                                    )}
+                                    {obj_mois_cible && (
+                                      <div>
+                                        <div style={{ fontSize: 10, color: '#8A8A7A', marginBottom: 2 }}>Obj/mois cible</div>
+                                        <div style={{ fontSize: 15, fontWeight: 700, color: '#C9A84C' }}>{obj_mois_cible} ventes</div>
+                                      </div>
+                                    )}
+                                    {ecart !== null && (
+                                      <div>
+                                        <div style={{ fontSize: 10, color: '#8A8A7A', marginBottom: 2 }}>Écart rythme vs objectif</div>
+                                        <div style={{ fontSize: 15, fontWeight: 700, color: ecartColor }}>
+                                          {ecart >= 0 ? '+' : ''}{ecart} ventes/mois
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            })()}
                             {p.biens.length > 0 && (
-                              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 14 }}>
                                 <thead>
                                   <tr>
                                     {['Type de bien', 'Stock', 'Délai', 'Obj/mois', 'Obj/sem.', 'Visites/mois', 'RDV/mois', 'Échanges/mois', 'Leads/mois'].map(h => (
