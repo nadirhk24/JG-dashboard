@@ -1069,7 +1069,7 @@ const SEGMENTATION = {
 }
 const CV_REG = [
   { nom: 'Khalid', tv: 22.2, cv: 181.6, tier: 'r' },
-  { nom: 'Nouhaila', tv: 11.5, cv: 219.2, tier: 'r' },
+  { nom: 'Nouhaila', tv: 11.5, cv: 219.2, tier: 'v' },
   { nom: 'Saad', tv: 8.3, cv: 220.6, tier: 'v' },
   { nom: 'Abdelhak', tv: 5.8, cv: 222.3, tier: 'v' },
   { nom: 'Samia (K)', tv: 33.3, cv: 249.4, tier: 'v' },
