@@ -582,45 +582,79 @@ export default function DashboardMarketing() {
           </ResponsiveContainer>
         </div>
 
-        {/* === SECTION 3 : Funnel Marketing === */}
+        {/* === SECTION 3 : Funnel Marketing SVG === */}
         <div style={{ ...cardStyle, marginBottom: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C', marginBottom: 24 }}>Funnel Marketing</div>
           {(() => {
             const tot = totaux
             const steps = [
-              { label: 'Suivis', value: tot.suivis, pct: tot.taux_suivis, color: '#C9A84C', info: 'Sur base nette' },
-              { label: 'RDV', value: tot.rdv, pct: tot.taux_rdv, color: '#534AB7', info: 'Sur base nette' },
-              { label: 'Visites', value: tot.visites, pct: tot.taux_visites, color: '#4CAF7D', info: 'Sur base nette' },
-              { label: 'Ventes', value: tot.ventes, pct: tot.taux_ventes, color: '#1a6b3c', info: 'Sur base nette' },
+              { label: 'Suivis',  value: tot.suivis,  pct: tot.taux_suivis,  color: '#C9A84C', colorLight: '#F7ECC0' },
+              { label: 'RDV',     value: tot.rdv,     pct: tot.taux_rdv,     color: '#534AB7', colorLight: '#DCD9F5' },
+              { label: 'Visites', value: tot.visites, pct: tot.taux_visites, color: '#4CAF7D', colorLight: '#C8EDD9' },
+              { label: 'Ventes',  value: tot.ventes,  pct: tot.taux_ventes,  color: '#1a6b3c', colorLight: '#A8D5BC' },
             ]
-            const maxVal = Math.max(...steps.map(s => s.value), 1)
+            const W = 600
+            const H = 420
+            const N = steps.length
+            const sliceH = H / N
+            // Largeurs : 100% en haut, 20% en bas
+            const topWidths = steps.map((_, i) => W * (1 - (i / N) * 0.78))
+            const botWidths = steps.map((_, i) => W * (1 - ((i + 1) / N) * 0.78))
+            const cx = W / 2
+
             return (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 700, margin: '0 auto' }}>
-                {steps.map((step, i) => {
-                  const widthPct = Math.max(20, (step.value / maxVal) * 100)
-                  return (
-                    <div key={step.label} style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                      {/* Label gauche */}
-                      <div style={{ width: 70, fontSize: 12, fontWeight: 600, color: step.color, textAlign: 'right', flexShrink: 0 }}>{step.label}</div>
-                      {/* Barre */}
-                      <div style={{ flex: 1, position: 'relative' }}>
-                        <div style={{ height: 42, background: `${step.color}15`, borderRadius: 8, overflow: 'hidden', position: 'relative' }}>
-                          <div style={{ height: '100%', width: `${widthPct}%`, background: `linear-gradient(90deg, ${step.color}CC, ${step.color}80)`, borderRadius: 8, transition: 'width 0.8s ease', display: 'flex', alignItems: 'center', paddingLeft: 16 }}>
-                            <span style={{ fontSize: 15, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap' }}>{step.value}</span>
-                          </div>
-                          {/* Flèche séparatrice */}
-                          {i < steps.length - 1 && (
-                            <div style={{ position: 'absolute', bottom: -14, left: '50%', transform: 'translateX(-50%)', fontSize: 16, color: `${step.color}60`, zIndex: 1 }}>▼</div>
-                          )}
-                        </div>
-                      </div>
-                      {/* % droite */}
-                      <div style={{ width: 80, fontSize: 12, color: step.color, fontWeight: 500, flexShrink: 0 }}>
-                        {step.pct}% <span style={{ fontSize: 10, color: '#8A8A7A', fontWeight: 400 }}>{step.info}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 32, justifyContent: 'center', flexWrap: 'wrap' }}>
+                {/* SVG Funnel */}
+                <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ maxWidth: '100%' }}>
+                  {steps.map((step, i) => {
+                    const tw = topWidths[i]
+                    const bw = botWidths[i]
+                    const y = i * sliceH
+                    // Points du trapèze
+                    const x1 = cx - tw / 2
+                    const x2 = cx + tw / 2
+                    const x3 = cx + bw / 2
+                    const x4 = cx - bw / 2
+                    const midY = y + sliceH / 2
+                    const points = `${x1},${y} ${x2},${y} ${x3},${y + sliceH} ${x4},${y + sliceH}`
+                    return (
+                      <g key={step.label}>
+                        {/* Trapèze rempli */}
+                        <polygon points={points} fill={step.colorLight} stroke="#fff" strokeWidth={3}/>
+                        {/* Gradient overlay */}
+                        <defs>
+                          <linearGradient id={`grad${i}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={step.color} stopOpacity="0.85"/>
+                            <stop offset="100%" stopColor={step.color} stopOpacity="0.55"/>
+                          </linearGradient>
+                        </defs>
+                        <polygon points={points} fill={`url(#grad${i})`} stroke="#fff" strokeWidth={3}/>
+                        {/* Label + valeur centrés */}
+                        <text x={cx} y={midY - 9} textAnchor="middle" fill="#fff" fontSize={15} fontWeight="700" fontFamily="DM Sans, sans-serif">{step.label}</text>
+                        <text x={cx} y={midY + 12} textAnchor="middle" fill="#fff" fontSize={20} fontWeight="800" fontFamily="DM Sans, sans-serif">{step.value}</text>
+                      </g>
+                    )
+                  })}
+                  {/* Pointe du funnel */}
+                  <polygon
+                    points={`${cx - botWidths[N-1]/2},${H} ${cx + botWidths[N-1]/2},${H} ${cx},${H + 28}`}
+                    fill={steps[N-1].color} opacity="0.7"
+                  />
+                </svg>
+
+                {/* Légende droite */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  {steps.map((step, i) => (
+                    <div key={step.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 14, height: 14, borderRadius: 3, background: step.color, flexShrink: 0 }}/>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: step.color }}>{step.label}</div>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: '#2C2C2C' }}>{step.value}</div>
+                        <div style={{ fontSize: 11, color: '#8A8A7A' }}>{step.pct}% base nette</div>
                       </div>
                     </div>
-                  )
-                })}
+                  ))}
+                </div>
               </div>
             )
           })()}
