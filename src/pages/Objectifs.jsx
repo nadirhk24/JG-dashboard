@@ -599,6 +599,7 @@ function SectionVentesDelais() {
                               )
                             })()}
                             {p.biens.length > 0 && (
+                              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 12 }}>
                                 <thead>
                                   <tr>
                                     {['Type de bien', 'Stock', 'Délai', 'Obj/mois', 'Obj/sem.', 'Visites/mois', 'RDV/mois', 'Échanges/mois', 'Leads/mois'].map(h => (
