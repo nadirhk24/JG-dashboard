@@ -205,7 +205,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
     const groups = groupFn(saisiesFiltrees)
     return Object.entries(groups).sort(([a],[b]) => b.localeCompare(a)).map(([key, items]) => {
       const agg = agregerParPeriode(items, null, { objEchangesNb: filtreConseillere !== 'all' ? objParConseillere.obj_echanges_nb : objectifs.obj_echanges_nb })
-      const convParC = conseilleres.map(c => calcConversionTel(items.filter(s=>s.conseillere_id===c.id).reduce((a,s)=>a+(s.rdv||0),0), items.filter(s=>s.conseillere_id===c.id).reduce((a,s)=>a+(s.echanges_exploitables||Math.max(0,(s.echanges||0)-(s.non_exploitables_cc||0))),0)))
+      const convParC = conseilleres.map(c => calcConversionTel(items.filter(s=>s.conseillere_id===c.id).reduce((a,s)=>a+(s.rdv||0),0), items.filter(s=>s.conseillere_id===c.id).reduce((a,s)=>a+(s.echanges||0),0)))
       const presParC = conseilleres.map(c => calcTauxPresence(items.filter(s=>s.conseillere_id===c.id).reduce((a,s)=>a+s.visites,0), items.filter(s=>s.conseillere_id===c.id).reduce((a,s)=>a+s.rdv,0)))
       const effParC = conseilleres.map(c => calcEfficaciteComm(items.filter(s=>s.conseillere_id===c.id).reduce((a,s)=>a+s.ventes,0), items.filter(s=>s.conseillere_id===c.id).reduce((a,s)=>a+s.visites,0)))
       return { label: formatGroupLabel(key, periodeForLabel), key, ...agg, cv_conv: cvSerie(convParC), cv_presence: cvSerie(presParC), cv_efficacite: cvSerie(effParC) }
@@ -607,7 +607,7 @@ export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
               ? (objectifsIndiv?.obj_echanges_nb > 0 ? objectifsIndiv.obj_echanges_nb : objParConseillere.obj_echanges_nb)
               : objectifs.obj_echanges_nb
         }`} objectifPct={objectifs.obj_productivite_pct} />
-        <KpiCard label="Conv. Téléphonique" value={kpisGlobal.conversion_tel} sub="RDV / Éch. Nettes" badge={`CV: ${cvConvTel}%`} objectifPct={objectifs.obj_conv_tel_pct} objectifNb={objectifs.obj_conv_tel_nb} valeurNb={kpisGlobal.rdv} />
+        <KpiCard label="Conv. Téléphonique" value={kpisGlobal.conversion_tel} sub="RDV / Échanges" badge={`CV: ${cvConvTel}%`} objectifPct={objectifs.obj_conv_tel_pct} objectifNb={objectifs.obj_conv_tel_nb} valeurNb={kpisGlobal.rdv} />
         <KpiCard label="Taux de Présence" value={kpisGlobal.taux_presence} sub="Visites / RDV" badge={`CV: ${cvPresence}%`} objectifPct={objectifs.obj_presence_pct} />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 16, marginBottom: 28 }}>
