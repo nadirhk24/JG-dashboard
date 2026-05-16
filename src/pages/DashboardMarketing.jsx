@@ -205,15 +205,45 @@ export default function DashboardMarketing() {
     })
   }, [marketingData, selected])
 
-  // Injections = depuis marketing_saisies directement (source unique fiable)
+  // Injections = leads_bruts CC pour la même période
   const injectionsBrutes = useMemo(() => {
-    return dataFiltree.reduce((sum, s) => sum + (s.injections || 0), 0)
-  }, [dataFiltree])
+    return saisiesCC.filter(s => {
+      const d = s.date_debut
+      if (!d) return false
+      if (!selected || selected.type === 'global') return true
+      if (selected.type === 'year') return d.startsWith(selected.value)
+      if (selected.type === 'quarter') {
+        const [y, q] = selected.value.split('-Q')
+        const mois = parseInt(d.substring(5, 7))
+        const startM = (parseInt(q) - 1) * 3 + 1
+        const endM = parseInt(q) * 3
+        return d.startsWith(y) && mois >= startM && mois <= endM
+      }
+      if (selected.type === 'month') return d.substring(0, 7) === selected.value
+      if (selected.type === 'day') return d === selected.value
+      return true
+    }).reduce((sum, s) => sum + (s.leads_bruts || 0), 0)
+  }, [saisiesCC, selected])
 
-  // Indispos = depuis marketing_saisies directement (synced depuis CC via trigger)
+  // Indispos = somme des indispos CC pour la même période
   const indisposCC = useMemo(() => {
-    return dataFiltree.reduce((sum, s) => sum + (s.indispos || 0), 0)
-  }, [dataFiltree])
+    return saisiesCC.filter(s => {
+      const d = s.date_debut
+      if (!d) return false
+      if (!selected || selected.type === 'global') return true
+      if (selected.type === 'year') return d.startsWith(selected.value)
+      if (selected.type === 'quarter') {
+        const [y, q] = selected.value.split('-Q')
+        const mois = parseInt(d.substring(5, 7))
+        const startM = (parseInt(q) - 1) * 3 + 1
+        const endM = parseInt(q) * 3
+        return d.startsWith(y) && mois >= startM && mois <= endM
+      }
+      if (selected.type === 'month') return d.substring(0, 7) === selected.value
+      if (selected.type === 'day') return d === selected.value
+      return true
+    }).reduce((sum, s) => sum + (s.indispos || 0), 0)
+  }, [saisiesCC, selected])
 
   const totaux = useMemo(() => {
     const agg = aggreger(dataFiltree)
@@ -274,6 +304,8 @@ export default function DashboardMarketing() {
         base_nette,
         taux_non_exp: inj > 0 ? parseFloat(((agg.non_exploitables / inj) * 100).toFixed(1)) : 0,
         taux_indispos: inj > 0 ? parseFloat(((indDispos / inj) * 100).toFixed(1)) : 0,
+        taux_exploitables: inj > 0 ? parseFloat((((inj - agg.non_exploitables) / inj) * 100).toFixed(1)) : 0,
+        taux_joignabilite: inj > 0 ? parseFloat((((inj - indDispos) / inj) * 100).toFixed(1)) : 0,
         taux_suivis: base_nette > 0 ? parseFloat(((agg.suivis / base_nette) * 100).toFixed(1)) : 0,
         taux_rdv: base_nette > 0 ? parseFloat(((agg.rdv / base_nette) * 100).toFixed(1)) : 0,
         taux_visites: base_nette > 0 ? parseFloat(((agg.visites / base_nette) * 100).toFixed(1)) : 0,
@@ -285,6 +317,8 @@ export default function DashboardMarketing() {
   const cvs = useMemo(() => ({
     taux_non_exp: calcCV(chartData.map(r => r.taux_non_exp)),
     taux_indispos: calcCV(chartData.map(r => r.taux_indispos)),
+    taux_exploitables: calcCV(chartData.map(r => r.taux_exploitables)),
+    taux_joignabilite: calcCV(chartData.map(r => r.taux_joignabilite)),
     taux_suivis: calcCV(chartData.map(r => r.taux_suivis)),
     taux_rdv: calcCV(chartData.map(r => r.taux_rdv)),
     taux_visites: calcCV(chartData.map(r => r.taux_visites)),
@@ -527,93 +561,69 @@ export default function DashboardMarketing() {
           ))}
         </div>
 
+        {/* === SECTION 2 : Courbes Exploitables + Joignabilite === */}
         <div style={{ ...cardStyle, marginBottom: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C' }}>Volume des indicateurs</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C' }}>Qualite des leads</div>
+            <div style={{ display: 'flex', gap: 16, fontSize: 11, color: '#5A5A5A' }}>
+              <span style={{ display:'flex', alignItems:'center', gap:5 }}><span style={{ width:14, height:3, background:'#4CAF7D', display:'inline-block', borderRadius:2 }}/> Exploitables (inj. - non explo.) — CV: <b style={{color:'#4CAF7D'}}>{cvs.taux_exploitables||0}%</b></span>
+              <span style={{ display:'flex', alignItems:'center', gap:5 }}><span style={{ width:14, height:3, background:'#534AB7', display:'inline-block', borderRadius:2 }}/> Joignabilite (inj. - indispos) — CV: <b style={{color:'#534AB7'}}>{cvs.taux_joignabilite||0}%</b></span>
+            </div>
           </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={chartData}>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={chartData} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.08)"/>
-              <XAxis dataKey="label" tick={{fontSize:9}}/>
-              <YAxis tick={{fontSize:9}} tickFormatter={v=>`${v}%`}/>
+              <XAxis dataKey="label" tick={{fontSize:10}}/>
+              <YAxis tick={{fontSize:10}} tickFormatter={v=>`${v}%`} domain={[0, 100]}/>
               <Tooltip contentStyle={tooltipStyle} formatter={v=>`${v}%`}/>
-              {[...GRAPH1_SERIES, ...GRAPH2_SERIES].filter(s=>!hiddenG1[s.key]).map(s => <Bar key={s.key} dataKey={s.key} fill={s.color} radius={[3,3,0,0]} name={s.label}/>)}
-            </BarChart>
+              <Line type="monotone" dataKey="taux_exploitables" stroke="#4CAF7D" strokeWidth={2.5} dot={{ r: 5, fill: '#4CAF7D', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 7 }} name="Exploitables"/>
+              <Line type="monotone" dataKey="taux_joignabilite" stroke="#534AB7" strokeWidth={2.5} dot={{ r: 5, fill: '#534AB7', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 7 }} name="Joignabilite"/>
+            </LineChart>
           </ResponsiveContainer>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 20 }}>
-          {[...GRAPH1_SERIES, ...GRAPH2_SERIES].map(s => (
-            <div key={s.key} style={{ ...cardStyle, cursor: 'pointer' }}
-              onClick={() => setZoomedChart(s)}
-              onMouseEnter={e => e.currentTarget.style.boxShadow = `0 4px 20px ${s.color}30`}
-              onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <div style={{ fontSize: 13, fontWeight: 500, color: s.color }}>{s.label}</div>
-                <div style={{ fontSize: 11, color: '#5A5A5A' }}>CV: <span style={{ color: s.color, fontWeight: 500 }}>{cvs[s.key] || 0}%</span></div>
+        {/* === SECTION 3 : Funnel Marketing === */}
+        <div style={{ ...cardStyle, marginBottom: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C', marginBottom: 24 }}>Funnel Marketing</div>
+          {(() => {
+            const tot = totaux
+            const steps = [
+              { label: 'Suivis', value: tot.suivis, pct: tot.taux_suivis, color: '#C9A84C', info: 'Sur base nette' },
+              { label: 'RDV', value: tot.rdv, pct: tot.taux_rdv, color: '#534AB7', info: 'Sur base nette' },
+              { label: 'Visites', value: tot.visites, pct: tot.taux_visites, color: '#4CAF7D', info: 'Sur base nette' },
+              { label: 'Ventes', value: tot.ventes, pct: tot.taux_ventes, color: '#1a6b3c', info: 'Sur base nette' },
+            ]
+            const maxVal = Math.max(...steps.map(s => s.value), 1)
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 700, margin: '0 auto' }}>
+                {steps.map((step, i) => {
+                  const widthPct = Math.max(20, (step.value / maxVal) * 100)
+                  return (
+                    <div key={step.label} style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                      {/* Label gauche */}
+                      <div style={{ width: 70, fontSize: 12, fontWeight: 600, color: step.color, textAlign: 'right', flexShrink: 0 }}>{step.label}</div>
+                      {/* Barre */}
+                      <div style={{ flex: 1, position: 'relative' }}>
+                        <div style={{ height: 42, background: `${step.color}15`, borderRadius: 8, overflow: 'hidden', position: 'relative' }}>
+                          <div style={{ height: '100%', width: `${widthPct}%`, background: `linear-gradient(90deg, ${step.color}CC, ${step.color}80)`, borderRadius: 8, transition: 'width 0.8s ease', display: 'flex', alignItems: 'center', paddingLeft: 16 }}>
+                            <span style={{ fontSize: 15, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap' }}>{step.value}</span>
+                          </div>
+                          {/* Flèche séparatrice */}
+                          {i < steps.length - 1 && (
+                            <div style={{ position: 'absolute', bottom: -14, left: '50%', transform: 'translateX(-50%)', fontSize: 16, color: `${step.color}60`, zIndex: 1 }}>▼</div>
+                          )}
+                        </div>
+                      </div>
+                      {/* % droite */}
+                      <div style={{ width: 80, fontSize: 12, color: step.color, fontWeight: 500, flexShrink: 0 }}>
+                        {step.pct}% <span style={{ fontSize: 10, color: '#8A8A7A', fontWeight: 400 }}>{step.info}</span>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
-              <ResponsiveContainer width="100%" height={160}>
-                <LineChart data={chartData} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={`${s.color}15`}/>
-                  <XAxis dataKey="label" tick={{fontSize:9}}/>
-                  <YAxis tick={{fontSize:9}} tickFormatter={v=>`${v}%`}/>
-                  <Tooltip contentStyle={tooltipStyle} formatter={v=>`${v}%`}/>
-                  <Line type="monotone" dataKey={s.key} stroke={s.color} strokeWidth={2.5} dot={{ r: 5, fill: s.color, strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 7 }} name={s.label}/>
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
-          <div style={{ fontFamily:'Cormorant Garamond, serif', fontSize:18, fontWeight:600, color:'#2C2C2C' }}>Vue Cohorte</div>
-          <div style={{ position:'relative' }}>
-            <button onClick={() => setShowColMenu(p=>!p)} style={{ padding:'6px 16px', borderRadius:16, border:'1.5px solid rgba(201,168,76,0.3)', background:'#fff', color:'#C9A84C', fontSize:12, cursor:'pointer', fontWeight:500 }}>Colonnes ▾</button>
-            {showColMenu && (
-              <div style={{ position:'absolute', right:0, top:'110%', background:'#fff', border:'1px solid rgba(201,168,76,0.2)', borderRadius:10, padding:'12px', zIndex:100, minWidth:200, boxShadow:'0 4px 20px rgba(0,0,0,0.1)' }}>
-                {COHORT_COLS.map(c => (
-                  <label key={c.key} style={{ display:'flex', alignItems:'center', gap:8, padding:'4px 0', cursor:'pointer', fontSize:12, color: hiddenCols[c.key]?'#8A8A7A':c.color }}>
-                    <input type="checkbox" checked={!hiddenCols[c.key]} onChange={() => setHiddenCols(p=>({...p,[c.key]:!p[c.key]}))} style={{ accentColor:'#C9A84C' }}/>
-                    {c.label}
-                  </label>
-                ))}
-                <button onClick={() => setHiddenCols({})} style={{ marginTop:8, width:'100%', padding:'5px', borderRadius:6, border:'1px solid rgba(201,168,76,0.3)', background:'transparent', color:'#C9A84C', fontSize:11, cursor:'pointer' }}>Tout afficher</button>
-              </div>
-            )}
-          </div>
-        </div>
-        <div style={cardStyle}>
-          <div style={{ overflowX:'auto' }}>
-            <table style={{ width:'100%', borderCollapse:'collapse', minWidth:400 }}>
-              <thead>
-                <tr>
-                  <th style={thStyle}>Période</th>
-                  {visibleCols.map(c => <th key={c.key} style={{...thStyle, color:c.color}}>{c.label} <InfoBulle text={BULLES[c.info]}/></th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {[...chartData].reverse().map((row, i) => (
-                  <tr key={i} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                    <td style={{...tdStyle, fontWeight:500, color:'#C9A84C'}}>{row.label}</td>
-                    {visibleCols.map(c => (
-                      <td key={c.key} style={{...tdStyle, color:c.color, fontWeight:c.bold?600:400, fontSize:c.small?10:11}}>
-                        {c.small ? `${row[c.key]}%` : row[c.key]}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-                {chartData.length === 0 && <tr><td colSpan={visibleCols.length+1} style={{textAlign:'center',padding:'32px',color:'#5A5A5A',fontSize:13}}>Aucune donnée. Cliquez sur "+ Saisir données".</td></tr>}
-              </tbody>
-              {chartData.length > 1 && (
-                <tfoot>
-                  <tr style={{ background:'#F8F7F4' }}>
-                    <td style={{...tdStyle, fontWeight:600, color:'#2C2C2C'}}>CV</td>
-                    {visibleCols.map(c => <td key={c.key} style={{...tdStyle, color:c.color, fontWeight:600}}>{c.small ? `${cvs[c.key]||0}%` : '—'}</td>)}
-                  </tr>
-                </tfoot>
-              )}
-            </table>
-          </div>
+            )
+          })()}
         </div>
       </div>
 
