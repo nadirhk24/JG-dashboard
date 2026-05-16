@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import DrillNav, { MOIS_SHORT } from '../components/DrillNav'
 import { supabase } from '../lib/supabase'
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts'
 import PageHeader from '../components/PageHeader'
 import SectionTitle from '../components/SectionTitle'
 import { exportToXlsx, labelToFilename } from '../lib/useExportXlsx'
@@ -533,25 +533,124 @@ export default function DashboardMarketing() {
         </div>
 
         {/* === SECTION 2 : Courbes Exploitables + Joignabilite === */}
-        <div style={{ ...cardStyle, marginBottom: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C' }}>Qualite des leads</div>
-            <div style={{ display: 'flex', gap: 16, fontSize: 11, color: '#5A5A5A' }}>
-              <span style={{ display:'flex', alignItems:'center', gap:5 }}><span style={{ width:14, height:3, background:'#4CAF7D', display:'inline-block', borderRadius:2 }}/> Exploitables (inj. - non explo.) — CV: <b style={{color:'#4CAF7D'}}>{cvs.taux_exploitables||0}%</b></span>
-              <span style={{ display:'flex', alignItems:'center', gap:5 }}><span style={{ width:14, height:3, background:'#534AB7', display:'inline-block', borderRadius:2 }}/> Joignabilite (inj. - indispos) — CV: <b style={{color:'#534AB7'}}>{cvs.taux_joignabilite||0}%</b></span>
+        {(() => {
+          const showExplo = !hiddenG1.taux_exploitables
+          const showJoign = !hiddenG1.taux_joignabilite
+          const seulExplo = showExplo && !showJoign
+          const seulJoign = !showExplo && showJoign
+
+          // Domaine Y dynamique selon les courbes visibles
+          const vals = [
+            ...(showExplo ? chartData.map(r => r.taux_exploitables || 100) : []),
+            ...(showJoign ? chartData.map(r => r.taux_joignabilite || 100) : []),
+          ]
+          const vals2 = [
+            ...(showExplo ? chartData.map(r => r.taux_exploitables || 0) : []),
+            ...(showJoign ? chartData.map(r => r.taux_joignabilite || 0) : []),
+          ]
+          const minVal = vals.length ? Math.max(0, Math.min(...vals) - 10) : 0
+          const maxVal = vals2.length ? Math.min(100, Math.max(...vals2) + 5) : 100
+
+          // Couleur dynamique des points selon seuil
+          const dotColorExplo = (val) => val >= 80 ? '#4CAF7D' : '#E05C5C'
+          const dotColorJoign = (val) => val >= 80 ? '#4CAF7D' : val >= 70 ? '#C9A84C' : '#E05C5C'
+
+          // Données enrichies pour points colorés
+          const chartDataExplo = chartData.map(r => ({ ...r, _colorExplo: dotColorExplo(r.taux_exploitables || 0) }))
+          const chartDataJoign = chartData.map(r => ({ ...r, _colorJoign: dotColorJoign(r.taux_joignabilite || 0) }))
+
+          return (
+            <div style={{ ...cardStyle, marginBottom: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C' }}>Qualite des leads</div>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  {/* Legende seuils — visible seulement en vue solo */}
+                  {seulExplo && (
+                    <span style={{ fontSize: 10, color: '#8A8A7A', marginRight: 8 }}>
+                      <span style={{ color: '#4CAF7D', fontWeight: 600 }}>●</span> ≥80%
+                      <span style={{ color: '#E05C5C', fontWeight: 600, marginLeft: 8 }}>●</span> &lt;80%
+                    </span>
+                  )}
+                  {seulJoign && (
+                    <span style={{ fontSize: 10, color: '#8A8A7A', marginRight: 8 }}>
+                      <span style={{ color: '#4CAF7D', fontWeight: 600 }}>●</span> ≥80%
+                      <span style={{ color: '#C9A84C', fontWeight: 600, marginLeft: 8 }}>●</span> 70-80%
+                      <span style={{ color: '#E05C5C', fontWeight: 600, marginLeft: 8 }}>●</span> &lt;70%
+                    </span>
+                  )}
+                  {/* Toggle Exploitables */}
+                  <button onClick={() => setHiddenG1(p => ({ ...p, taux_exploitables: !p.taux_exploitables }))}
+                    style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 12px', borderRadius:16,
+                      border: `1.5px solid #4CAF7D`,
+                      background: hiddenG1.taux_exploitables ? '#fff' : '#4CAF7D15',
+                      cursor:'pointer', fontSize:11, fontWeight:500,
+                      color: hiddenG1.taux_exploitables ? '#8A8A7A' : '#4CAF7D',
+                      opacity: hiddenG1.taux_exploitables ? 0.5 : 1 }}>
+                    <span style={{ width:12, height:3, background:'#4CAF7D', display:'inline-block', borderRadius:2, opacity: hiddenG1.taux_exploitables ? 0.3 : 1 }}/>
+                    Exploitables — CV: <b>{cvs.taux_exploitables||0}%</b>
+                  </button>
+                  {/* Toggle Joignabilite */}
+                  <button onClick={() => setHiddenG1(p => ({ ...p, taux_joignabilite: !p.taux_joignabilite }))}
+                    style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 12px', borderRadius:16,
+                      border: `1.5px solid #534AB7`,
+                      background: hiddenG1.taux_joignabilite ? '#fff' : '#534AB715',
+                      cursor:'pointer', fontSize:11, fontWeight:500,
+                      color: hiddenG1.taux_joignabilite ? '#8A8A7A' : '#534AB7',
+                      opacity: hiddenG1.taux_joignabilite ? 0.5 : 1 }}>
+                    <span style={{ width:12, height:3, background:'#534AB7', display:'inline-block', borderRadius:2, opacity: hiddenG1.taux_joignabilite ? 0.3 : 1 }}/>
+                    Joignabilite — CV: <b>{cvs.taux_joignabilite||0}%</b>
+                  </button>
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={chartData} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.08)"/>
+                  <XAxis dataKey="label" tick={{fontSize:10}}/>
+                  <YAxis tick={{fontSize:10}} tickFormatter={v=>`${v}%`} domain={[minVal, maxVal]}/>
+                  <Tooltip contentStyle={tooltipStyle} formatter={v=>`${v}%`}/>
+
+                  {/* Ligne objectif 80% — seulement en vue solo */}
+                  {(seulExplo || seulJoign) && (
+                    <ReferenceLine y={80} stroke="#E05C5C" strokeDasharray="6 3" strokeWidth={1.5}
+                      label={{ value: '80%', position: 'insideTopRight', fontSize: 10, fill: '#E05C5C', fontWeight: 600 }}/>
+                  )}
+                  {/* Ligne 70% pour joignabilite seule */}
+                  {seulJoign && (
+                    <ReferenceLine y={70} stroke="#C9A84C" strokeDasharray="6 3" strokeWidth={1.5}
+                      label={{ value: '70%', position: 'insideTopRight', fontSize: 10, fill: '#C9A84C', fontWeight: 600 }}/>
+                  )}
+
+                  {/* Courbe Exploitables avec points colorés */}
+                  {showExplo && (
+                    <Line type="monotone" dataKey="taux_exploitables"
+                      stroke="#4CAF7D" strokeWidth={2.5}
+                      dot={(props) => {
+                        if (!seulExplo) return <circle key={props.key} cx={props.cx} cy={props.cy} r={5} fill="#4CAF7D" stroke="#fff" strokeWidth={2}/>
+                        const color = (props.payload.taux_exploitables || 0) >= 80 ? '#4CAF7D' : '#E05C5C'
+                        return <circle key={props.key} cx={props.cx} cy={props.cy} r={5} fill={color} stroke="#fff" strokeWidth={2}/>
+                      }}
+                      activeDot={{ r: 7 }} name="Exploitables"
+                    />
+                  )}
+
+                  {/* Courbe Joignabilite avec points colorés */}
+                  {showJoign && (
+                    <Line type="monotone" dataKey="taux_joignabilite"
+                      stroke="#534AB7" strokeWidth={2.5}
+                      dot={(props) => {
+                        if (!seulJoign) return <circle key={props.key} cx={props.cx} cy={props.cy} r={5} fill="#534AB7" stroke="#fff" strokeWidth={2}/>
+                        const v = props.payload.taux_joignabilite || 0
+                        const color = v >= 80 ? '#4CAF7D' : v >= 70 ? '#C9A84C' : '#E05C5C'
+                        return <circle key={props.key} cx={props.cx} cy={props.cy} r={5} fill={color} stroke="#fff" strokeWidth={2}/>
+                      }}
+                      activeDot={{ r: 7 }} name="Joignabilite"
+                    />
+                  )}
+                </LineChart>
+              </ResponsiveContainer>
             </div>
-          </div>
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={chartData} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.08)"/>
-              <XAxis dataKey="label" tick={{fontSize:10}}/>
-              <YAxis tick={{fontSize:10}} tickFormatter={v=>`${v}%`} domain={[0, 100]}/>
-              <Tooltip contentStyle={tooltipStyle} formatter={v=>`${v}%`}/>
-              <Line type="monotone" dataKey="taux_exploitables" stroke="#4CAF7D" strokeWidth={2.5} dot={{ r: 5, fill: '#4CAF7D', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 7 }} name="Exploitables"/>
-              <Line type="monotone" dataKey="taux_joignabilite" stroke="#534AB7" strokeWidth={2.5} dot={{ r: 5, fill: '#534AB7', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 7 }} name="Joignabilite"/>
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+          )
+        })()}
 
         {/* === SECTION 3 : Funnel Marketing SVG === */}
         <div style={{ ...cardStyle, marginBottom: 20 }}>
