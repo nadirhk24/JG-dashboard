@@ -58,12 +58,36 @@ function AppContent() {
   async function loadData() {
     setLoading(true)
     try {
-      const [{ data: cons }, { data: sais }] = await Promise.all([
-        supabase.from('conseilleres').select('*').order('nom'),
-        supabase.from('saisies').select('*').order('date', { ascending: false })
-      ])
+      // Charger conseillères
+      const { data: cons } = await supabase.from('conseilleres').select('*').order('nom')
+
+      // Charger saisies avec pagination (Supabase limite à 1000 lignes par requête)
+      // Filtrer sur les 2 dernières années pour éviter les dépassements
+      const currentYear = new Date().getFullYear()
+      const dateFrom = `${currentYear - 1}-01-01`
+
+      let allSaisies = []
+      let from = 0
+      const pageSize = 1000
+
+      while (true) {
+        const { data: page, error } = await supabase
+          .from('saisies')
+          .select('*')
+          .gte('date_debut', dateFrom)
+          .order('date_debut', { ascending: false })
+          .range(from, from + pageSize - 1)
+
+        if (error) { console.error(error); break }
+        if (!page || page.length === 0) break
+
+        allSaisies = [...allSaisies, ...page]
+        if (page.length < pageSize) break
+        from += pageSize
+      }
+
       setConseilleres(cons || [])
-      setSaisies(sais || [])
+      setSaisies(allSaisies)
     } catch (err) { console.error(err) }
     setLoading(false)
   }
