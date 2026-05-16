@@ -205,45 +205,15 @@ export default function DashboardMarketing() {
     })
   }, [marketingData, selected])
 
-  // Injections = leads_bruts CC pour la même période
+  // Injections = depuis marketing_saisies directement (source unique fiable)
   const injectionsBrutes = useMemo(() => {
-    return saisiesCC.filter(s => {
-      const d = s.date_debut
-      if (!d) return false
-      if (!selected || selected.type === 'global') return true
-      if (selected.type === 'year') return d.startsWith(selected.value)
-      if (selected.type === 'quarter') {
-        const [y, q] = selected.value.split('-Q')
-        const mois = parseInt(d.substring(5, 7))
-        const startM = (parseInt(q) - 1) * 3 + 1
-        const endM = parseInt(q) * 3
-        return d.startsWith(y) && mois >= startM && mois <= endM
-      }
-      if (selected.type === 'month') return d.substring(0, 7) === selected.value
-      if (selected.type === 'day') return d === selected.value
-      return true
-    }).reduce((sum, s) => sum + (s.leads_bruts || 0), 0)
-  }, [saisiesCC, selected])
+    return dataFiltree.reduce((sum, s) => sum + (s.injections || 0), 0)
+  }, [dataFiltree])
 
-  // Indispos = somme des indispos CC pour la même période
+  // Indispos = depuis marketing_saisies directement (synced depuis CC via trigger)
   const indisposCC = useMemo(() => {
-    return saisiesCC.filter(s => {
-      const d = s.date_debut
-      if (!d) return false
-      if (!selected || selected.type === 'global') return true
-      if (selected.type === 'year') return d.startsWith(selected.value)
-      if (selected.type === 'quarter') {
-        const [y, q] = selected.value.split('-Q')
-        const mois = parseInt(d.substring(5, 7))
-        const startM = (parseInt(q) - 1) * 3 + 1
-        const endM = parseInt(q) * 3
-        return d.startsWith(y) && mois >= startM && mois <= endM
-      }
-      if (selected.type === 'month') return d.substring(0, 7) === selected.value
-      if (selected.type === 'day') return d === selected.value
-      return true
-    }).reduce((sum, s) => sum + (s.indispos || 0), 0)
-  }, [saisiesCC, selected])
+    return dataFiltree.reduce((sum, s) => sum + (s.indispos || 0), 0)
+  }, [dataFiltree])
 
   const totaux = useMemo(() => {
     const agg = aggreger(dataFiltree)
