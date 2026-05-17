@@ -1,4 +1,4 @@
-// JG Dashboard - DashboardCentreAppel - v20260517102212 - joursExclus
+// JG Dashboard - DashboardCentreAppel - v20260517103406 - joursExclus-fix
 import React, { useState, useMemo, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
@@ -81,9 +81,14 @@ const ALL_RANK_COLS = [
   { key: 'ventes', label: 'Ventes', color: '#1a6b3c', selfOnly: true },
 ]
 
-export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
+export default function DashboardCallCenter({ conseilleres, saisies: props_saisies, reload }) {
   const { profil } = useAuth()
   const { joursFeries, absences } = useJoursExclus()
+  // Normaliser : dimanches/fériés → jour ouvré d'avant
+  const saisies = React.useMemo(
+    () => normaliserSaisies(props_saisies, joursFeries),
+    [props_saisies, joursFeries]
+  )
   const isSuperAdmin = profil?.role === 'super_admin'
   const isConseillere = profil?.role === 'conseillere'
   // Conseillères visibles selon permissions

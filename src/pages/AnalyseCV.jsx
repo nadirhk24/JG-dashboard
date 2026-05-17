@@ -1,4 +1,4 @@
-// JG Dashboard - AnalyseCV - v20260517102212 - joursExclus
+// JG Dashboard - AnalyseCV - v20260517103406 - joursExclus-fix
 import React, { useState, useMemo, useEffect } from 'react'
 import DrillNav from '../components/DrillNav'
 import { useAuth } from '../context/AuthContext'
@@ -189,6 +189,11 @@ export default function AnalyseCV({ conseilleres, saisies }) {
   const [segment, setSegment] = useState(() => localStorage.getItem('jg_segment_cv') || defaultSegment)
   const [kpiKey, setKpiKey] = useState('conversion_tel')
   const { joursFeries, absences } = useJoursExclus()
+  // Normaliser saisies CC : dimanches/fériés → jour ouvré d'avant
+  const saisiesNorm = React.useMemo(
+    () => normaliserSaisies(saisies, joursFeries),
+    [saisies, joursFeries]
+  )
   const [selected, setSelected] = useState({ type: 'global', label: 'Global' })
   // Convertir selected DrillNav → periode + moisFiltre pour la logique existante
   const periode = selected.type === 'day' ? 'jour'
@@ -264,7 +269,7 @@ export default function AnalyseCV({ conseilleres, saisies }) {
   const groupFn = useMemo(() => getGroupFunction(periode), [periode])
   const chartData = useMemo(() => {
     if (segment === 'callcenter') {
-      const saisiesFiltrees = filtrerParMois(normaliserSaisies(saisies, joursFeries), 'date')
+      const saisiesFiltrees = filtrerParMois(saisiesNorm, 'date')
       const groups = groupFn(saisiesFiltrees)
       return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([key, items]) => {
         const agg = agregerParPeriode(items)
