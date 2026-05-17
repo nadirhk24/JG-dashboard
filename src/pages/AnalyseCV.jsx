@@ -241,17 +241,35 @@ export default function AnalyseCV({ conseilleres, saisies }) {
     if (!nextPeriode) return // déjà au niveau jour
     // Sauvegarder le niveau actuel dans la pile
     setDrillStack(prev => [...prev, { periode, moisFiltre, label: entry.label }])
-    // Passer au niveau inférieur avec le bon filtre de mois
+
     if (periode === 'trimestre') {
-      // entry.label ex: "T1 2026" → mois filtre = 2026-01 à 2026-03
+      // entry.label ex: "T1 2026"
       const trimMap = { 'T1': '2026-01', 'T2': '2026-04', 'T3': '2026-07', 'T4': '2026-10' }
       const t = entry.label?.split(' ')[0]
-      if (trimMap[t]) setMoisFiltre(trimMap[t].substring(0, 7))
+      if (trimMap[t]) setMoisFiltre(trimMap[t])
     } else if (periode === 'mois') {
-      // entry.label ex: "Janv." → on filtre sur ce mois
-      const moisLabelMap = { 'Janv.': '2026-01', 'Févr.': '2026-02', 'Mars': '2026-03', 'Avr.': '2026-04', 'Mai': '2026-05', 'Juin': '2026-06', 'Juil.': '2026-07', 'Août': '2026-08', 'Sept.': '2026-09', 'Oct.': '2026-10', 'Nov.': '2026-11', 'Déc.': '2026-12' }
-      const m = moisLabelMap[entry.label]
+      // entry.label ex: "Janv.", "Févr.", "Mars"...
+      const moisLabelMap = {
+        'Janv.': '2026-01', 'Févr.': '2026-02', 'Mars': '2026-03',
+        'Avr.': '2026-04', 'Mai': '2026-05', 'Juin': '2026-06',
+        'Juil.': '2026-07', 'Août': '2026-08', 'Sept.': '2026-09',
+        'Oct.': '2026-10', 'Nov.': '2026-11', 'Déc.': '2026-12',
+        // Variantes sans accent
+        'Fevr.': '2026-02', 'Aout': '2026-08',
+      }
+      const m = moisLabelMap[entry.label] || moisLabelMap[entry.label?.replace('.','')]
       if (m) setMoisFiltre(m)
+    } else if (periode === 'semaine') {
+      // entry.label ex: "S18 2026" → extraire le mois correspondant
+      // Semaine ISO → approximation : S1-S4=Jan, S5-S8=Fév, S9-S13=Mar, S14-S17=Avr, S18-S22=Mai, etc.
+      const sNum = parseInt(entry.label?.replace(/S(\d+).*/, '$1'))
+      if (!isNaN(sNum)) {
+        const moisDeSemaine = sNum <= 4 ? '2026-01' : sNum <= 8 ? '2026-02' : sNum <= 13 ? '2026-03'
+          : sNum <= 17 ? '2026-04' : sNum <= 21 ? '2026-05' : sNum <= 26 ? '2026-06'
+          : sNum <= 30 ? '2026-07' : sNum <= 35 ? '2026-08' : sNum <= 39 ? '2026-09'
+          : sNum <= 43 ? '2026-10' : sNum <= 47 ? '2026-11' : '2026-12'
+        setMoisFiltre(moisDeSemaine)
+      }
     }
     setPeriode(nextPeriode)
   }
@@ -277,6 +295,7 @@ export default function AnalyseCV({ conseilleres, saisies }) {
     { key: '2026-02', label: 'Fevrier' },
     { key: '2026-03', label: 'Mars' },
     { key: '2026-04', label: 'Avril' },
+    { key: '2026-05', label: 'Mai' },
   ]
 
   function filtrerParMois(items, dateKey) {
@@ -427,14 +446,7 @@ export default function AnalyseCV({ conseilleres, saisies }) {
             ))}
           </div>
         </div>
-        <div>
-          <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, fontWeight: 500 }}>Mois</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {MOIS_OPTIONS.map(m => (
-              <button key={m.key} style={btnStyle(moisFiltre === m.key)} onClick={() => setMoisFiltre(m.key)}>{m.label}</button>
-            ))}
-          </div>
-        </div>
+
       </div>
       {segment === 'flux' && (
         <div style={{ marginBottom: 16 }}>
@@ -502,51 +514,69 @@ export default function AnalyseCV({ conseilleres, saisies }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
         {/* Graphe barres */}
         <div style={cardStyle}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+          {/* === DRILL NAV intégré === */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
             <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C' }}>{selectedKpi.label}</div>
-            {/* Bouton reset drill */}
-            {drillStack.length > 0 && (
-              <button onClick={handleDrillReset}
-                style={{ fontSize: 10, color: '#8A8A7A', background: 'none', border: '1px solid #E0D9C8', borderRadius: 8, padding: '2px 8px', cursor: 'pointer' }}>
-                ↺ Reset
-              </button>
-            )}
-          </div>
 
-          {/* Breadcrumb drill-down */}
-          {drillStack.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
-              <span onClick={handleDrillReset}
-                style={{ fontSize: 11, color: '#C9A84C', cursor: 'pointer', fontWeight: 500, textDecoration: 'underline' }}>
-                Vue globale
-              </span>
-              {drillStack.map((item, i) => (
-                <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <span style={{ color: '#8A8A7A', fontSize: 11 }}>›</span>
-                  <span onClick={() => handleDrillBack(i)}
-                    style={{ fontSize: 11, color: i < drillStack.length - 1 ? '#C9A84C' : '#2C2C2C',
-                      cursor: i < drillStack.length - 1 ? 'pointer' : 'default',
-                      fontWeight: i === drillStack.length - 1 ? 600 : 400,
-                      textDecoration: i < drillStack.length - 1 ? 'underline' : 'none' }}>
-                    {item.label}
+            {/* Drill breadcrumb + filtres mois */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              {drillStack.length === 0 ? (
+                /* Vue initiale : afficher les mois disponibles comme filtres rapides */
+                <>
+                  <span style={{ fontSize: 10, color: '#8A8A7A', marginRight: 2 }}>Filtrer :</span>
+                  {MOIS_OPTIONS.map(m => (
+                    <button key={m.key}
+                      onClick={() => setMoisFiltre(m.key)}
+                      style={{ fontSize: 10, padding: '3px 8px', borderRadius: 10, cursor: 'pointer', border: 'none',
+                        background: moisFiltre === m.key ? '#C9A84C' : 'rgba(201,168,76,0.1)',
+                        color: moisFiltre === m.key ? '#fff' : '#8A8A7A',
+                        fontWeight: moisFiltre === m.key ? 600 : 400 }}>
+                      {m.label}
+                    </button>
+                  ))}
+                  {DRILL_HIERARCHY[periode] && (
+                    <span style={{ fontSize: 10, color: '#C9A84C', background: 'rgba(201,168,76,0.1)', padding: '3px 8px', borderRadius: 8, marginLeft: 4 }}>
+                      ↓ Cliquer pour zoomer
+                    </span>
+                  )}
+                </>
+              ) : (
+                /* Vue drill : afficher le breadcrumb */
+                <>
+                  <span onClick={handleDrillReset}
+                    style={{ fontSize: 11, color: '#C9A84C', cursor: 'pointer', fontWeight: 600 }}>
+                    ↩ Vue globale
                   </span>
-                </span>
-              ))}
-              <span style={{ color: '#8A8A7A', fontSize: 11 }}>›</span>
-              <span style={{ fontSize: 11, color: '#534AB7', fontWeight: 600 }}>
-                {periode.charAt(0).toUpperCase() + periode.slice(1)}
-              </span>
+                  {drillStack.map((item, i) => (
+                    <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ color: '#C0B89A', fontSize: 11 }}>›</span>
+                      <span onClick={() => handleDrillBack(i)}
+                        style={{ fontSize: 11,
+                          color: i < drillStack.length - 1 ? '#C9A84C' : '#5A5A5A',
+                          cursor: i < drillStack.length - 1 ? 'pointer' : 'default',
+                          fontWeight: i === drillStack.length - 1 ? 600 : 400,
+                          textDecoration: i < drillStack.length - 1 ? 'underline' : 'none' }}>
+                        {item.label}
+                      </span>
+                    </span>
+                  ))}
+                  <span style={{ color: '#C0B89A', fontSize: 11 }}>›</span>
+                  <span style={{ fontSize: 11, color: '#534AB7', fontWeight: 700, background: 'rgba(83,74,183,0.08)', padding: '2px 8px', borderRadius: 8 }}>
+                    {periode.charAt(0).toUpperCase() + periode.slice(1)}
+                  </span>
+                  {DRILL_HIERARCHY[periode] && (
+                    <span style={{ fontSize: 10, color: '#C9A84C', background: 'rgba(201,168,76,0.1)', padding: '3px 8px', borderRadius: 8 }}>
+                      ↓ Cliquer pour zoomer
+                    </span>
+                  )}
+                </>
+              )}
             </div>
-          )}
+          </div>
 
           <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
             {segment === 'flux' ? 'CV inter-commerciaux par periode' : 'Valeur par ' + periode}
             <InfoBulle text={segment === 'flux' ? 'Chaque barre = CV inter-commerciaux de la periode. Les lignes UCL/LCL delimitent la zone normale.' : 'Chaque barre represente la valeur du KPI pour la periode.'} />
-            {DRILL_HIERARCHY[periode] && (
-              <span style={{ fontSize: 10, color: '#C9A84C', background: 'rgba(201,168,76,0.1)', padding: '2px 6px', borderRadius: 8 }}>
-                Cliquer sur une barre pour zoomer
-              </span>
-            )}
           </div>
 
           {chartData.length === 0 ? (
