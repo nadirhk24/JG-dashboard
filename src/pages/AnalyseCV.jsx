@@ -1,4 +1,4 @@
-// JG Dashboard - AnalyseCV - v20260517100354 - DrillNav
+// JG Dashboard - AnalyseCV - v20260517100843 - fix-periode
 import React, { useState, useMemo, useEffect } from 'react'
 import DrillNav from '../components/DrillNav'
 import { useAuth } from '../context/AuthContext'
@@ -190,9 +190,9 @@ export default function AnalyseCV({ conseilleres, saisies }) {
   const [selected, setSelected] = useState({ type: 'global', label: 'Global' })
   // Convertir selected DrillNav → periode + moisFiltre pour la logique existante
   const periode = selected.type === 'day' ? 'jour'
-    : selected.type === 'quarter' ? 'trimestre'
+    : selected.type === 'quarter' ? 'mois'
     : selected.type === 'year' ? 'mois'
-    : selected.type === 'month' ? 'semaine'
+    : selected.type === 'month' ? 'jour'
     : selected.type === 'global' ? 'mois'
     : 'jour'
   const moisFiltre = selected.type === 'month' ? selected.value
