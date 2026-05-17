@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react'
+import { useJoursExclus, estJourExclu } from '../lib/dates'
 import DrillNav, { MOIS_SHORT } from '../components/DrillNav'
 import { supabase } from '../lib/supabase'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts'
@@ -151,6 +152,7 @@ export default function DashboardMarketing() {
   const [showSaisie, setShowSaisie] = useState(false)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState(null)
+  const { joursFeries } = useJoursExclus()
   const [selected, setSelected] = useState(() => {
     const now = new Date()
     const saved = localStorage.getItem('jg_selected_mkt')
@@ -192,6 +194,8 @@ export default function DashboardMarketing() {
   const dataFiltree = useMemo(() => {
     if (!selected || selected.type === 'global') return marketingData
     return marketingData.filter(s => {
+      // Exclure dimanches et fériés
+      if (estJourExclu(s.date, joursFeries)) return false
       if (selected.type === 'year') return s.date.startsWith(selected.value)
       if (selected.type === 'quarter') {
         const [y, q] = selected.value.split('-Q')

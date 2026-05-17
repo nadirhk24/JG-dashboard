@@ -1,5 +1,7 @@
+// JG Dashboard - PerfCommercial - v20260517102221 - joursExclus
 import React, { useState, useEffect, useMemo } from 'react'
 import DrillNav, { MOIS_SHORT } from '../components/DrillNav'
+import { useJoursExclus, normaliserSaisies } from '../lib/dates'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { getObjectifsPourPeriode, clearObjectifsCache } from '../lib/objectifs'

@@ -1,4 +1,4 @@
-// JG Dashboard - AnalyseCV - v20260517100843 - fix-periode
+// JG Dashboard - AnalyseCV - v20260517102212 - joursExclus
 import React, { useState, useMemo, useEffect } from 'react'
 import DrillNav from '../components/DrillNav'
 import { useAuth } from '../context/AuthContext'
@@ -8,6 +8,7 @@ import SectionTitle from '../components/SectionTitle'
 import { supabase } from '../lib/supabase'
 import { filtrerParSelection, getGroupFunction, formatGroupLabel } from '../lib/dates'
 import { agregerParPeriode } from '../lib/kpi'
+import { useJoursExclus, normaliserSaisies, filtrerJoursOuvrables } from '../lib/dates'
 function InfoBulle({ text }) {
   const [show, setShow] = React.useState(false)
   return (
@@ -187,6 +188,7 @@ export default function AnalyseCV({ conseilleres, saisies }) {
   const defaultSegment = canSeeCC ? 'callcenter' : canSeeMkt ? 'marketing' : 'flux'
   const [segment, setSegment] = useState(() => localStorage.getItem('jg_segment_cv') || defaultSegment)
   const [kpiKey, setKpiKey] = useState('conversion_tel')
+  const { joursFeries, absences } = useJoursExclus()
   const [selected, setSelected] = useState({ type: 'global', label: 'Global' })
   // Convertir selected DrillNav → periode + moisFiltre pour la logique existante
   const periode = selected.type === 'day' ? 'jour'
@@ -262,7 +264,7 @@ export default function AnalyseCV({ conseilleres, saisies }) {
   const groupFn = useMemo(() => getGroupFunction(periode), [periode])
   const chartData = useMemo(() => {
     if (segment === 'callcenter') {
-      const saisiesFiltrees = filtrerParMois(saisies, 'date')
+      const saisiesFiltrees = filtrerParMois(normaliserSaisies(saisies, joursFeries), 'date')
       const groups = groupFn(saisiesFiltrees)
       return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([key, items]) => {
         const agg = agregerParPeriode(items)

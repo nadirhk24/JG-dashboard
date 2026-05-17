@@ -1,3 +1,4 @@
+// JG Dashboard - DashboardCentreAppel - v20260517102212 - joursExclus
 import React, { useState, useMemo, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
@@ -7,6 +8,7 @@ import KpiCard from '../components/KpiCard'
 import { getColorFromObjectif, getObjectifsPourPeriode, getObjectifsConseillere, clearObjectifsCache } from '../lib/objectifs'
 import SectionTitle from '../components/SectionTitle'
 import { getGroupFunction, formatGroupLabel, filtrerParSelection } from '../lib/dates'
+import { useJoursExclus, normaliserSaisies, filtrerJoursOuvrables } from '../lib/dates'
 import { agregerParPeriode, calcCV, calcConversionTel, calcTauxPresence, calcEfficaciteComm } from '../lib/kpi'
 import DrillNav from '../components/DrillNav'
 import { exportToXlsx, labelToFilename } from '../lib/useExportXlsx'
@@ -81,6 +83,7 @@ const ALL_RANK_COLS = [
 
 export default function DashboardCallCenter({ conseilleres, saisies, reload }) {
   const { profil } = useAuth()
+  const { joursFeries, absences } = useJoursExclus()
   const isSuperAdmin = profil?.role === 'super_admin'
   const isConseillere = profil?.role === 'conseillere'
   // Conseillères visibles selon permissions
