@@ -131,6 +131,7 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
   const [fluxDetails, setFluxDetails] = useState([])
   const [commerciaux, setCommerciaux] = useState([])
   const [loadingDetails, setLoadingDetails] = useState(false)
+  const [seuilVisites, setSeuilVisites] = useState({ sale: 0, kenitra: 0 })
   const today = new Date().toISOString().split('T')[0]
   const [form, setForm] = useState({ conseillere_id: '', date: today, date_debut: '', date_fin: '', leads_bruts: '', indispos: '', non_exploitables: '', echanges: '', rdv: '', visites: '', ventes: '' })
 
@@ -979,28 +980,59 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
         // Filtrer flux par période sélectionnée
         const fluxFiltres = filterBySelected(fluxDetails, selected, 'date_debut')
 
-        // Totaux visites par conseillère × commercial
-        const totaux = {} // { conseillere_id: { commercial_id: visites } }
+        // ── Taux de présence par région (calculé depuis flux_rdv filtré) ──
+        const statsByEquipe = { sale: { rdv: 0, visites: 0 }, kenitra: { rdv: 0, visites: 0 } }
         fluxFiltres.forEach(f => {
-          if (!f.conseillere_id) return
+          const comm = commerciaux.find(c => c.id === f.commercial_id)
+          const eq = comm?.equipe
+          if (eq !== 'sale' && eq !== 'kenitra') return
+          const isPeriode = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
+          const vis = parseFloat(f.visites || 0)
+          const ven = parseFloat(f.ventes  || 0)
+          statsByEquipe[eq].visites += isPeriode ? vis : vis + ven
+          statsByEquipe[eq].rdv     += parseFloat(f.rdv || 0)
+        })
+        // Taux présence = visites / rdv (si rdv = 0 → utiliser 20% par défaut)
+        const tauxPresence = {
+          sale:    statsByEquipe.sale.rdv    > 0 ? statsByEquipe.sale.visites    / statsByEquipe.sale.rdv    : 0.2,
+          kenitra: statsByEquipe.kenitra.rdv > 0 ? statsByEquipe.kenitra.visites / statsByEquipe.kenitra.rdv : 0.2,
+        }
+        // RDV nécessaires pour 1 visite = 1 / taux_presence
+        const rdvParVisite = {
+          sale:    tauxPresence.sale    > 0 ? Math.round(1 / tauxPresence.sale)    : 5,
+          kenitra: tauxPresence.kenitra > 0 ? Math.round(1 / tauxPresence.kenitra) : 5,
+        }
+
+        // ── Totaux visites par conseillère × commercial ──
+        const totaux = {}
+        fluxFiltres.forEach(f => {
+          if (!f.conseillere_id || !f.commercial_id) return
           const isPeriode = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
           const vis = parseFloat(f.visites || 0)
           const ven = parseFloat(f.ventes  || 0)
           const visTotal = isPeriode ? vis : vis + ven
-          const commKey = f.commercial_id || '__nr__'
           if (!totaux[f.conseillere_id]) totaux[f.conseillere_id] = {}
-          totaux[f.conseillere_id][commKey] = (totaux[f.conseillere_id][commKey] || 0) + visTotal
+          totaux[f.conseillere_id][f.commercial_id] = (totaux[f.conseillere_id][f.commercial_id] || 0) + visTotal
         })
 
-        // NR par équipe par conseillère
-        const nrTotaux = {} // { conseillere_id: { sale: n, kenitra: n } }
+        // ── Total visites par commercial ──
+        const visParComm = {}
+        fluxFiltres.forEach(f => {
+          if (!f.commercial_id) return
+          const isPeriode = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
+          const vis = parseFloat(f.visites || 0)
+          const ven = parseFloat(f.ventes  || 0)
+          visParComm[f.commercial_id] = (visParComm[f.commercial_id] || 0) + (isPeriode ? vis : vis + ven)
+        })
+
+        // ── NR par équipe par conseillère ──
+        const nrTotaux = {}
         fluxFiltres.filter(f => !f.commercial_id).forEach(f => {
           if (!f.conseillere_id) return
           const isPeriode = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
           const vis = parseFloat(f.visites || 0)
           const ven = parseFloat(f.ventes  || 0)
           const visTotal = isPeriode ? vis : vis + ven
-          // Déterminer la région via commerciaux fictifs NR
           const commNR = commerciaux.find(c => c.id === f.commercial_id)
           const eq = commNR?.equipe || 'sale'
           if (!nrTotaux[f.conseillere_id]) nrTotaux[f.conseillere_id] = { sale: 0, kenitra: 0 }
@@ -1010,90 +1042,178 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
         const commsSale    = commerciaux.filter(c => c.equipe === 'sale'    && !c.nom.includes('Non reconnu'))
         const commsKenitra = commerciaux.filter(c => c.equipe === 'kenitra' && !c.nom.includes('Non reconnu'))
 
+        // ── Calcul RDV nécessaires par commercial ──
+        // Part par conseillère : Hala + Siham = 1 part (0.5 chacune), les 4 autres = 1 part chacune → total 5 parts
+        // IDs Hala et Siham
+        const HALA_NOM  = 'Hala'
+        const SIHAM_NOM = 'Siham'
+        function getPartConseillere(c) {
+          const nom = c.nom.toUpperCase()
+          if (nom.includes('HALA') || nom.includes('SIHAM')) return 0.5
+          return 1
+        }
+        const totalParts = conseilleresFiltrees.reduce((s, c) => s + getPartConseillere(c), 0) // = 5
+
+        function calcRdvNecessaires(commId, equipe) {
+          if (!seuilVisites[equipe] || seuilVisites[equipe] <= 0) return null
+          const visActuelles = Math.round(visParComm[commId] || 0)
+          const manque = seuilVisites[equipe] - visActuelles
+          if (manque <= 0) return null
+          const rdvTotal = manque * rdvParVisite[equipe]
+          return { manque, rdvTotal, rdvParVisite: rdvParVisite[equipe] }
+        }
+
+        function getRdvPourConseillere(commId, equipe, conseillere) {
+          const calc = calcRdvNecessaires(commId, equipe)
+          if (!calc) return null
+          const part = getPartConseillere(conseillere)
+          return Math.ceil((calc.rdvTotal / totalParts) * part)
+        }
+
+        // ── Rendu tableau ──
+        const thStyle = { padding: '10px 12px', textAlign: 'center', fontSize: 11, fontWeight: 600, borderBottom: '2px solid rgba(201,168,76,0.2)', background: '#F8F7F4', minWidth: 120, whiteSpace: 'nowrap' }
+
+        function renderCell(val, rdvNecessaires, equipeColor) {
+          const hasRdv = rdvNecessaires !== null
+          return (
+            <td style={{ padding: '6px 10px', textAlign: 'center', borderBottom: '1px solid rgba(201,168,76,0.06)', verticalAlign: 'top' }}>
+              <div style={{ fontWeight: 600, color: val > 0 ? equipeColor : '#8A8A7A', fontSize: 13 }}>{val}</div>
+              {hasRdv && (
+                <div style={{ fontSize: 10, color: '#E07B30', marginTop: 2, lineHeight: 1.3 }}>
+                  📅 Fixer {rdvNecessaires} RDV
+                </div>
+              )}
+            </td>
+          )
+        }
+
         return (
-          <div style={{ overflowX: 'auto', marginTop: 8 }}>
-            <table style={{ borderCollapse: 'collapse', minWidth: '100%', fontSize: 12 }}>
-              <thead>
-                <tr>
-                  <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: '#8A8A7A', fontWeight: 500, textTransform: 'uppercase', borderBottom: '2px solid rgba(201,168,76,0.2)', background: '#F8F7F4', position: 'sticky', left: 0, minWidth: 160 }}>Commercial</th>
-                  {conseilleresFiltrees.map(c => (
-                    <th key={c.id} style={{ padding: '10px 12px', textAlign: 'center', fontSize: 11, color: '#C9A84C', fontWeight: 600, borderBottom: '2px solid rgba(201,168,76,0.2)', background: '#F8F7F4', minWidth: 110, whiteSpace: 'nowrap' }}>
-                      {c.nom.split(' ')[0]}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {/* Équipe Sale header */}
-                <tr>
-                  <td colSpan={conseilleresFiltrees.length + 1} style={{ padding: '8px 12px', background: 'rgba(201,168,76,0.08)', fontSize: 11, fontWeight: 700, color: '#C9A84C', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                    Équipe Sale
-                  </td>
-                </tr>
-                {commsSale.map(comm => (
-                  <tr key={comm.id} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                    <td style={{ padding: '8px 12px', fontWeight: 500, color: '#2C2C2C', borderBottom: '1px solid rgba(201,168,76,0.06)', position: 'sticky', left: 0, background: 'inherit' }}>{comm.nom}</td>
-                    {conseilleresFiltrees.map(c => {
-                      const val = Math.round(totaux[c.id]?.[comm.id] || 0)
-                      return (
-                        <td key={c.id} style={{ padding: '8px 12px', textAlign: 'center', borderBottom: '1px solid rgba(201,168,76,0.06)', color: val > 0 ? '#C9A84C' : '#D5D2CA', fontWeight: val > 0 ? 600 : 400 }}>
-                          {val > 0 ? val : '—'}
-                        </td>
-                      )
-                    })}
-                  </tr>
-                ))}
-                {/* NR Sale */}
-                <tr style={{ background: 'rgba(224,92,92,0.03)' }} onMouseEnter={e=>e.currentTarget.style.background='rgba(224,92,92,0.07)'} onMouseLeave={e=>e.currentTarget.style.background='rgba(224,92,92,0.03)'}>
-                  <td style={{ padding: '8px 12px', fontWeight: 700, color: '#E05C5C', borderBottom: '1px solid rgba(201,168,76,0.06)', fontStyle: 'italic', position: 'sticky', left: 0, background: 'inherit' }}>⚠️ Non reconnu Sale</td>
-                  {conseilleresFiltrees.map(c => {
-                    const val = Math.round(nrTotaux[c.id]?.sale || 0)
-                    return <td key={c.id} style={{ padding: '8px 12px', textAlign: 'center', borderBottom: '1px solid rgba(201,168,76,0.06)', color: val > 0 ? '#E05C5C' : '#D5D2CA', fontWeight: val > 0 ? 700 : 400 }}>{val > 0 ? val : '—'}</td>
-                  })}
-                </tr>
+          <div style={{ marginTop: 8 }}>
+            {/* ── Saisie seuils ── */}
+            <div style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', border: '1px solid rgba(201,168,76,0.2)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#2C2C2C' }}>Seuil visites/mois</div>
+              {['sale', 'kenitra'].map(eq => (
+                <div key={eq} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 12, color: eq === 'sale' ? '#C9A84C' : '#534AB7', fontWeight: 500 }}>{eq === 'sale' ? 'Équipe Sale' : 'Équipe Kenitra'}</span>
+                  <input type="number" min="0" value={seuilVisites[eq] || ''}
+                    onChange={e => setSeuilVisites(p => ({ ...p, [eq]: parseInt(e.target.value) || 0 }))}
+                    placeholder="ex: 20"
+                    style={{ width: 70, padding: '5px 8px', border: `1.5px solid ${eq === 'sale' ? 'rgba(201,168,76,0.3)' : 'rgba(83,74,183,0.3)'}`, borderRadius: 6, fontSize: 12, textAlign: 'center', outline: 'none' }} />
+                  <span style={{ fontSize: 11, color: '#8A8A7A' }}>vis. · Taux présence : <strong style={{ color: eq === 'sale' ? '#C9A84C' : '#534AB7' }}>{Math.round(tauxPresence[eq]*100)}%</strong> → <strong>{rdvParVisite[eq]} RDV/visite</strong></span>
+                </div>
+              ))}
+              <div style={{ fontSize: 11, color: '#8A8A7A', marginLeft: 'auto', fontStyle: 'italic' }}>
+                Hala + Siham partagent 1 objectif (0.5 part chacune) · 4 autres conseillères = 1 part
+              </div>
+            </div>
 
-                {/* Équipe Kenitra header */}
-                <tr>
-                  <td colSpan={conseilleresFiltrees.length + 1} style={{ padding: '8px 12px', background: 'rgba(83,74,183,0.08)', fontSize: 11, fontWeight: 700, color: '#534AB7', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                    Équipe Kenitra
-                  </td>
-                </tr>
-                {commsKenitra.map(comm => (
-                  <tr key={comm.id} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                    <td style={{ padding: '8px 12px', fontWeight: 500, color: '#2C2C2C', borderBottom: '1px solid rgba(201,168,76,0.06)', position: 'sticky', left: 0, background: 'inherit' }}>{comm.nom}</td>
-                    {conseilleresFiltrees.map(c => {
-                      const val = Math.round(totaux[c.id]?.[comm.id] || 0)
-                      return (
-                        <td key={c.id} style={{ padding: '8px 12px', textAlign: 'center', borderBottom: '1px solid rgba(201,168,76,0.06)', color: val > 0 ? '#534AB7' : '#D5D2CA', fontWeight: val > 0 ? 600 : 400 }}>
-                          {val > 0 ? val : '—'}
-                        </td>
-                      )
-                    })}
+            {/* ── Tableau ── */}
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ borderCollapse: 'collapse', minWidth: '100%', fontSize: 12 }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...thStyle, textAlign: 'left', position: 'sticky', left: 0, minWidth: 170, color: '#8A8A7A', fontWeight: 500, textTransform: 'uppercase' }}>Commercial</th>
+                    <th style={{ ...thStyle, color: '#8A8A7A', fontWeight: 500, minWidth: 80 }}>Total vis.</th>
+                    {conseilleresFiltrees.map(c => (
+                      <th key={c.id} style={{ ...thStyle, color: '#C9A84C' }}>
+                        {c.nom.split(' ')[0]}
+                        {(c.nom.toUpperCase().includes('HALA') || c.nom.toUpperCase().includes('SIHAM')) &&
+                          <div style={{ fontSize: 9, color: '#8A8A7A', fontWeight: 400 }}>½ obj.</div>}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-                {/* NR Kenitra */}
-                <tr style={{ background: 'rgba(224,92,92,0.03)' }} onMouseEnter={e=>e.currentTarget.style.background='rgba(224,92,92,0.07)'} onMouseLeave={e=>e.currentTarget.style.background='rgba(224,92,92,0.03)'}>
-                  <td style={{ padding: '8px 12px', fontWeight: 700, color: '#E05C5C', borderBottom: '1px solid rgba(201,168,76,0.06)', fontStyle: 'italic', position: 'sticky', left: 0, background: 'inherit' }}>⚠️ Non reconnu Kenitra</td>
-                  {conseilleresFiltrees.map(c => {
-                    const val = Math.round(nrTotaux[c.id]?.kenitra || 0)
-                    return <td key={c.id} style={{ padding: '8px 12px', textAlign: 'center', borderBottom: '1px solid rgba(201,168,76,0.06)', color: val > 0 ? '#E05C5C' : '#D5D2CA', fontWeight: val > 0 ? 700 : 400 }}>{val > 0 ? val : '—'}</td>
-                  })}
-                </tr>
-
-                {/* Total */}
-                <tr style={{ background: 'rgba(201,168,76,0.06)', borderTop: '2px solid rgba(201,168,76,0.2)' }}>
-                  <td style={{ padding: '10px 12px', fontWeight: 700, color: '#C9A84C', position: 'sticky', left: 0, background: 'rgba(201,168,76,0.06)' }}>TOTAL VISITES</td>
-                  {conseilleresFiltrees.map(c => {
-                    const total = Math.round(
-                      Object.values(totaux[c.id] || {}).reduce((s,v) => s+v, 0) +
-                      (nrTotaux[c.id]?.sale || 0) +
-                      (nrTotaux[c.id]?.kenitra || 0)
+                </thead>
+                <tbody>
+                  {/* ── SALE ── */}
+                  <tr>
+                    <td colSpan={conseilleresFiltrees.length + 2} style={{ padding: '8px 12px', background: 'rgba(201,168,76,0.08)', fontSize: 11, fontWeight: 700, color: '#C9A84C', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      Équipe Sale · Taux présence {Math.round(tauxPresence.sale*100)}% · {rdvParVisite.sale} RDV nécessaires par visite manquante
+                    </td>
+                  </tr>
+                  {commsSale.map(comm => {
+                    const visTotal = Math.round(visParComm[comm.id] || 0)
+                    const calc     = calcRdvNecessaires(comm.id, 'sale')
+                    return (
+                      <tr key={comm.id} style={{ background: calc ? 'rgba(224,123,48,0.03)' : 'transparent' }}
+                        onMouseEnter={e=>e.currentTarget.style.background=calc?'rgba(224,123,48,0.08)':'#F7F0DC'}
+                        onMouseLeave={e=>e.currentTarget.style.background=calc?'rgba(224,123,48,0.03)':'transparent'}>
+                        <td style={{ padding: '8px 12px', fontWeight: 500, color: '#2C2C2C', borderBottom: '1px solid rgba(201,168,76,0.06)', position: 'sticky', left: 0, background: 'inherit' }}>
+                          {comm.nom}
+                          {calc && <div style={{ fontSize: 10, color: '#E07B30', marginTop: 1 }}>⚠ {visTotal} vis. / {seuilVisites.sale} requis → {calc.rdvTotal} RDV total</div>}
+                        </td>
+                        <td style={{ padding: '8px 12px', textAlign: 'center', borderBottom: '1px solid rgba(201,168,76,0.06)', fontWeight: 700, color: calc ? '#E07B30' : '#C9A84C' }}>{visTotal}</td>
+                        {conseilleresFiltrees.map(c => {
+                          const val = Math.round(totaux[c.id]?.[comm.id] || 0)
+                          const rdvNec = calc ? getRdvPourConseillere(comm.id, 'sale', c) : null
+                          return renderCell(val, rdvNec, '#C9A84C')
+                        })}
+                      </tr>
                     )
-                    return <td key={c.id} style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 700, fontSize: 14, color: '#C9A84C' }}>{total}</td>
                   })}
-                </tr>
-              </tbody>
-            </table>
+                  {/* NR Sale */}
+                  <tr style={{ background: 'rgba(224,92,92,0.03)' }}>
+                    <td style={{ padding: '8px 12px', fontWeight: 700, color: '#E05C5C', borderBottom: '1px solid rgba(201,168,76,0.06)', fontStyle: 'italic', position: 'sticky', left: 0, background: 'inherit' }}>⚠️ Non reconnu Sale</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'center', borderBottom: '1px solid rgba(201,168,76,0.06)', fontWeight: 700, color: '#E05C5C' }}>
+                      {Math.round(Object.values(nrTotaux).reduce((s,v) => s + (v.sale||0), 0))}
+                    </td>
+                    {conseilleresFiltrees.map(c => {
+                      const val = Math.round(nrTotaux[c.id]?.sale || 0)
+                      return <td key={c.id} style={{ padding: '8px 12px', textAlign: 'center', borderBottom: '1px solid rgba(201,168,76,0.06)', color: val > 0 ? '#E05C5C' : '#8A8A7A', fontWeight: val > 0 ? 700 : 400 }}>{val}</td>
+                    })}
+                  </tr>
+
+                  {/* ── KENITRA ── */}
+                  <tr>
+                    <td colSpan={conseilleresFiltrees.length + 2} style={{ padding: '8px 12px', background: 'rgba(83,74,183,0.08)', fontSize: 11, fontWeight: 700, color: '#534AB7', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      Équipe Kenitra · Taux présence {Math.round(tauxPresence.kenitra*100)}% · {rdvParVisite.kenitra} RDV nécessaires par visite manquante
+                    </td>
+                  </tr>
+                  {commsKenitra.map(comm => {
+                    const visTotal = Math.round(visParComm[comm.id] || 0)
+                    const calc     = calcRdvNecessaires(comm.id, 'kenitra')
+                    return (
+                      <tr key={comm.id} style={{ background: calc ? 'rgba(224,123,48,0.03)' : 'transparent' }}
+                        onMouseEnter={e=>e.currentTarget.style.background=calc?'rgba(224,123,48,0.08)':'#F7F0DC'}
+                        onMouseLeave={e=>e.currentTarget.style.background=calc?'rgba(224,123,48,0.03)':'transparent'}>
+                        <td style={{ padding: '8px 12px', fontWeight: 500, color: '#2C2C2C', borderBottom: '1px solid rgba(83,74,183,0.06)', position: 'sticky', left: 0, background: 'inherit' }}>
+                          {comm.nom}
+                          {calc && <div style={{ fontSize: 10, color: '#E07B30', marginTop: 1 }}>⚠ {visTotal} vis. / {seuilVisites.kenitra} requis → {calc.rdvTotal} RDV total</div>}
+                        </td>
+                        <td style={{ padding: '8px 12px', textAlign: 'center', borderBottom: '1px solid rgba(83,74,183,0.06)', fontWeight: 700, color: calc ? '#E07B30' : '#534AB7' }}>{visTotal}</td>
+                        {conseilleresFiltrees.map(c => {
+                          const val = Math.round(totaux[c.id]?.[comm.id] || 0)
+                          const rdvNec = calc ? getRdvPourConseillere(comm.id, 'kenitra', c) : null
+                          return renderCell(val, rdvNec, '#534AB7')
+                        })}
+                      </tr>
+                    )
+                  })}
+                  {/* NR Kenitra */}
+                  <tr style={{ background: 'rgba(224,92,92,0.03)' }}>
+                    <td style={{ padding: '8px 12px', fontWeight: 700, color: '#E05C5C', borderBottom: '1px solid rgba(83,74,183,0.06)', fontStyle: 'italic', position: 'sticky', left: 0, background: 'inherit' }}>⚠️ Non reconnu Kenitra</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'center', borderBottom: '1px solid rgba(83,74,183,0.06)', fontWeight: 700, color: '#E05C5C' }}>
+                      {Math.round(Object.values(nrTotaux).reduce((s,v) => s + (v.kenitra||0), 0))}
+                    </td>
+                    {conseilleresFiltrees.map(c => {
+                      const val = Math.round(nrTotaux[c.id]?.kenitra || 0)
+                      return <td key={c.id} style={{ padding: '8px 12px', textAlign: 'center', borderBottom: '1px solid rgba(83,74,183,0.06)', color: val > 0 ? '#E05C5C' : '#8A8A7A', fontWeight: val > 0 ? 700 : 400 }}>{val}</td>
+                    })}
+                  </tr>
+
+                  {/* Total */}
+                  <tr style={{ background: 'rgba(201,168,76,0.06)', borderTop: '2px solid rgba(201,168,76,0.2)' }}>
+                    <td style={{ padding: '10px 12px', fontWeight: 700, color: '#C9A84C', position: 'sticky', left: 0, background: 'rgba(201,168,76,0.06)' }}>TOTAL VISITES</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 700, fontSize: 14, color: '#C9A84C' }}>
+                      {Math.round(Object.values(visParComm).reduce((s,v) => s+v, 0))}
+                    </td>
+                    {conseilleresFiltrees.map(c => {
+                      const total = Math.round(Object.values(totaux[c.id] || {}).reduce((s,v) => s+v, 0))
+                      return <td key={c.id} style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 700, fontSize: 14, color: '#C9A84C' }}>{total}</td>
+                    })}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         )
       })()}
