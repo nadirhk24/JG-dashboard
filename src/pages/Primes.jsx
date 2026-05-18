@@ -157,6 +157,21 @@ export default function Primes() {
 
   useEffect(() => { loadData() }, [])
 
+  // Realtime : recalcul live à chaque modif flux_rdv
+  useEffect(() => {
+    const channel = supabase
+      .channel('flux_rdv_primes')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'flux_rdv',
+      }, () => {
+        loadData()
+      })
+      .subscribe()
+    return () => supabase.removeChannel(channel)
+  }, [])
+
   async function loadData() {
     setLoading(true)
     const [{ data: cons }, { data: flux }] = await Promise.all([
@@ -171,16 +186,29 @@ export default function Primes() {
   }
 
   // Agréger visites+ventes par conseillère par mois
+  // T1 (jan-mar) : type_saisie = 'periode' → cumul mensuel
+  // Avril+ : type_saisie = 'jour' → cumul des jours
   const aggParConseillereParMois = useMemo(() => {
     const res = {}
     fluxData.forEach(f => {
       if (!f.conseillere_id) return
       const mois = (f.date_debut || '').substring(0, 7)
       if (!mois) return
+
       const isPeriode = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
+      const isAvrilPlus = mois >= '2026-04'
+
+      // Avril+ : on prend seulement les saisies jour (pas les périodes)
+      // T1 : on prend seulement les saisies période
+      if (isAvrilPlus && isPeriode) return
+      if (!isAvrilPlus && !isPeriode) return
+
       const vis = parseFloat(f.visites || 0)
       const ven = parseFloat(f.ventes  || 0)
+      // Pour type jour : visites brutes + ventes (1 vente = 1 visite)
+      // Pour type période : visites inclut déjà les ventes
       const visTotal = isPeriode ? vis : vis + ven
+
       if (!res[f.conseillere_id])       res[f.conseillere_id] = {}
       if (!res[f.conseillere_id][mois]) res[f.conseillere_id][mois] = { visites: 0, ventes: 0 }
       res[f.conseillere_id][mois].visites += visTotal
