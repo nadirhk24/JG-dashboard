@@ -34,6 +34,7 @@ const NAV_STRUCTURE = [
     section: 'Gestion',
     items: [
       { path: '/stock',     label: '🏗️ Stock',  permKey: 'stock' },
+      { path: '/primes',    label: '💰 Primes',  permKey: 'primes' },
       { path: '/objectifs', label: 'Objectifs', permKey: 'objectifs' },
     ]
   },
