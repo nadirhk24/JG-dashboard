@@ -479,7 +479,18 @@ export default function FluxRDV({ conseilleres }) {
     else { setMsg({ type: 'success', text: `${allRows.length} saisie(s) enregistrée(s) et Call Center mis à jour !` }); loadData(); setSaisieForm({}); setTimeout(() => setMsg(null), 3000) }
   }
 
-  const selectedKpi = KPIS.find(k => k.key === kpi)
+  // Totaux visites non reconnues par équipe
+  const nrParEquipe = useMemo(() => {
+    const res = {}
+    Object.keys(EQUIPES).forEach(eq => {
+      const commNR = commerciaux.find(c => c.equipe === eq && c.nom.includes('Non reconnu'))
+      const val = commNR ? Math.round(getKpiVal(fluxParCommercial[commNR.id] || {rdv:0,visites:0,ventes:0}, 'visites')) : 0
+      res[eq] = val
+    })
+    return res
+  }, [commerciaux, fluxParCommercial])
+
+  const totalNR = useMemo(() => Object.values(nrParEquipe).reduce((s,v) => s+v, 0), [nrParEquipe])
   const tooltipStyle = { background: '#2C2C2C', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12 }
   const inputStyle = { width: '55px', padding: '5px 6px', border: '1.5px solid rgba(201,168,76,0.25)', borderRadius: 6, fontSize: 12, textAlign: 'center', background: '#F8F7F4', outline: 'none' }
   const btnStyle = (active, color='#C9A84C') => ({ padding: '6px 14px', borderRadius: 16, border: `1.5px solid ${active?color:'rgba(201,168,76,0.2)'}`, background: active?color:'#fff', color: active?'#fff':'#5A5A5A', fontSize: 12, fontWeight: active?500:400, cursor: 'pointer', transition: 'all 0.15s' })
@@ -1016,6 +1027,21 @@ export default function FluxRDV({ conseilleres }) {
       {/* Navigation drill-down */}
       <DrillNav data={fluxData} onSelect={setSelected} selected={selected} />
 
+      {/* Alerte visites non reconnues */}
+      {totalNR > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderRadius: 10, background: 'rgba(224,92,92,0.08)', border: '1.5px solid rgba(224,92,92,0.3)', marginBottom: 16 }}>
+          <span style={{ fontSize: 20 }}>❗</span>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#E05C5C' }}>Visites non reconnues détectées</div>
+            <div style={{ fontSize: 11, color: '#5A5A5A', marginTop: 2 }}>
+              {totalNR} visite(s) sans commercial identifié —{' '}
+              {Object.entries(nrParEquipe).filter(([,v])=>v>0).map(([eq,v]) => `${EQUIPES[eq].label}: ${v}`).join(' · ')}
+              {' '}· Vérifier les saisies passagers correspondantes
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Filtres */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ fontSize: 13, fontWeight: 500, color: '#C9A84C', padding: '6px 14px', borderRadius: 20, border: '1.5px solid rgba(201,168,76,0.25)', background: '#F8F7F4' }}>{selected?.label || 'Global'}</div>
@@ -1078,6 +1104,20 @@ export default function FluxRDV({ conseilleres }) {
               </div>
             </div>
             <div>
+              {/* Lignes Non Reconnus en rouge gras EN HAUT */}
+              {commerciaux.filter(c => c.nom.includes('Non reconnu')).map(c => {
+                const val = Math.round(getKpiVal(fluxParCommercial[c.id] || {rdv:0,visites:0,ventes:0}, kpi))
+                if (val === 0) return null
+                return (
+                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 18px', borderBottom: '1px solid rgba(224,92,92,0.1)', background: 'rgba(224,92,92,0.04)' }}>
+                    <span style={{ fontSize: 16, flexShrink: 0 }}>❗</span>
+                    <div style={{ width: 150, fontSize: 13, fontWeight: 700, color: '#E05C5C', flexShrink: 0 }}>{c.nom}</div>
+                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: 'rgba(224,92,92,0.1)', color: '#E05C5C', flexShrink: 0 }}>{EQUIPES[c.equipe]?.label}</span>
+                    <div style={{ flex: 1 }} />
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#E05C5C' }}>{val}{selectedKpi?.unit}</div>
+                  </div>
+                )
+              })}
               {allRanking.map((c, i) => {
                 const rankColor = getRankColor(i, allRanking.length)
                 const pct = maxVal > 0 ? (c.val / maxVal) * 100 : 0
@@ -1141,20 +1181,30 @@ export default function FluxRDV({ conseilleres }) {
                       style={{ display: 'flex', alignItems: 'center', gap: singleEquipe ? 16 : 10, padding: singleEquipe ? '13px 24px' : '10px 18px', cursor: 'pointer', borderBottom: '1px solid rgba(201,168,76,0.05)', transition: 'background 0.15s' }}
                       onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'}
                       onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                      {/* Rang */}
                       <div style={{ width: singleEquipe ? 32 : 22, fontSize: singleEquipe ? 16 : 14, fontWeight: 700, color: rankColor, textAlign: 'center', flexShrink: 0 }}>{i+1}</div>
-                      {/* Nom */}
                       <div style={{ width: singleEquipe ? 200 : 130, fontSize: singleEquipe ? 14 : 13, fontWeight: 500, color: '#2C2C2C', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 0 }}>{c.nom}</div>
-                      {/* Barre */}
                       <div style={{ flex: 1, height: singleEquipe ? 10 : 7, background: 'rgba(201,168,76,0.1)', borderRadius: 5, overflow: 'hidden' }}>
                         <div style={{ height: '100%', width: `${pct}%`, background: rankColor, borderRadius: 5, transition: 'width 0.4s' }}></div>
                       </div>
-                      {/* Valeur */}
                       <div style={{ width: singleEquipe ? 60 : 44, fontSize: singleEquipe ? 15 : 13, fontWeight: 700, color: rankColor, textAlign: 'right', flexShrink: 0 }}>{c.val}{selectedKpi?.unit}</div>
                       <StarRank rank={i} total={ranking.length} maxDisplay={ranking.length} />
                     </div>
                   )
                 })}
+                {/* Ligne Non Reconnu en rouge gras EN BAS */}
+                {(() => {
+                  const commNR = commerciaux.find(c => c.equipe === eq && c.nom.includes('Non reconnu'))
+                  const val = commNR ? Math.round(getKpiVal(fluxParCommercial[commNR.id] || {rdv:0,visites:0,ventes:0}, kpi)) : 0
+                  if (!commNR || val === 0) return null
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: singleEquipe ? 16 : 10, padding: singleEquipe ? '12px 24px' : '9px 18px', borderTop: '1.5px dashed rgba(224,92,92,0.25)', background: 'rgba(224,92,92,0.04)' }}>
+                      <span style={{ fontSize: 14, flexShrink: 0 }}>❗</span>
+                      <div style={{ width: singleEquipe ? 200 : 130, fontSize: singleEquipe ? 14 : 13, fontWeight: 700, color: '#E05C5C', flexShrink: 0 }}>Non reconnu</div>
+                      <div style={{ flex: 1 }} />
+                      <div style={{ fontSize: singleEquipe ? 15 : 13, fontWeight: 700, color: '#E05C5C' }}>{val}{selectedKpi?.unit}</div>
+                    </div>
+                  )
+                })()}
               </div>
             </div>
           )
