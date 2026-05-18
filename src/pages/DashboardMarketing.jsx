@@ -20,7 +20,7 @@ function filterBySelected(items, selected, dateField = 'date') {
   if (selected.type === 'quarter') {
     const [y, q] = selected.value.split('-Q')
     const startM = (parseInt(q)-1)*3
-    return items.filter(s => { const d = new Date(s[dateField] || s.date || s.date_debut); return d.getFullYear() === parseInt(y) && Math.floor(d.getMonth()/3) === parseInt(q)-1 })
+    return items.filter(s => { const raw = s[dateField] || s.date || s.date_debut; if (!raw) return false; const d = new Date(String(raw).substring(0,10) + 'T12:00:00'); return d.getFullYear() === parseInt(y) && Math.floor(d.getMonth()/3) === parseInt(q)-1 })
   }
   if (selected.type === 'month') return items.filter(s => { const d = s[dateField] || s.date || s.date_debut; return d && d.startsWith(selected.value) })
   if (selected.type === 'day') return items.filter(s => { const d = s[dateField] || s.date || s.date_debut; return d && d.startsWith(selected.value) })
@@ -194,8 +194,6 @@ export default function DashboardMarketing() {
   const dataFiltree = useMemo(() => {
     if (!selected || selected.type === 'global') return marketingData
     return marketingData.filter(s => {
-      // Exclure dimanches et fériés SEULEMENT pour les saisies jour par jour
-      // Les saisies 'periode' ont date = 1er du mois → ne pas les exclure
       if (s.type_saisie !== 'periode' && estJourExclu(s.date, joursFeries)) return false
       if (selected.type === 'year') return s.date.startsWith(selected.value)
       if (selected.type === 'quarter') {
