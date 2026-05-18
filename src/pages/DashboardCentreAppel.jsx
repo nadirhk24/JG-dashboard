@@ -581,7 +581,7 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
         </button>
       </PageHeader>
 
-      {isSuperAdmin && showSaisie && (
+      {isSuperAdmin && showSaisie && ccView === 'global' && (
         <div style={{ ...cardStyle, borderColor: '#C9A84C' }}>
           <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
             {[['jour','Par jour'],['periode','Par période']].map(([k,l]) => (
@@ -632,6 +632,8 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
         </div>
       )}
 
+      {/* ── CONTENU GLOBAL CC ── */}
+      {ccView === 'global' && <>
       <DrillNav data={saisies} onSelect={setSelected} selected={selected} />
 
       <SectionTitle>KPIs Globaux — {selected.label}</SectionTitle>
@@ -965,6 +967,11 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
           </table>
         </div>
       </div>}
+      </> /* fin ccView === 'global' */}
+
+      {/* DrillNav toujours visible */}
+      {ccView === 'details' && <DrillNav data={saisies} onSelect={setSelected} selected={selected} />}
+
       {/* ── VUE DÉTAILS CC ── */}
       {isSuperAdmin && ccView === 'details' && (() => {
         if (loadingDetails) return <div style={{ padding: 32, textAlign: 'center', color: '#8A8A7A' }}>Chargement détails...</div>
