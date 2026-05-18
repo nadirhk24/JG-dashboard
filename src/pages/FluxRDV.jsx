@@ -1114,7 +1114,7 @@ export default function FluxRDV({ conseilleres }) {
                     <div style={{ width: 150, fontSize: 13, fontWeight: 700, color: '#E05C5C', flexShrink: 0 }}>{c.nom}</div>
                     <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: 'rgba(224,92,92,0.1)', color: '#E05C5C', flexShrink: 0 }}>{EQUIPES[c.equipe]?.label}</span>
                     <div style={{ flex: 1 }} />
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#E05C5C' }}>{val}{selectedKpi?.unit}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#E05C5C' }}>{val}{KPIS.find(k=>k.key===kpi)?.unit}</div>
                   </div>
                 )
               })}
@@ -1201,7 +1201,7 @@ export default function FluxRDV({ conseilleres }) {
                       <span style={{ fontSize: 14, flexShrink: 0 }}>❗</span>
                       <div style={{ width: singleEquipe ? 200 : 130, fontSize: singleEquipe ? 14 : 13, fontWeight: 700, color: '#E05C5C', flexShrink: 0 }}>Non reconnu</div>
                       <div style={{ flex: 1 }} />
-                      <div style={{ fontSize: singleEquipe ? 15 : 13, fontWeight: 700, color: '#E05C5C' }}>{val}{selectedKpi?.unit}</div>
+                      <div style={{ fontSize: singleEquipe ? 15 : 13, fontWeight: 700, color: '#E05C5C' }}>{val}{KPIS.find(k=>k.key===kpi)?.unit}</div>
                     </div>
                   )
                 })()}
