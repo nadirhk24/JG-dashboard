@@ -1,12 +1,14 @@
-// JG Dashboard - PerfCommercial - v20260517102221 - joursExclus
+// JG Dashboard - FluxRDV - v20260517102221 - joursExclus
 import React, { useState, useEffect, useMemo } from 'react'
-import DrillNav, { MOIS_SHORT } from '../components/DrillNav'
-import { useJoursExclus, normaliserSaisies } from '../lib/dates'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { getObjectifsPourPeriode, clearObjectifsCache } from '../lib/objectifs'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts'
-import KpiCard from '../components/KpiCard'
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import PageHeader from '../components/PageHeader'
+import SectionTitle from '../components/SectionTitle'
+import DrillNav from '../components/DrillNav'
+import { useJoursExclus, estJourExclu, getJourOuvre } from '../lib/dates'
+import { supabase } from '../lib/supabase'
+import { syncCC } from '../lib/sync'
+import { exportToXlsx, labelToFilename } from '../lib/useExportXlsx'
 
 // Filtrer les données selon la sélection DrillNav (inclut période custom)
 function filterBySelected(items, selected, dateField = 'date') {
@@ -21,293 +23,1321 @@ function filterBySelected(items, selected, dateField = 'date') {
   if (selected.type === 'quarter') {
     const [y, q] = selected.value.split('-Q')
     const startM = (parseInt(q)-1)*3
-    return items.filter(s => { const d = new Date((s[dateField] || s.date || s.date_debut).substring(0,10) + 'T12:00:00'); return d.getFullYear() === parseInt(y) && Math.floor(d.getMonth()/3) === parseInt(q)-1 })
+    return items.filter(s => { const raw = s[dateField] || s.date || s.date_debut; if (!raw) return false; const d = new Date(String(raw).substring(0,10) + 'T12:00:00'); return d.getFullYear() === parseInt(y) && Math.floor(d.getMonth()/3) === parseInt(q)-1 })
   }
   if (selected.type === 'month') return items.filter(s => { const d = s[dateField] || s.date || s.date_debut; return d && d.startsWith(selected.value) })
   if (selected.type === 'day') return items.filter(s => { const d = s[dateField] || s.date || s.date_debut; return d && d.startsWith(selected.value) })
   return items
 }
 
-// ─── Calcul CV ────────────────────────────────────────────────────────────────
-function calcCV(values) {
-  if (!values || values.length < 2) return 0
-  const mean = values.reduce((s,v) => s+v, 0) / values.length
-  if (mean === 0) return 0
-  const variance = values.reduce((s,v) => s+(v-mean)**2, 0) / values.length
-  return (Math.sqrt(variance) / mean) * 100
+
+const MOIS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
+
+const EQUIPES = {
+  sale: { label: 'Équipe Sale', color: '#C9A84C', responsable: 'Abdelhakim Rhalmi' },
+  kenitra: { label: 'Équipe Kenitra', color: '#534AB7', responsable: 'Karima Snaiki' },
 }
 
-// ─── Signal ────────────────────────────────────────────────────────────────────
-function Signal({ moyenneTrend, cvTrend }) {
-  if (moyenneTrend === null || cvTrend === null) return null
-  let color, dot, title, lines
+const KPIS = [
+  { key: 'rdv', label: 'RDV', color: '#C9A84C', unit: '' },
+  { key: 'visites', label: 'Visites', color: '#4CAF7D', unit: '' },
+  { key: 'ventes', label: 'Ventes', color: '#1a6b3c', unit: '' },
+  { key: 'taux_presence', label: 'Tx présence', color: '#534AB7', unit: '%', isRate: true },
+  { key: 'taux_vente', label: 'Tx vente', color: '#378ADD', unit: '%', isRate: true },
+]
 
-  if (moyenneTrend >= 0 && cvTrend <= 0) {
-    color = '#2E9455'
-    dot = '🟢'
-    title = 'Performance stable'
-    lines = ['Moyenne en hausse, variabilité en baisse', "L'équipe progresse de façon homogène"]
-  } else if (moyenneTrend < 0 && cvTrend <= 0) {
-    color = '#E07B30'
-    dot = '🟠'
-    title = 'Effort commercial nécessaire'
-    lines = ['Résultats en baisse malgré une équipe homogène', "Le process est stable mais insuffisant — revoir l'approche"]
-  } else if (moyenneTrend >= 0 && cvTrend > 0) {
-    color = '#E05C5C'
-    dot = '🔴'
-    title = 'Alerte variabilité'
-    lines = ['Bonne perf globale mais accidentelle', 'Un élément tire vers le haut ou vers le bas — action manager nécessaire']
-  } else {
-    color = '#9B1C1C'
-    dot = '🔴'
-    title = 'Alerte grave'
-    lines = ['Performance en chute et variabilité en hausse', 'Plusieurs actions nécessaires en urgence']
+const MOIS_LABELS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
+
+function getMoisOptions() {
+  const now = new Date()
+  const options = []
+  // Annees
+  for (let y = now.getFullYear(); y >= now.getFullYear() - 1; y--) {
+    options.push({ val: `year-${y}`, label: `${y}`, type: 'year' })
+    for (let q = 1; q <= 4; q++) {
+      options.push({ val: `quarter-${y}-Q${q}`, label: `T${q} ${y}`, type: 'quarter' })
+    }
+    for (let m = 11; m >= 0; m--) {
+      const val = `${y}-${String(m+1).padStart(2,'0')}`
+      options.push({ val, label: `${MOIS_LABELS[m]} ${y}`, type: 'month' })
+    }
   }
+  return options
+}
 
+function calcCV(vals) {
+  const v = vals.filter(x => x > 0)
+  if (v.length < 2) return 0
+  const moy = v.reduce((a, b) => a + b, 0) / v.length
+  if (moy === 0) return 0
+  const variance = v.reduce((s, x) => s + Math.pow(x - moy, 2), 0) / v.length
+  return parseFloat(((Math.sqrt(variance) / moy) * 100).toFixed(1))
+}
+
+function calcTotaux(d) {
+  const rdv_saisis = parseFloat(d.rdv || 0)
+  const vis_saisies = parseFloat(d.visites || 0)
+  const ventes = parseFloat(d.ventes || 0)
+  // Le champ 'visites' dans flux_rdv inclut TOUJOURS les ventes (periode + jour)
+  const visites = vis_saisies
+  const rdv = rdv_saisis  // RDV = RDV fixés uniquement
+  return { rdv, visites, ventes }
+}
+
+// Données issues de fluxParCommercial (totaux déjà type_saisie-aware) → lecture directe
+function getKpiVal(d, kpi) {
+  if (kpi === 'rdv') return Math.round(d.rdv || 0)
+  if (kpi === 'visites') return Math.round(d.visites || 0)
+  if (kpi === 'ventes') return Math.round(d.ventes || 0)
+  if (kpi === 'taux_presence') return (d.rdv || 0) > 0 ? parseFloat((((d.visites||0) / d.rdv) * 100).toFixed(1)) : 0
+  if (kpi === 'taux_vente') return (d.visites || 0) > 0 ? parseFloat((((d.ventes||0) / d.visites) * 100).toFixed(1)) : 0
+  return 0
+}
+
+// Alias explicite pour les appels sur totaux equipe/global
+function getKpiValFromTotaux(t, kpi) {
+  return getKpiVal(t, kpi)
+}
+
+function getRankColor(rank, total) {
+  if (total <= 1) return '#C9A84C'
+  const r = rank / Math.max(total - 1, 1)
+  if (r <= 0.2) return '#1a6b3c'
+  if (r <= 0.4) return '#2E9455'
+  if (r <= 0.6) return '#C9A84C'
+  if (r <= 0.8) return '#E07B30'
+  return '#E05C5C'
+}
+
+function StarRank({ rank, total, maxDisplay=5 }) {
+  // rank est 0-indexed, on affiche 1-indexed
+  const displayRank = rank + 1
+  if (displayRank > maxDisplay) return <div style={{ width: 28, textAlign: 'center', fontSize: 11, color: '#8A8A7A' }}>{displayRank}</div>
+  const color = rank === 0 ? '#C9A84C' : rank === 1 ? '#B8B8B8' : rank === 2 ? '#CD7F32' : rank < total*0.5 ? '#4CAF7D' : '#8A8A7A'
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 16px', borderRadius: 12, background: `${color}12`, border: `1.5px solid ${color}35`, width: '100%' }}>
-      <span style={{ fontSize: 18, marginTop: 2 }}>{dot}</span>
-      <div>
-        <div style={{ fontSize: 13, fontWeight: 600, color, fontFamily: 'DM Sans', marginBottom: 4 }}>{title}</div>
-        {lines.map((l, i) => (
-          <div key={i} style={{ fontSize: 11, color: '#5A5A5A', lineHeight: 1.5 }}>{l}</div>
-        ))}
-      </div>
+    <div style={{ position: 'relative', width: 28, height: 28, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ fontSize: 26, color, lineHeight: 1 }}>★</span>
+      <span style={{ position: 'absolute', fontSize: 9, fontWeight: 700, color: '#fff', letterSpacing: 0 }}>{displayRank}</span>
     </div>
   )
 }
 
-// ─── Composant principal ──────────────────────────────────────────────────────
-export default function PerfCommercial() {
+export default function FluxRDV({ conseilleres }) {
   const { profil } = useAuth()
+  const isSuperAdmin = profil?.role === 'super_admin'
+  // Équipes autorisées selon permissions
+  const canSeeSale = isSuperAdmin || profil?.permissions?.flux_rdv_sale === true
+  const canSeeKenitra = isSuperAdmin || profil?.permissions?.flux_rdv_kenitra === true
+
+  const [selected, setSelected] = React.useState(() => {
+    const now = new Date()
+    const saved = localStorage.getItem('jg_selected_flux')
+    if (saved) try { return JSON.parse(saved) } catch(e) {}
+    const mKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
+    const MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
+    return { type: 'month', value: mKey, label: `${MOIS[now.getMonth()]} ${now.getFullYear()}` }
+  })
+  const [commerciaux, setCommerciaux] = useState([])
   const [fluxData, setFluxData] = useState([])
   const [loading, setLoading] = useState(true)
-  const [selected, setSelected] = useState(() => {
-    const saved = localStorage.getItem('jg_selected_perf')
-    if (saved) try { return JSON.parse(saved) } catch(e) {}
-    const now = new Date()
-    const mKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
-    return { type: 'month', value: mKey, label: `${MOIS_SHORT[now.getMonth()]} ${now.getFullYear()}` }
-  })
-  const [equipe, setEquipe] = useState('toutes')
-  const [objectifs, setObjectifs] = useState({})
-  const [visibleLines, setVisibleLines] = useState({ txJour: true, moyenne: true, cv: true })
-  const toggleLine = (key) => setVisibleLines(p => ({ ...p, [key]: !p[key] }))
+  const [kpi, setKpi] = useState('rdv')
+  const [filterEquipe, setFilterEquipe] = useState('all')
+  const [viewMode, setViewMode] = useState('separated')
+  const [hiddenKpis, setHiddenKpis] = useState({})
+  const [compareMode, setCompareMode] = useState('bars')
+  const [selectedCommercial, setSelectedCommercial] = useState(null)
+  const [jourDetailCommercial, setJourDetailCommercial] = useState(null)
+  const [jourDetailSaisies, setJourDetailSaisies] = useState([])
+  const [jourEditId, setJourEditId] = useState(null)
+  const [jourEditForm, setJourEditForm] = useState({})
+  const [detailMode, setDetailMode] = useState('%')
+  const [showSaisie, setShowSaisie] = useState(false)
+  const [showHistorique, setShowHistorique] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState(null)
+  const [saisieConseillere, setSaisieConseillere] = useState('')
+  const [saisieMois, setSaisieMois] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`)
+  const [saisieDate, setSaisieDate] = useState(new Date().toISOString().substring(0,10))
+  const [saisieDebut, setSaisieDebut] = useState('')
+  const [saisieFin, setSaisieFin] = useState('')
+  const [saisieModeDate, setSaisieModeDate] = useState('jour') // 'jour' | 'periode'
+  const [saisieForm, setSaisieForm] = useState({})
 
-  const canSeeSale = profil?.role === 'super_admin' || profil?.permissions?.perf_commercial_sale || profil?.permissions?.flux_rdv_sale
-  const canSeeKenitra = profil?.role === 'super_admin' || profil?.permissions?.perf_commercial_kenitra || profil?.permissions?.flux_rdv_kenitra
+  const moisOptions = useMemo(() => getMoisOptions(), [])
+  const currentMois = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`
+  const [selectedPeriod, setSelectedPeriod] = useState(currentMois)
 
+  useEffect(() => { loadData() }, [])
+
+  async function loadJourDetail(commercialId, jour) {
+    const { data } = await supabase.from('flux_rdv')
+      .select('id, conseillere_id, visites, ventes, type_saisie')
+      .eq('commercial_id', commercialId)
+      .eq('date_debut', jour)
+      .eq('date_fin', jour)
+      .in('type_saisie', ['periode', 'non_reconnue', 'jour'])
+    setJourDetailSaisies(data || [])
+  }
+
+  async function updateJourSaisie(saisieId, visites, ventes, jour, consId) {
+    await supabase.from('flux_rdv').update({ visites, ventes }).eq('id', saisieId)
+    // Recalculer et sync vers CC
+    const { data: allFlux } = await supabase.from('flux_rdv')
+      .select('visites, ventes')
+      .eq('conseillere_id', consId)
+      .eq('date_debut', jour)
+    const tot = (allFlux || []).reduce((acc, f) => ({
+      visites: acc.visites + parseFloat(f.visites||0),
+      ventes: acc.ventes + parseFloat(f.ventes||0),
+    }), { visites: 0, ventes: 0 })
+    const visTotal = Math.round(tot.visites + tot.ventes)
+    const venTotal = Math.round(tot.ventes)
+    const { data: ligneCC } = await supabase.from('saisies')
+      .select('id').eq('conseillere_id', consId)
+      .eq('date_debut', jour).eq('date_fin', jour).maybeSingle()
+    await syncCC(consId, jour)
+    loadData()
+    loadJourDetail(jourDetailCommercial?.id, jour)
+    setJourEditId(null)
+  }
+
+  async function deleteJourSaisie(saisieId, jour, consId) {
+    if (!window.confirm('Supprimer cette saisie ?')) return
+    await supabase.from('flux_rdv').delete().eq('id', saisieId)
+    // Recalculer CC
+    const { data: allFlux } = await supabase.from('flux_rdv')
+      .select('visites, ventes')
+      .eq('conseillere_id', consId)
+      .eq('date_debut', jour)
+    const tot = (allFlux || []).reduce((acc, f) => ({
+      visites: acc.visites + parseFloat(f.visites||0),
+      ventes: acc.ventes + parseFloat(f.ventes||0),
+    }), { visites: 0, ventes: 0 })
+    const { data: ligneCC } = await supabase.from('saisies')
+      .select('id').eq('conseillere_id', consId)
+      .eq('date_debut', jour).eq('date_fin', jour).maybeSingle()
+    await syncCC(consId, jour)
+    loadData()
+    loadJourDetail(jourDetailCommercial?.id, jour)
+  }
+
+
+  // syncCC importée depuis lib/sync.js
+  // flux_rdv → saisies CC UNIQUEMENT (pas de sync Marketing depuis FluxRDV)
+
+  async function loadData() {
+    setLoading(true)
+
+    // Charger les commerciaux
+    const { data: comms } = await supabase
+      .from('commerciaux').select('*').eq('actif', true).order('equipe').order('nom')
+
+    // Charger TOUT flux_rdv via pagination (Supabase limite à 1000 par requête)
+    let allFlux = []
+    let from = 0
+    const PAGE_SIZE = 1000
+    while (true) {
+      const { data: page, error } = await supabase
+        .from('flux_rdv')
+        .select('*')
+        .order('date_debut', { ascending: true })
+        .range(from, from + PAGE_SIZE - 1)
+      if (error || !page || page.length === 0) break
+      allFlux = [...allFlux, ...page]
+      if (page.length < PAGE_SIZE) break  // Dernière page
+      from += PAGE_SIZE
+    }
+
+    setCommerciaux(comms || [])
+    setFluxData(allFlux)
+    setLoading(false)
+  }
+
+  // Filtrer selon la periode selectionnee
+  const fluxFiltres = useMemo(() => {
+    return fluxData.filter(f => {
+      const mD = f.date_debut?.substring(0, 7)
+      const dd = f.date_debut || ''
+      if (!selected || selected.type === 'global') return true
+      if (selected.type === 'year') return dd.startsWith(selected.value)
+      if (selected.type === 'quarter') {
+        const [y, q] = selected.value.split('-Q')
+        const qNum = parseInt(q)
+        const startM = (qNum - 1) * 3 + 1
+        const endM = qNum * 3
+        const mois = parseInt(mD?.split('-')[1] || 0)
+        return dd.startsWith(y) && mois >= startM && mois <= endM
+      }
+      if (selected.type === 'month') return mD === selected.value
+      if (selected.type === 'custom') return dd >= selected.from && dd <= selected.to
+      if (selected.type === 'day') return dd === selected.value
+      return true
+    })
+  }, [fluxData, selected])
+
+  // Agregger par commercial
+  const fluxParCommercial = useMemo(() => {
+    const agg = {}
+    fluxFiltres.forEach(f => {
+      if (!agg[f.commercial_id]) agg[f.commercial_id] = { rdv: 0, visites: 0, ventes: 0 }
+      const isPeriode = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
+      const vis = parseFloat(f.visites || 0)
+      const ven = parseFloat(f.ventes || 0)
+      const rdv_f = parseFloat(f.rdv || 0)
+      // Pour periode : visites inclut déjà les ventes
+      // Pour jour : visites brutes + ventes
+      const vis_display = isPeriode ? vis : vis + ven
+      const rdv_display = rdv_f  // RDV = champ rdv uniquement, pas d'addition
+      agg[f.commercial_id].visites += vis_display
+      agg[f.commercial_id].ventes += ven
+      agg[f.commercial_id].rdv += rdv_display
+    })
+    return agg
+  }, [fluxFiltres])
+
+  // Stats par equipe
+  const statsParEquipe = useMemo(() => {
+    const res = {}
+    Object.keys(EQUIPES).forEach(eq => {
+      const comms = commerciaux.filter(c => c.equipe === eq)
+      const tot = comms.reduce((acc, c) => {
+        // fluxParCommercial contient des totaux déjà type_saisie-aware → additionner directement
+        const d = fluxParCommercial[c.id] || { rdv: 0, visites: 0, ventes: 0 }
+        return { rdv: acc.rdv + (d.rdv || 0), visites: acc.visites + (d.visites || 0), ventes: acc.ventes + (d.ventes || 0) }
+      }, { rdv: 0, visites: 0, ventes: 0 })
+      // Ajouter TOUTES les lignes sans commercial_id (NR, peu importe le type_saisie)
+      fluxFiltres.filter(f => !f.commercial_id).forEach(f => {
+        const isPeriodeNR = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
+        const visNR = parseFloat(f.visites || 0)
+        const venNR = parseFloat(f.ventes || 0)
+        tot.visites += isPeriodeNR ? visNR : visNR + venNR
+        tot.ventes += venNR
+        tot.rdv += parseFloat(f.rdv || 0)
+      })
+      const cv = calcCV(comms.map(c => (fluxParCommercial[c.id] || {}).rdv || 0))
+      res[eq] = { ...tot, cv,
+        taux_presence: tot.rdv > 0 ? parseFloat(((tot.visites/tot.rdv)*100).toFixed(1)) : 0,
+        taux_vente: tot.visites > 0 ? parseFloat(((tot.ventes/tot.visites)*100).toFixed(1)) : 0,
+      }
+    })
+    return res
+  }, [commerciaux, fluxParCommercial, fluxFiltres])
+
+  // Historique pour graphe du commercial selectionne
+  const historique = useMemo(() => {
+    if (!selectedCommercial) return []
+    const byMois = {}
+    fluxData.filter(f => f.commercial_id === selectedCommercial.id).forEach(f => {
+      const m = f.date_debut?.substring(0, 7)
+      if (!m) return
+      if (!byMois[m]) byMois[m] = { rdv: 0, visites: 0, ventes: 0 }
+      const isPeriode = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
+      const vis = parseFloat(f.visites || 0)
+      const ven = parseFloat(f.ventes || 0)
+      const rdvBrut = parseFloat(f.rdv || 0)
+      byMois[m].visites += isPeriode ? vis : vis + ven
+      byMois[m].ventes += ven
+      byMois[m].rdv += rdvBrut
+    })
+    return Object.entries(byMois).sort(([a],[b]) => a.localeCompare(b)).map(([m, d]) => {
+      // RDV = RDV fixés uniquement
+      const rdvTotal = Math.round(d.rdv)
+      const visites = Math.round(d.visites)
+      const ventes = Math.round(d.ventes)
+      return {
+        label: MOIS_LABELS[parseInt(m.split('-')[1])-1]?.substring(0,3) + ' ' + m.split('-')[0].substring(2),
+        rdv: rdvTotal, visites, ventes,
+        taux_presence: rdvTotal > 0 ? parseFloat(((visites/rdvTotal)*100).toFixed(1)) : 0,
+        taux_vente: visites > 0 ? parseFloat(((ventes/visites)*100).toFixed(1)) : 0,
+      }
+    })
+  }, [selectedCommercial, fluxData])
+
+  // Ranking par equipe - toujours separe par equipe dans la vue separee
+  function getRanking(equipe) {
+    const comms = commerciaux.filter(c => c.equipe === equipe && !c.nom.includes('Non reconnu'))
+    return [...comms]
+      .map(c => ({ ...c, val: getKpiVal(fluxParCommercial[c.id] || {rdv:0,visites:0,ventes:0}, kpi) }))
+      .sort((a,b) => b.val - a.val)
+  }
+
+  async function handleSaisie() {
+    if (!saisieConseillere) { setMsg({ type: 'error', text: 'Sélectionne une conseillère' }); return }
+    const entries = Object.entries(saisieForm).filter(([_, v]) => parseFloat(v.rdv)||0 || parseFloat(v.visites)||0 || parseFloat(v.ventes)||0)
+    if (!entries.length) { setMsg({ type: 'error', text: 'Saisis au moins une donnée' }); return }
+    // Bloquer les dimanches
+    if (saisieModeDate === 'jour') {
+      const jourSemaine = new Date(saisieDate).getDay()
+      if (jourSemaine === 0) {
+        setMsg({ type: 'error', text: 'Impossible de saisir un dimanche — déplace la date au lundi.' })
+        return
+      }
+    }
+
+    setSaving(true)
+    let dd, df
+    if (saisieModeDate === 'jour') {
+      dd = saisieDate
+      df = saisieDate
+    } else {
+      const year = parseInt(saisieMois.split('-')[0])
+      const month = parseInt(saisieMois.split('-')[1])
+      const lastDay = new Date(year, month, 0).getDate()
+      dd = saisieDebut || `${saisieMois}-01`
+      df = saisieFin || `${saisieMois}-${String(lastDay).padStart(2,'0')}`
+    }
+    // Upsert : update si la ligne existe, insert sinon (ne pas écraser les données du calendrier)
+    const rows = entries
+      .filter(([cid, v]) => !cid.startsWith('__non_reconnue_'))
+      .map(([cid, v]) => ({
+        conseillere_id: saisieConseillere, commercial_id: cid,
+        date_debut: dd, date_fin: df, type_saisie: dd === df ? 'jour' : 'periode',
+        rdv: parseFloat(v.rdv)||0, visites: parseFloat(v.visites)||0, ventes: parseFloat(v.ventes)||0,
+      }))
+
+    // Lignes non reconnues : chercher le commercial fictif correspondant
+    const nonReconnuRows = []
+    for (const [cid, v] of entries.filter(([cid]) => cid.startsWith('__non_reconnue_'))) {
+      const equipe = cid.replace('__non_reconnue_', '')
+      const commNom = equipe === 'sale' ? 'Non reconnu Sale' : 'Non reconnu Kenitra'
+      const commFictif = commerciaux.find(c => c.nom === commNom)
+      if (commFictif && (parseFloat(v.visites)||0) > 0) {
+        nonReconnuRows.push({
+          conseillere_id: saisieConseillere, commercial_id: commFictif.id,
+          date_debut: dd, date_fin: df, type_saisie: 'non_reconnue',
+          rdv: 0, visites: parseFloat(v.visites)||0, ventes: 0,
+        })
+      }
+    }
+    const allRows = [...rows, ...nonReconnuRows]
+    const { error } = await supabase.from('flux_rdv').upsert(allRows, { onConflict: 'conseillere_id,commercial_id,date_debut,date_fin' })
+    
+    if (!error) {
+      // Sync totaux vers saisies CC par conseillere
+      // Sync uniquement visites+ventes vers CC (RDV viennent de calendar_rdv)
+      const conseilleresIds = [...new Set(allRows.map(r => r.conseillere_id))]
+      for (const consId of conseilleresIds) {
+        const { data: allFlux } = await supabase.from('flux_rdv')
+          .select('rdv, visites, ventes, type_saisie')
+          .eq('conseillere_id', consId)
+          .gte('date_debut', dd)
+          .lte('date_fin', df)
+        // Agrégation type_saisie-aware : même règle que syncCC
+        let visTotal = 0, venTotal = 0, rdvBrutsTotal = 0
+        for (const f of (allFlux || [])) {
+          const vis = parseFloat(f.visites || 0)
+          const ven = parseFloat(f.ventes || 0)
+          const rdvBrut = parseFloat(f.rdv || 0)
+          const isPeriode = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
+          visTotal += isPeriode ? vis : vis + ven
+          venTotal += ven
+          rdvBrutsTotal += rdvBrut
+        }
+        visTotal = Math.round(visTotal)
+        venTotal = Math.round(venTotal)
+        const rdvTotal = Math.round(rdvBrutsTotal)  // RDV = RDV fixés uniquement
+        // Chercher toutes les lignes CC de la periode
+        const { data: lignesCC } = await supabase.from('saisies')
+          .select('id, date_debut, rdv')
+          .eq('conseillere_id', consId)
+          .gte('date_debut', dd)
+          .lte('date_debut', df)
+          .order('date_debut', { ascending: true })
+
+        if (lignesCC && lignesCC.length > 0) {
+          if (lignesCC.length === 1) {
+            // 1 seule ligne → mettre à jour visites+ventes sans toucher au rdv
+            await supabase.from('saisies').update({ rdv: rdvTotal, visites: visTotal, ventes: venTotal }).eq('id', lignesCC[0].id)
+          } else {
+            // Plusieurs lignes jour/jour → chercher la ligne du jour exact si saisie par jour
+            const ligneJour = lignesCC.find(l => l.date_debut === dd)
+            if (ligneJour) {
+              await supabase.from('saisies').update({ rdv: rdvTotal, visites: visTotal, ventes: venTotal }).eq('id', ligneJour.id)
+            } else {
+              // Créer une ligne pour cette période
+              await supabase.from('saisies').insert({
+                conseillere_id: consId, date: dd, date_debut: dd, date_fin: df,
+                type_saisie: dd === df ? 'jour' : 'periode',
+                leads_bruts: 0, indispos: 0, leads_nets: 0, echanges: 0,
+                rdv: rdvTotal, visites: visTotal, ventes: venTotal,
+              })
+            }
+          }
+        } else {
+          await supabase.from('saisies').insert({
+            conseillere_id: consId, date: dd, date_debut: dd, date_fin: df,
+            type_saisie: dd === df ? 'jour' : 'periode',
+            leads_bruts: 0, indispos: 0, leads_nets: 0, echanges: 0,
+            rdv: 0, visites: visTotal, ventes: venTotal,
+          })
+        }
+      }
+    }
+
+    setSaving(false)
+    if (error) setMsg({ type: 'error', text: error.message })
+    else { setMsg({ type: 'success', text: `${allRows.length} saisie(s) enregistrée(s) et Call Center mis à jour !` }); loadData(); setSaisieForm({}); setTimeout(() => setMsg(null), 3000) }
+  }
+
+  const selectedKpi = KPIS.find(k => k.key === kpi)
+  const tooltipStyle = { background: '#2C2C2C', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12 }
+  const inputStyle = { width: '55px', padding: '5px 6px', border: '1.5px solid rgba(201,168,76,0.25)', borderRadius: 6, fontSize: 12, textAlign: 'center', background: '#F8F7F4', outline: 'none' }
+  const btnStyle = (active, color='#C9A84C') => ({ padding: '6px 14px', borderRadius: 16, border: `1.5px solid ${active?color:'rgba(201,168,76,0.2)'}`, background: active?color:'#fff', color: active?'#fff':'#5A5A5A', fontSize: 12, fontWeight: active?500:400, cursor: 'pointer', transition: 'all 0.15s' })
+
+  // Équipes visibles selon permissions
+  // Si accès à 1 seule équipe, forcer vue séparée
   useEffect(() => {
-    localStorage.setItem('jg_selected_perf', JSON.stringify(selected))
-    clearObjectifsCache()
-    getObjectifsPourPeriode(selected).then(setObjectifs)
+    localStorage.setItem('jg_selected_flux', JSON.stringify(selected))
   }, [selected])
 
   useEffect(() => {
-    async function load() {
-      setLoading(true)
-      // Pagination pour charger TOUT flux_rdv (Supabase limite à 1000 par requête)
-      let allData = []
-      let from = 0
-      const PAGE_SIZE = 1000
-      while (true) {
-        const { data: page, error } = await supabase
-          .from('flux_rdv')
-          .select('date_debut, date_fin, visites, ventes, type_saisie, commercial_id, commerciaux(nom, equipe)')
-          .order('date_debut', { ascending: true })
-          .range(from, from + PAGE_SIZE - 1)
-        if (error || !page || page.length === 0) break
-        allData = [...allData, ...page]
-        if (page.length < PAGE_SIZE) break
-        from += PAGE_SIZE
-      }
-      setFluxData(allData)
-      setLoading(false)
+    if (!(canSeeSale && canSeeKenitra)) {
+      setViewMode('separated')
+      setFilterEquipe('all')
     }
-    load()
-  }, [])
+  }, [canSeeSale, canSeeKenitra])
 
-  // Filtrer par équipe
-  const fluxFiltres = useMemo(() => {
-    let data = fluxData
-    if (equipe === 'sale') data = data.filter(r => r.commerciaux?.equipe === 'sale' || !r.commercial_id)
-    else if (equipe === 'kenitra') data = data.filter(r => r.commerciaux?.equipe === 'kenitra' || !r.commercial_id)
-    return data
-  }, [fluxData, equipe])
+  const equipesAutorisees = useMemo(() => {
+    const all = []
+    if (canSeeSale) all.push('sale')
+    if (canSeeKenitra) all.push('kenitra')
+    return all
+  }, [canSeeSale, canSeeKenitra])
+  const equipes = viewMode === 'separated' ? (filterEquipe === 'all' ? equipesAutorisees : [filterEquipe].filter(e => equipesAutorisees.includes(e))) : []
 
-  // Grouper par période selon selected
-  const chartData = useMemo(() => {
-    if (!fluxFiltres.length) return []
+  if (loading) return <div style={{ padding: 32, color: '#5A5A5A' }}>Chargement...</div>
 
-    // Filtrer selon la sélection
-    let filtered = fluxFiltres
-    if (selected.type === 'year') {
-      filtered = filtered.filter(r => new Date(r.date_debut).getFullYear() === parseInt(selected.value))
-    } else if (selected.type === 'quarter') {
-      const [year, q] = selected.value.split('-Q')
-      const startM = (parseInt(q)-1)*3
-      filtered = filtered.filter(r => {
-        const d = new Date(r.date_debut)
-        return d.getFullYear() === parseInt(year) && Math.floor(d.getMonth()/3) === parseInt(q)-1
+  // ── Export XLSX ──────────────────────────────────────────────────────────────
+  function exportFlux() {
+    const periodLabel = selected?.label || 'Global'
+    const filename = `FluxRDV_${labelToFilename(periodLabel)}`
+    const isAll = viewMode === 'all'
+
+    // Granularité selon drill nav
+    function getGranularity() {
+      if (!selected || selected.type === 'global') return 'month'
+      if (selected.type === 'day')     return 'day'
+      if (selected.type === 'month')   return 'day'
+      if (selected.type === 'quarter') return 'month'
+      if (selected.type === 'year')    return 'month'
+      if (selected.type === 'custom')  return 'day'
+      return 'day'
+    }
+    const granularity = getGranularity()
+
+    function getTimeKey(dateStr) {
+      if (!dateStr) return ''
+      if (granularity === 'day')   return dateStr.substring(0, 10)
+      if (granularity === 'month') return dateStr.substring(0, 7)
+      return dateStr.substring(0, 4)
+    }
+
+    function calcKpiVal(rows) {
+      let rdv = 0, vis = 0, ven = 0
+      rows.forEach(f => {
+        const isPeriode = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
+        const v = parseFloat(f.visites||0), ve = parseFloat(f.ventes||0)
+        rdv += parseFloat(f.rdv||0)
+        vis += isPeriode ? v : v + ve
+        ven += ve
       })
-    } else if (selected.type === 'month') {
-      filtered = filtered.filter(r => r.date_debut.startsWith(selected.value))
-    } else if (selected.type === 'custom') {
-      filtered = filtered.filter(r => r.date_debut >= selected.from && r.date_debut <= selected.to)
+      if (kpi === 'rdv')           return Math.round(rdv)
+      if (kpi === 'visites')       return Math.round(vis)
+      if (kpi === 'ventes')        return Math.round(ven)
+      if (kpi === 'taux_presence') return rdv > 0 ? parseFloat(((vis/rdv)*100).toFixed(1)) : 0
+      if (kpi === 'taux_vente')    return vis > 0 ? parseFloat(((ven/vis)*100).toFixed(1)) : 0
+      return 0
     }
 
-    // Grouper par jour ou par mois selon le niveau
-    const isJour = selected.type === 'month' || selected.type === 'custom'
-    const groups = {}
-    for (const r of filtered) {
-      const d = new Date(r.date_debut)
-      const key = isJour
-        ? r.date_debut
-        : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
-      if (!groups[key]) groups[key] = { visites: 0, ventes: 0, taux: [] }
-      // Pour type 'jour': visites_raw + ventes (1 vente = 1 visite)
-      // Pour type 'periode' et 'non_reconnue': visites déjà inclut les ventes
-      const isPeriode = r.type_saisie === 'periode' || r.type_saisie === 'non_reconnue'
-      const v = isPeriode ? parseFloat(r.visites||0) : parseFloat(r.visites||0) + parseFloat(r.ventes||0)
-      const ve = parseFloat(r.ventes||0)
-      groups[key].visites += v
-      groups[key].ventes += ve
-      if (v > 0) groups[key].taux.push((ve/v)*100)
+    const kpiLabel = kpi === 'rdv' ? 'RDV' : kpi === 'visites' ? 'Visites' : kpi === 'ventes' ? 'Ventes'
+      : kpi === 'taux_presence' ? 'Tx Presence %' : 'Tx Vente %'
+
+    // Toutes les dates disponibles dans la période, triées
+    const allDates = [...new Set(fluxFiltres.map(f => getTimeKey(f.date_debut)))].filter(Boolean).sort()
+
+    // Toutes les conseillères ayant des données dans la période
+    const allConseillereIds = [...new Set(fluxFiltres.map(f => f.conseillere_id).filter(Boolean))]
+    const getConsNom = (id) => conseilleres.find(c => c.id === id)?.nom || id
+
+    // ── Une feuille par commercial ────────────────────────────────────────────
+    // Structure : lignes = conseillères, colonnes = dates
+    // Dernière ligne = TOTAL du commercial sur chaque date
+    function buildSheetForCommercial(commercial, equipeFilter) {
+      const commFlux = fluxFiltres.filter(f =>
+        f.commercial_id === commercial.id &&
+        (!equipeFilter || f.commerciaux?.equipe === equipeFilter)
+      )
+
+      // Conseillères qui ont des données pour ce commercial
+      const consIds = [...new Set(commFlux.map(f => f.conseillere_id).filter(Boolean))]
+
+      const rows = []
+
+      consIds.forEach(consId => {
+        const row = { 'Conseillere': getConsNom(consId) }
+        allDates.forEach(date => {
+          const items = commFlux.filter(f => getTimeKey(f.date_debut) === date && f.conseillere_id === consId)
+          row[date] = items.length > 0 ? calcKpiVal(items) : ''
+        })
+        rows.push(row)
+      })
+
+      // Ligne TOTAL
+      const totalRow = { 'Conseillere': 'TOTAL' }
+      allDates.forEach(date => {
+        const items = commFlux.filter(f => getTimeKey(f.date_debut) === date)
+        totalRow[date] = items.length > 0 ? calcKpiVal(items) : ''
+      })
+      rows.push(totalRow)
+
+      return rows
     }
 
-    // Calculer CV cumulatif
-    const keys = Object.keys(groups).sort()
-    const allTaux = []
-    return keys.map(key => {
-      const g = groups[key]
-      allTaux.push(...g.taux)
-      const moyenne = allTaux.length ? allTaux.reduce((s,v)=>s+v,0)/allTaux.length : 0
-      const cv = calcCV(allTaux)
-      const label = isJour
-        ? new Date(key).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
-        : `${MOIS_SHORT[new Date(key+'-01').getMonth()]} ${new Date(key+'-01').getFullYear()}`
-      const txJour = g.visites > 0 ? parseFloat(((g.ventes / g.visites) * 100).toFixed(1)) : 0
-      return { key, label, visites: Math.round(g.visites), ventes: Math.round(g.ventes), moyenne: parseFloat(moyenne.toFixed(1)), cv: parseFloat(cv.toFixed(1)), txJour }
-    })
-  }, [fluxFiltres, selected])
+    // ── Feuille résumé : tous les commerciaux, une ligne par commercial ───────
+    function buildSummarySheet(equipeFilter) {
+      const comms = equipeFilter
+        ? commerciaux.filter(c => c.equipe === equipeFilter)
+        : commerciaux
+      const rows = []
+      comms.forEach(c => {
+        const d = fluxParCommercial[c.id] || { rdv: 0, visites: 0, ventes: 0 }
+        const row = {
+          'Commercial': c.nom,
+          'Equipe': EQUIPES[c.equipe]?.label || c.equipe,
+        }
+        allDates.forEach(date => {
+          const items = fluxFiltres.filter(f => f.commercial_id === c.id && getTimeKey(f.date_debut) === date)
+          row[date] = items.length > 0 ? calcKpiVal(items) : ''
+        })
+        // Colonne total période
+        const allItems = fluxFiltres.filter(f => f.commercial_id === c.id && (!equipeFilter || f.commerciaux?.equipe === equipeFilter))
+        row[`TOTAL ${kpiLabel}`] = calcKpiVal(allItems)
+        rows.push(row)
+      })
+      // Tri par total décroissant
+      rows.sort((a, b) => (b[`TOTAL ${kpiLabel}`]||0) - (a[`TOTAL ${kpiLabel}`]||0))
+      return rows
+    }
 
-  // Totaux KPIs
-  const totalVisites = Math.round(chartData.reduce((s,r) => s + r.visites, 0))
-  const totalVentes = Math.round(chartData.reduce((s,r) => s + r.ventes, 0))
-  const txConv = totalVisites > 0 ? ((totalVentes/totalVisites)*100).toFixed(1) : '0.0'
-  const cvGlobal = calcCV(chartData.map(r => r.moyenne)).toFixed(1)
+    // ── Construction des feuilles ─────────────────────────────────────────────
+    const sheets = []
 
-  // Signal : tendance (comparer première moitié vs deuxième moitié)
-  const { moyenneTrend, cvTrend } = useMemo(() => {
-    if (chartData.length < 2) return { moyenneTrend: null, cvTrend: null }
-    const mid = Math.floor(chartData.length / 2)
-    const first = chartData.slice(0, mid)
-    const second = chartData.slice(mid)
-    // Moyenne du taux de conversion
-    const m1 = first.reduce((s,r)=>s+r.moyenne,0)/first.length
-    const m2 = second.reduce((s,r)=>s+r.moyenne,0)/second.length
-    // Moyenne du CV (pas le dernier point)
-    const c1 = first.reduce((s,r)=>s+r.cv,0)/first.length
-    const c2 = second.reduce((s,r)=>s+r.cv,0)/second.length
-    // moyenneTrend > 0 = hausse, cvTrend > 0 = hausse CV (instabilité)
-    return { moyenneTrend: m2 - m1, cvTrend: c2 - c1 }
-  }, [chartData])
+    if (isAll) {
+      // Vue All → 1 feuille résumé + 1 feuille par commercial (tous équipes)
+      sheets.push({ name: `Résumé ${kpiLabel}`.substring(0,31), rows: buildSummarySheet(null) })
+      commerciaux.forEach(c => {
+        const sheetRows = buildSheetForCommercial(c, null)
+        if (sheetRows.length > 1) { // au moins 1 conseillère + total
+          sheets.push({ name: c.nom.substring(0,31), rows: sheetRows })
+        }
+      })
+    } else {
+      // Vue séparée → par équipe visible
+      const eqs = filterEquipe === 'all' ? Object.keys(EQUIPES) : [filterEquipe]
+      eqs.forEach(eq => {
+        const label = EQUIPES[eq]?.label || eq
+        const commsEquipe = commerciaux.filter(c => c.equipe === eq)
+        // Feuille résumé de l'équipe
+        sheets.push({ name: `Résumé ${label}`.substring(0,31), rows: buildSummarySheet(eq) })
+        // Une feuille par commercial de cette équipe
+        commsEquipe.forEach(c => {
+          const sheetRows = buildSheetForCommercial(c, eq)
+          if (sheetRows.length > 1) {
+            sheets.push({ name: c.nom.substring(0,31), rows: sheetRows })
+          }
+        })
+      })
+    }
 
-  const cardStyle = { background: '#fff', borderRadius: 16, padding: '20px 24px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', border: '1px solid rgba(201,168,76,0.1)' }
+    if (sheets.length === 0) {
+      sheets.push({ name: 'Aucune donnee', rows: [{ info: 'Aucune donnée pour cette sélection' }] })
+    }
 
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (!active || !payload?.length) return null
-    return (
-      <div style={{ background: '#fff', border: '1px solid rgba(201,168,76,0.2)', borderRadius: 10, padding: '10px 14px', fontSize: 12 }}>
-        <div style={{ fontWeight: 600, marginBottom: 6, color: '#2C2C2C' }}>{label}</div>
-        {payload.map((p,i) => (
-          <div key={i} style={{ color: p.color, marginBottom: 2 }}>{p.name}: <strong>{p.value}%</strong></div>
-        ))}
-      </div>
-    )
+    exportToXlsx(sheets, filename)
   }
 
   return (
-    <div style={{ padding: '28px 32px', background: '#F8F7F4', minHeight: '100vh' }}>
-      {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 28, fontWeight: 600, color: '#2C2C2C', marginBottom: 4 }}>
-          Performance Commerciale
+    <div>
+      <PageHeader title="Flux de Rendez-vous" subtitle="Performance commerciale par équipe et commercial">
+        {isSuperAdmin && <button onClick={() => setShowSaisie(p=>!p)} style={{ padding: '8px 18px', borderRadius: 20, border: '1.5px solid #C9A84C', background: showSaisie?'#C9A84C':'#fff', color: showSaisie?'#fff':'#C9A84C', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+          {showSaisie ? '✕ Fermer' : '+ Saisir données'}
+        </button>}
+        <button onClick={exportFlux} style={{ padding: '8px 18px', borderRadius: 20, border: '1.5px solid #4CAF7D', background: '#fff', color: '#4CAF7D', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+          ⬇ Export Excel
+        </button>
+      </PageHeader>
+
+      {/* Modal detail commercial */}
+      {/* ── POPUP VUE JOUR : détail saisies d'un commercial ── */}
+      {jourDetailCommercial && selected.type === 'day' && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1001, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+          onClick={() => { setJourDetailCommercial(null); setJourEditId(null) }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '90%', maxWidth: 600, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div>
+                <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 20, fontWeight: 600, color: EQUIPES[jourDetailCommercial.equipe]?.color }}>{jourDetailCommercial.nom}</div>
+                <div style={{ fontSize: 12, color: '#5A5A5A', marginTop: 2 }}>Saisies manuelles — {selected.value}</div>
+              </div>
+              <button onClick={() => { setJourDetailCommercial(null); setJourEditId(null) }}
+                style={{ width: 36, height: 36, borderRadius: '50%', border: '1.5px solid rgba(201,168,76,0.2)', background: '#fff', color: '#5A5A5A', fontSize: 16, cursor: 'pointer' }}>✕</button>
+            </div>
+
+            {jourDetailSaisies.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 32, color: '#8A8A7A', fontSize: 13 }}>Aucune saisie manuelle pour ce jour</div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    {['Conseillère', 'Visites', 'Ventes', 'Actions'].map(h => (
+                      <th key={h} style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '8px 10px', borderBottom: '1px solid rgba(201,168,76,0.15)', textTransform: 'uppercase', fontWeight: 500 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {jourDetailSaisies.map(s => {
+                    const cons = conseilleres.find(c => c.id === s.conseillere_id)
+                    const isEditing = jourEditId === s.id
+                    return (
+                      <tr key={s.id} onMouseEnter={e => e.currentTarget.style.background = '#F7F0DC'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                        <td style={{ padding: '10px', fontSize: 12, fontWeight: 500, color: '#C9A84C' }}>{cons?.nom || '—'}</td>
+                        {isEditing ? (
+                          <>
+                            <td style={{ padding: '6px 10px' }}>
+                              <input type="number" min="0" value={jourEditForm.visites ?? s.visites}
+                                onChange={e => setJourEditForm(p => ({ ...p, visites: e.target.value }))}
+                                style={{ width: 60, padding: '5px 8px', border: '1.5px solid #C9A84C', borderRadius: 6, fontSize: 12, textAlign: 'center' }} />
+                            </td>
+                            <td style={{ padding: '6px 10px' }}>
+                              <input type="number" min="0" value={jourEditForm.ventes ?? s.ventes}
+                                onChange={e => setJourEditForm(p => ({ ...p, ventes: e.target.value }))}
+                                style={{ width: 60, padding: '5px 8px', border: '1.5px solid #1a6b3c', borderRadius: 6, fontSize: 12, textAlign: 'center' }} />
+                            </td>
+                            <td style={{ padding: '6px 10px' }}>
+                              <div style={{ display: 'flex', gap: 4 }}>
+                                <button onClick={() => updateJourSaisie(s.id, parseFloat(jourEditForm.visites ?? s.visites)||0, parseFloat(jourEditForm.ventes ?? s.ventes)||0, selected.value, s.conseillere_id)}
+                                  style={{ padding: '4px 10px', borderRadius: 6, background: '#C9A84C', color: '#fff', border: 'none', fontSize: 11, cursor: 'pointer' }}>✓</button>
+                                <button onClick={() => setJourEditId(null)}
+                                  style={{ padding: '4px 10px', borderRadius: 6, background: '#F8F7F4', color: '#5A5A5A', border: '1px solid rgba(201,168,76,0.2)', fontSize: 11, cursor: 'pointer' }}>✕</button>
+                              </div>
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td style={{ padding: '10px', fontSize: 12, color: '#4CAF7D' }}>{s.visites}</td>
+                            <td style={{ padding: '10px', fontSize: 12, color: '#1a6b3c' }}>{s.ventes}</td>
+                            <td style={{ padding: '10px' }}>
+                              <div style={{ display: 'flex', gap: 4 }}>
+                                <button onClick={() => { setJourEditId(s.id); setJourEditForm({ visites: s.visites, ventes: s.ventes }) }}
+                                  style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(201,168,76,0.3)', color: '#C9A84C', background: 'transparent', fontSize: 11, cursor: 'pointer' }}>✏️</button>
+                                <button onClick={() => deleteJourSaisie(s.id, selected.value, s.conseillere_id)}
+                                  style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(224,92,92,0.3)', color: '#E05C5C', background: 'transparent', fontSize: 11, cursor: 'pointer' }}>🗑️</button>
+                              </div>
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
-        <div style={{ fontSize: 13, color: '#8A8A7A' }}>Taux de conversion visites → ventes & stabilité</div>
-      </div>
+      )}
+
+      {selectedCommercial && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={() => setSelectedCommercial(null)}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '90%', maxWidth: 900, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }} onClick={e => e.stopPropagation()}>
+            {(() => {
+              const currentList = viewMode === 'all'
+                ? [...commerciaux].map(c=>({...c,val:getKpiVal(fluxParCommercial[c.id]||{rdv:0,visites:0,ventes:0},kpi)})).sort((a,b)=>b.val-a.val)
+                : [...commerciaux.filter(c=>c.equipe===selectedCommercial.equipe)].map(c=>({...c,val:getKpiVal(fluxParCommercial[c.id]||{rdv:0,visites:0,ventes:0},kpi)})).sort((a,b)=>b.val-a.val)
+              const idx = currentList.findIndex(c=>c.id===selectedCommercial.id)
+              const prev = idx > 0 ? currentList[idx-1] : null
+              const next = idx < currentList.length-1 ? currentList[idx+1] : null
+              return (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <button onClick={() => prev && setSelectedCommercial(commerciaux.find(c=>c.id===prev.id))} disabled={!prev} style={{ width: 32, height: 32, borderRadius: '50%', border: '1.5px solid rgba(201,168,76,0.2)', background: '#fff', color: prev?'#C9A84C':'#ccc', fontSize: 16, cursor: prev?'pointer':'default' }}>‹</button>
+                    <div>
+                      <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 22, fontWeight: 600, color: EQUIPES[selectedCommercial.equipe]?.color }}>{selectedCommercial.nom}</div>
+                      <div style={{ fontSize: 12, color: '#5A5A5A', marginTop: 2 }}>{EQUIPES[selectedCommercial.equipe]?.label} · Rang #{idx+1}/{currentList.length}</div>
+                    </div>
+                    <button onClick={() => next && setSelectedCommercial(commerciaux.find(c=>c.id===next.id))} disabled={!next} style={{ width: 32, height: 32, borderRadius: '50%', border: '1.5px solid rgba(201,168,76,0.2)', background: '#fff', color: next?'#C9A84C':'#ccc', fontSize: 16, cursor: next?'pointer':'default' }}>›</button>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    {[['%','%'],['📈','graph'],['123','num']].map(([icon, mode]) => (
+                      <button key={mode} onClick={() => setDetailMode(mode)} style={{ width: 36, height: 36, borderRadius: 8, border: `1.5px solid ${detailMode===mode?'#C9A84C':'rgba(201,168,76,0.2)'}`, background: detailMode===mode?'#C9A84C':'#fff', color: detailMode===mode?'#fff':'#5A5A5A', fontSize: 13, cursor: 'pointer', fontWeight: 500 }}>{icon}</button>
+                    ))}
+                    <button onClick={() => setSelectedCommercial(null)} style={{ width: 36, height: 36, borderRadius: '50%', border: '1.5px solid rgba(201,168,76,0.2)', background: '#fff', color: '#5A5A5A', fontSize: 16, cursor: 'pointer' }}>✕</button>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Toggle KPIs */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+              {KPIS.map(k => (
+                <button key={k.key} onClick={() => setHiddenKpis(p=>({...p,[k.key]:!p[k.key]}))} style={{ padding: '4px 12px', borderRadius: 12, border: `1.5px solid ${hiddenKpis[k.key]?'rgba(201,168,76,0.2)':k.color}`, background: hiddenKpis[k.key]?'#F8F7F4':`${k.color}15`, color: hiddenKpis[k.key]?'#8A8A7A':k.color, fontSize: 11, cursor: 'pointer', textDecoration: hiddenKpis[k.key]?'line-through':'none' }}>{k.label}</button>
+              ))}
+            </div>
+            {/* KPIs */}
+            {(() => {
+              const d = fluxParCommercial[selectedCommercial.id] || { rdv: 0, visites: 0, ventes: 0 }
+              const visibleKpis = KPIS.filter(k => !hiddenKpis[k.key])
+              return visibleKpis.length > 0 ? (
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${visibleKpis.length},1fr)`, gap: 10, marginBottom: 20 }}>
+                  {visibleKpis.map(k => {
+                    const val = getKpiVal(d, k.key)
+                    return (
+                      <div key={k.key} style={{ background: '#F8F7F4', borderRadius: 10, padding: '16px', textAlign: 'center', borderTop: `3px solid ${k.color}` }}>
+                        <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', marginBottom: 6 }}>{k.label}</div>
+                        <div style={{ fontSize: 28, fontWeight: 600, color: k.color }}>{val}{k.unit}</div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : null
+            })()}
+
+            {/* Contenu selon mode */}
+            {detailMode === '%' && (() => {
+              const d = fluxParCommercial[selectedCommercial.id] || { rdv: 0, visites: 0, ventes: 0 }
+              return (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  {(() => { const pt = calcTotaux(d); return [{label:'Taux de présence',val:pt.rdv>0?((pt.visites/pt.rdv)*100).toFixed(1):0,color:'#534AB7',desc:'Visites / RDV'},{label:'Taux de vente',val:pt.visites>0?((pt.ventes/pt.visites)*100).toFixed(1):0,color:'#1a6b3c',desc:'Ventes / Visites'}] })().map(r => (
+                    <div key={r.label} style={{ background: '#F8F7F4', borderRadius: 10, padding: 16 }}>
+                      <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 4 }}>{r.label}</div>
+                      <div style={{ fontSize: 28, fontWeight: 700, color: r.color }}>{r.val}%</div>
+                      <div style={{ fontSize: 11, color: '#8A8A7A', marginTop: 4 }}>{r.desc}</div>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
+
+            {detailMode === 'graph' && historique.length > 0 && (
+              <ResponsiveContainer width="100%" height={240}>
+                <LineChart data={historique} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.08)"/>
+                  <XAxis dataKey="label" tick={{ fontSize: 10 }}/>
+                  <YAxis tick={{ fontSize: 10 }}/>
+                  <Tooltip contentStyle={tooltipStyle}/>
+                  <Line type="monotone" dataKey="rdv" stroke="#C9A84C" strokeWidth={2.5} dot={{ r: 5, fill: '#C9A84C', stroke: '#fff', strokeWidth: 2 }} name="RDV"/>
+                  <Line type="monotone" dataKey="visites" stroke="#4CAF7D" strokeWidth={2.5} dot={{ r: 5, fill: '#4CAF7D', stroke: '#fff', strokeWidth: 2 }} name="Visites"/>
+                  <Line type="monotone" dataKey="ventes" stroke="#1a6b3c" strokeWidth={2.5} dot={{ r: 5, fill: '#1a6b3c', stroke: '#fff', strokeWidth: 2 }} name="Ventes"/>
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+
+            {detailMode === 'num' && (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>{['Mois','RDV','Visites','Ventes','Tx Présence','Tx Vente'].map(h => (
+                      <th key={h} style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '8px', borderBottom: '1px solid rgba(201,168,76,0.15)', textTransform: 'uppercase', fontWeight: 500 }}>{h}</th>
+                    ))}</tr>
+                  </thead>
+                  <tbody>
+                    {historique.map((r,i) => (
+                      <tr key={i} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                        <td style={{ padding: '8px', fontSize: 12, fontWeight: 500, color: '#C9A84C' }}>{r.label}</td>
+                        <td style={{ padding: '8px', fontSize: 12 }}>{r.rdv}</td>
+                        <td style={{ padding: '8px', fontSize: 12, color: '#4CAF7D' }}>{r.visites}</td>
+                        <td style={{ padding: '8px', fontSize: 12, color: '#1a6b3c' }}>{r.ventes}</td>
+                        <td style={{ padding: '8px', fontSize: 12, color: '#534AB7' }}>{r.taux_presence}%</td>
+                        <td style={{ padding: '8px', fontSize: 12, color: '#378ADD' }}>{r.taux_vente}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Saisie */}
+      {isSuperAdmin && showSaisie && (
+        <div style={{ background: '#fff', borderRadius: 14, padding: 24, border: '1.5px solid #C9A84C', marginBottom: 24 }}>
+          {msg && <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 14, fontSize: 12, fontWeight: 500, background: msg.type==='success'?'rgba(76,175,125,0.1)':'rgba(224,92,92,0.1)', color: msg.type==='success'?'#2d7a54':'#a03030' }}>{msg.text}</div>}
+
+          {/* Mode jour / periode */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            {[['jour','Par jour'],['periode','Par période']].map(([k,l]) => (
+              <button key={k} onClick={() => setSaisieModeDate(k)} style={{ padding: '7px 18px', borderRadius: 16, border: `1.5px solid ${saisieModeDate===k?'#C9A84C':'rgba(201,168,76,0.2)'}`, background: saisieModeDate===k?'#C9A84C':'#fff', color: saisieModeDate===k?'#fff':'#5A5A5A', fontSize: 12, cursor: 'pointer', fontWeight: saisieModeDate===k?500:400 }}>{l}</button>
+            ))}
+          </div>
+
+          {/* Header avec conseillere, periode et boutons */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 5, textTransform: 'uppercase' }}>Conseillère</div>
+                <select value={saisieConseillere} onChange={e=>setSaisieConseillere(e.target.value)} style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid rgba(201,168,76,0.25)', background: '#F8F7F4', fontSize: 13, outline: 'none', minWidth: 180 }}>
+                  <option value="">Sélectionner...</option>
+                  {conseilleres.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
+                </select>
+              </div>
+              {saisieModeDate === 'jour' ? (
+                <div>
+                  <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 5, textTransform: 'uppercase' }}>Date</div>
+                  <input type="date" value={saisieDate} onChange={e=>setSaisieDate(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1.5px solid rgba(201,168,76,0.25)', background: '#F8F7F4', fontSize: 13, outline: 'none' }}/>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 5, textTransform: 'uppercase' }}>Mois</div>
+                    <select value={saisieMois} onChange={e=>setSaisieMois(e.target.value)} style={{ padding: '8px 14px', borderRadius: 8, border: '1.5px solid rgba(201,168,76,0.25)', background: '#F8F7F4', fontSize: 13, outline: 'none' }}>
+                      {moisOptions.filter(m=>m.type==='month').slice(0,12).map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 5, textTransform: 'uppercase' }}>Début</div>
+                    <input type="date" value={saisieDebut} onChange={e=>setSaisieDebut(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1.5px solid rgba(201,168,76,0.25)', background: '#F8F7F4', fontSize: 13, outline: 'none' }}/>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 5, textTransform: 'uppercase' }}>Fin</div>
+                    <input type="date" value={saisieFin} onChange={e=>setSaisieFin(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1.5px solid rgba(201,168,76,0.25)', background: '#F8F7F4', fontSize: 13, outline: 'none' }}/>
+                  </div>
+                </>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={handleSaisie} disabled={saving} style={{ background: saving?'#E8D5A3':'#C9A84C', color:'#fff', border:'none', padding:'9px 22px', borderRadius:8, fontSize:13, fontWeight:500, cursor:saving?'wait':'pointer' }}>
+                {saving?'Enregistrement...':'Enregistrer'}
+              </button>
+              <button onClick={() => setShowSaisie(false)} style={{ background: '#fff', color: '#5A5A5A', border: '1.5px solid rgba(201,168,76,0.25)', padding:'9px 16px', borderRadius:8, fontSize:13, cursor:'pointer' }}>✕ Fermer</button>
+            </div>
+          </div>
+
+          {/* 2 colonnes Sale | Kenitra */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+            {/* Colonne Sale */}
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: EQUIPES.sale.color, marginBottom: 10 }}>
+                {EQUIPES.sale.label} — {EQUIPES.sale.responsable}
+              </div>
+              <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '6px 8px', borderBottom: '1px solid rgba(201,168,76,0.15)' }}>Commercial</th>
+                    <th style={{ fontSize: 10, color: '#C9A84C', textAlign: 'center', padding: '6px 8px', borderBottom: '1px solid rgba(201,168,76,0.15)' }}>RDV</th>
+                    <th style={{ fontSize: 10, color: '#4CAF7D', textAlign: 'center', padding: '6px 8px', borderBottom: '1px solid rgba(201,168,76,0.15)' }}>Visites</th>
+                    <th style={{ fontSize: 10, color: '#1a6b3c', textAlign: 'center', padding: '6px 8px', borderBottom: '1px solid rgba(201,168,76,0.15)' }}>Ventes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...commerciaux.filter(c=>c.equipe==='sale' && !c.nom.includes('Non reconnu')), ...commerciaux.filter(c=>c.equipe==='sale' && c.nom.includes('Non reconnu'))].map(c => {
+                    const isNonReconnu = c.nom.includes('Non reconnu')
+                    return (
+                      <tr key={c.id} onMouseEnter={e=>e.currentTarget.style.background=isNonReconnu?'#F0F0F0':'#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background=isNonReconnu?'rgba(0,0,0,0.02)':'transparent'} style={{ background: isNonReconnu?'rgba(0,0,0,0.02)':'transparent', borderTop: isNonReconnu?'1px dashed rgba(201,168,76,0.2)':'none' }}>
+                        <td style={{ padding: '5px 8px', fontSize: 12, fontWeight: isNonReconnu?400:500, color: isNonReconnu?'#8A8A7A':'#2C2C2C', fontStyle: isNonReconnu?'italic':'normal' }}>{c.nom}</td>
+                        {['rdv','visites','ventes'].map(f => (
+                          <td key={f} style={{ padding: '4px 6px', textAlign: 'center' }}>
+                            <input type="number" min="0" step="0.5" value={saisieForm[c.id]?.[f]||''} onChange={e=>setSaisieForm(p=>({...p,[c.id]:{...(p[c.id]||{}),[f]:e.target.value}}))} placeholder="0" style={{ ...inputStyle, background: isNonReconnu?'#F0F0F0':'#F8F7F4', color: isNonReconnu?'#8A8A7A':'#2C2C2C' }}/>
+                          </td>
+                        ))}
+                      </tr>
+                    )
+                  })}
+                  <tr style={{ background: 'rgba(201,168,76,0.05)', fontWeight: 600 }}>
+                    <td style={{ padding: '7px 8px', fontSize: 12, color: EQUIPES.sale.color }}>Total</td>
+                    {['rdv','visites','ventes'].map(f => (
+                      <td key={f} style={{ padding: '7px 8px', fontSize: 12, textAlign: 'center' }}>
+                        {commerciaux.filter(c=>c.equipe==='sale').reduce((s,c)=>s+(parseFloat(saisieForm[c.id]?.[f])||0),0)}
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+              {/* Visites non reconnues - sous Sale avec espacement */}
+              <div style={{ marginTop: 32 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#C9A84C', marginBottom: 6 }}>Visites non reconnues</div>
+                <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 10 }}>Sans commercial identifié — par région</div>
+                <div style={{ display: 'flex', gap: 20 }}>
+                  {Object.keys(EQUIPES).map(eq => (
+                    <div key={eq}>
+                      <label style={{ fontSize: 11, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5, display: 'block' }}>{EQUIPES[eq].label}</label>
+                      <input type="number" min="0" step="0.5"
+                        value={saisieForm[`__non_reconnue_${eq}`]?.visites || ''}
+                        onChange={e => setSaisieForm(p => ({ ...p, [`__non_reconnue_${eq}`]: { visites: e.target.value, rdv: 0, ventes: 0, equipe: eq, non_reconnue: true } }))}
+                        placeholder="0" style={{ width: '70px', padding: '7px 8px', border: '1.5px solid rgba(201,168,76,0.25)', borderRadius: 6, fontSize: 12, textAlign: 'center', background: '#F8F7F4', outline: 'none' }}/>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Colonne Kenitra */}
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: EQUIPES.kenitra.color, marginBottom: 10 }}>
+                {EQUIPES.kenitra.label} — {EQUIPES.kenitra.responsable}
+              </div>
+              <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '6px 8px', borderBottom: '1px solid rgba(201,168,76,0.15)' }}>Commercial</th>
+                    <th style={{ fontSize: 10, color: '#C9A84C', textAlign: 'center', padding: '6px 8px', borderBottom: '1px solid rgba(201,168,76,0.15)' }}>RDV</th>
+                    <th style={{ fontSize: 10, color: '#4CAF7D', textAlign: 'center', padding: '6px 8px', borderBottom: '1px solid rgba(201,168,76,0.15)' }}>Visites</th>
+                    <th style={{ fontSize: 10, color: '#1a6b3c', textAlign: 'center', padding: '6px 8px', borderBottom: '1px solid rgba(201,168,76,0.15)' }}>Ventes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...commerciaux.filter(c=>c.equipe==='kenitra' && !c.nom.includes('Non reconnu')), ...commerciaux.filter(c=>c.equipe==='kenitra' && c.nom.includes('Non reconnu'))].map(c => {
+                    const isNonReconnu = c.nom.includes('Non reconnu')
+                    return (
+                      <tr key={c.id} onMouseEnter={e=>e.currentTarget.style.background=isNonReconnu?'#F0F0F0':'#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background=isNonReconnu?'rgba(0,0,0,0.02)':'transparent'} style={{ background: isNonReconnu?'rgba(0,0,0,0.02)':'transparent', borderTop: isNonReconnu?'1px dashed rgba(83,74,183,0.2)':'none' }}>
+                        <td style={{ padding: '5px 8px', fontSize: 12, fontWeight: isNonReconnu?400:500, color: isNonReconnu?'#8A8A7A':'#2C2C2C', fontStyle: isNonReconnu?'italic':'normal' }}>{c.nom}</td>
+                        {['rdv','visites','ventes'].map(f => (
+                          <td key={f} style={{ padding: '4px 6px', textAlign: 'center' }}>
+                            <input type="number" min="0" step="0.5" value={saisieForm[c.id]?.[f]||''} onChange={e=>setSaisieForm(p=>({...p,[c.id]:{...(p[c.id]||{}),[f]:e.target.value}}))} placeholder="0" style={{ ...inputStyle, background: isNonReconnu?'#F0F0F0':'#F8F7F4', color: isNonReconnu?'#8A8A7A':'#2C2C2C' }}/>
+                          </td>
+                        ))}
+                      </tr>
+                    )
+                  })}
+                  <tr style={{ background: 'rgba(83,74,183,0.05)', fontWeight: 600 }}>
+                    <td style={{ padding: '7px 8px', fontSize: 12, color: EQUIPES.kenitra.color }}>Total</td>
+                    {['rdv','visites','ventes'].map(f => (
+                      <td key={f} style={{ padding: '7px 8px', fontSize: 12, textAlign: 'center' }}>
+                        {commerciaux.filter(c=>c.equipe==='kenitra').reduce((s,c)=>s+(parseFloat(saisieForm[c.id]?.[f])||0),0)}
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Navigation drill-down */}
+      <DrillNav data={fluxData} onSelect={setSelected} selected={selected} />
 
       {/* Filtres */}
-      <div style={{ ...cardStyle, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-        <DrillNav data={fluxData} onSelect={setSelected} selected={selected} />
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          {['toutes', ...(canSeeSale ? ['sale'] : []), ...(canSeeKenitra ? ['kenitra'] : [])].map(eq => (
-            <button key={eq} onClick={() => setEquipe(eq)} style={{
-              padding: '5px 14px', borderRadius: 16, fontSize: 12, cursor: 'pointer', fontWeight: equipe===eq ? 600 : 400,
-              border: `1.5px solid ${equipe===eq ? '#C9A84C' : 'rgba(201,168,76,0.2)'}`,
-              background: equipe===eq ? '#C9A84C' : 'transparent', color: equipe===eq ? '#fff' : '#5A5A5A'
-            }}>
-              {eq === 'toutes' ? 'Toutes' : eq === 'sale' ? 'Sale' : 'Kenitra'}
-            </button>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ fontSize: 13, fontWeight: 500, color: '#C9A84C', padding: '6px 14px', borderRadius: 20, border: '1.5px solid rgba(201,168,76,0.25)', background: '#F8F7F4' }}>{selected?.label || 'Global'}</div>
+
+        {/* Vue séparée/All : seulement si accès aux 2 équipes */}
+        {canSeeSale && canSeeKenitra && (
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button onClick={()=>setViewMode('separated')} style={btnStyle(viewMode==='separated')}>Vue séparée</button>
+            <button onClick={()=>setViewMode('all')} style={btnStyle(viewMode==='all')}>Vue All</button>
+          </div>
+        )}
+
+        {/* Filtre équipe : seulement si accès aux 2 équipes et vue séparée */}
+        {canSeeSale && canSeeKenitra && viewMode === 'separated' && (
+          <div style={{ display: 'flex', gap: 6 }}>
+            {[['all','Toutes'],['sale','Sale'],['kenitra','Kenitra']].map(([k,l]) => (
+              <button key={k} onClick={()=>setFilterEquipe(k)} style={btnStyle(filterEquipe===k)}>{l}</button>
+            ))}
+          </div>
+        )}
+
+        {/* Si 1 seule équipe : badge informatif */}
+        {!(canSeeSale && canSeeKenitra) && (
+          <div style={{ padding: '5px 12px', borderRadius: 20, background: canSeeSale ? 'rgba(201,168,76,0.1)' : 'rgba(83,74,183,0.1)', color: canSeeSale ? '#C9A84C' : '#534AB7', fontSize: 12, fontWeight: 500, border: `1px solid ${canSeeSale ? 'rgba(201,168,76,0.3)' : 'rgba(83,74,183,0.3)'}` }}>
+            {canSeeSale ? 'Équipe Sale' : 'Équipe Kenitra'}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {KPIS.map(k => (
+            <button key={k.key} onClick={()=>setKpi(k.key)} style={btnStyle(kpi===k.key, k.color)}>{k.label}</button>
           ))}
         </div>
       </div>
 
-      {/* KPIs */}
-      <div style={{ display: 'flex', gap: 16, marginBottom: 20, flexWrap: 'wrap', alignItems: 'stretch' }}>
-        <div style={{ flex: 1, minWidth: 140, display: 'flex', flexDirection: 'column' }}><KpiCard label="Total Visites" value={totalVisites} unit="" sub={selected.label} /></div>
-        <div style={{ flex: 1, minWidth: 140, display: 'flex', flexDirection: 'column' }}><KpiCard label="Total Ventes" value={totalVentes} unit="" sub="sur la période" /></div>
-        <div style={{ flex: 1, minWidth: 140, display: 'flex', flexDirection: 'column' }}><KpiCard label="Taux Conversion" value={txConv} sub="Ventes / Visites" objectifPct={objectifs.obj_efficacite_pct || 10} /></div>
-        <div style={{ flex: 1, minWidth: 140, display: 'flex', flexDirection: 'column' }}><KpiCard label="CV Global" value={cvGlobal} sub="Coefficient de variation" /></div>
-
-      </div>
-
-      {/* Graphe */}
-      <div style={{ ...cardStyle }}>
-        <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C' }}>
-            Tendance Conversion & Stabilité
+      {/* Vue All - ranking global */}
+      {viewMode === 'all' && (() => {
+        const allRanking = [...commerciaux.filter(c => !c.nom.includes('Non reconnu'))]
+          .map(c => ({ ...c, val: getKpiVal(fluxParCommercial[c.id] || {rdv:0,visites:0,ventes:0}, kpi) }))
+          .sort((a,b) => b.val - a.val)
+        const maxVal = Math.max(...allRanking.map(c=>c.val), 1)
+        const cvAll = calcCV(allRanking.map(c=>c.val))
+        return (
+          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(201,168,76,0.15)', overflow: 'hidden', marginBottom: 24 }}>
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(201,168,76,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '4px solid #C9A84C' }}>
+              <div>
+                <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 17, fontWeight: 600, color: '#C9A84C' }}>Ranking Global — Toutes équipes</div>
+                <div style={{ fontSize: 11, color: '#5A5A5A' }}>{allRanking.length} commerciaux · CV: <span style={{ color: cvAll>30?'#E05C5C':'#4CAF7D', fontWeight: 500 }}>{cvAll}%</span></div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase' }}>Total {selectedKpi?.label}</div>
+                {(() => {
+                    // Inclure les Non reconnu dans le total global
+                    const nonReconnuTotal = commerciaux
+                      .filter(c => c.nom.includes('Non reconnu'))
+                      .reduce((s,c) => s + getKpiVal(fluxParCommercial[c.id] || {rdv:0,visites:0,ventes:0}, kpi), 0)
+                    const rankingTotal = allRanking.reduce((s,c)=>s+c.val,0)
+                    return <div style={{ fontSize: 22, fontWeight: 700, color: '#C9A84C' }}>{Math.round(rankingTotal + nonReconnuTotal)}{selectedKpi?.unit}</div>
+                  })()}
+              </div>
+            </div>
+            <div>
+              {allRanking.map((c, i) => {
+                const rankColor = getRankColor(i, allRanking.length)
+                const pct = maxVal > 0 ? (c.val / maxVal) * 100 : 0
+                const equipeColor = EQUIPES[c.equipe]?.color || '#C9A84C'
+                return (
+                  <div key={c.id} onClick={() => {
+                      if (selected.type === 'day') { setJourDetailCommercial(c); loadJourDetail(c.id, selected.value) }
+                      else setSelectedCommercial(c)
+                    }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', cursor: 'pointer', borderBottom: '1px solid rgba(201,168,76,0.05)' }}
+                    onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'}
+                    onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                    <div style={{ width: 24, fontSize: 14, fontWeight: 700, color: rankColor, textAlign: 'center', flexShrink: 0 }}>{i+1}</div>
+                    <div style={{ width: 150, fontSize: 13, fontWeight: 500, color: '#2C2C2C', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 0 }}>{c.nom}</div>
+                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: `${equipeColor}15`, color: equipeColor, flexShrink: 0 }}>{EQUIPES[c.equipe]?.label}</span>
+                    <div style={{ flex: 1, height: 7, background: 'rgba(201,168,76,0.1)', borderRadius: 4, overflow: 'hidden', minWidth: 40 }}>
+                      <div style={{ height: '100%', width: `${pct}%`, background: rankColor, borderRadius: 4 }}></div>
+                    </div>
+                    <div style={{ width: 44, fontSize: 13, fontWeight: 700, color: rankColor, textAlign: 'right', flexShrink: 0 }}>{c.val}{selectedKpi?.unit}</div>
+                    <StarRank rank={i} total={allRanking.length} maxDisplay={allRanking.length} />
+                  </div>
+                )
+              })}
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {[
-              { key: 'txJour',  label: 'Tx Conv. (période)', color: '#C9A84C' },
-              { key: 'moyenne', label: 'Moyenne cumulée',    color: '#2E9455' },
-              { key: 'cv',      label: 'CV Cumulatif',       color: '#534AB7' },
-            ].map(l => (
-              <button key={l.key} onClick={() => toggleLine(l.key)} style={{
-                display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 16, cursor: 'pointer', fontSize: 11, fontWeight: 500,
-                border: `1.5px solid ${visibleLines[l.key] ? l.color : 'rgba(0,0,0,0.1)'}`,
-                background: visibleLines[l.key] ? `${l.color}15` : '#F8F7F4',
-                color: visibleLines[l.key] ? l.color : '#8A8A7A',
-                opacity: visibleLines[l.key] ? 1 : 0.6,
-                transition: 'all 0.2s'
-              }}>
-                <span style={{ width: 20, height: 2, background: visibleLines[l.key] ? l.color : '#ccc', display: 'inline-block', borderRadius: 1 }} />
-                {l.label}
-              </button>
+        )
+      })()}
+
+      {/* Listes ranking séparées */}
+      {viewMode === 'separated' && <div style={{ display: 'grid', gridTemplateColumns: (canSeeSale && canSeeKenitra) ? (filterEquipe==='all'?'1fr 1fr':'1fr') : '1fr', gap: 16, marginBottom: 24 }}>
+        {equipes.map(eq => {
+          const ranking = getRanking(eq)
+          const stats = statsParEquipe[eq] || {}
+          const maxVal = Math.max(...ranking.map(c=>c.val), 1)
+          const singleEquipe = !(canSeeSale && canSeeKenitra)
+          return (
+            <div key={eq} style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(201,168,76,0.15)', overflow: 'hidden' }}>
+              {/* Header */}
+              <div style={{ padding: singleEquipe ? '16px 24px' : '14px 18px', borderBottom: '1px solid rgba(201,168,76,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: `4px solid ${EQUIPES[eq].color}` }}>
+                <div>
+                  <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: singleEquipe ? 22 : 17, fontWeight: 600, color: EQUIPES[eq].color }}>{EQUIPES[eq].label}</div>
+                  <div style={{ fontSize: 12, color: '#5A5A5A', marginTop: 2 }}>
+                    Resp: {EQUIPES[eq].responsable} · {ranking.length} commerciaux · CV: <span style={{ color: stats.cv>30?'#E05C5C':'#4CAF7D', fontWeight: 500 }}>{stats.cv||0}%</span>
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase', letterSpacing: 1 }}>Total {selectedKpi?.label}</div>
+                  <div style={{ fontSize: singleEquipe ? 28 : 22, fontWeight: 700, color: EQUIPES[eq].color }}>{getKpiValFromTotaux(stats, kpi)}{selectedKpi?.unit}</div>
+                </div>
+              </div>
+              {/* Lignes commerciaux */}
+              <div>
+                {ranking.map((c, i) => {
+                  const rankColor = getRankColor(i, ranking.length)
+                  const pct = maxVal > 0 ? (c.val / maxVal) * 100 : 0
+                  return (
+                    <div key={c.id} onClick={() => {
+                        if (selected.type === 'day') { setJourDetailCommercial(c); loadJourDetail(c.id, selected.value) }
+                        else setSelectedCommercial(c)
+                      }}
+                      style={{ display: 'flex', alignItems: 'center', gap: singleEquipe ? 16 : 10, padding: singleEquipe ? '13px 24px' : '10px 18px', cursor: 'pointer', borderBottom: '1px solid rgba(201,168,76,0.05)', transition: 'background 0.15s' }}
+                      onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'}
+                      onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                      {/* Rang */}
+                      <div style={{ width: singleEquipe ? 32 : 22, fontSize: singleEquipe ? 16 : 14, fontWeight: 700, color: rankColor, textAlign: 'center', flexShrink: 0 }}>{i+1}</div>
+                      {/* Nom */}
+                      <div style={{ width: singleEquipe ? 200 : 130, fontSize: singleEquipe ? 14 : 13, fontWeight: 500, color: '#2C2C2C', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 0 }}>{c.nom}</div>
+                      {/* Barre */}
+                      <div style={{ flex: 1, height: singleEquipe ? 10 : 7, background: 'rgba(201,168,76,0.1)', borderRadius: 5, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${pct}%`, background: rankColor, borderRadius: 5, transition: 'width 0.4s' }}></div>
+                      </div>
+                      {/* Valeur */}
+                      <div style={{ width: singleEquipe ? 60 : 44, fontSize: singleEquipe ? 15 : 13, fontWeight: 700, color: rankColor, textAlign: 'right', flexShrink: 0 }}>{c.val}{selectedKpi?.unit}</div>
+                      <StarRank rank={i} total={ranking.length} maxDisplay={ranking.length} />
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+      </div>}
+
+      {/* Comparaison equipes - masquée si 1 seule équipe */}
+      {canSeeSale && canSeeKenitra && <>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, marginTop: 8 }}>
+        <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C' }}>Comparaison inter-équipes</div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {[['bars','Barres'],['graph','Graphe'],['pct','%'],['num','123']].map(([m,l]) => (
+            <button key={m} onClick={()=>setCompareMode(m)} style={btnStyle(compareMode===m)}>{l}</button>
+          ))}
+        </div>
+      </div>
+      <div style={{ background: '#fff', borderRadius: 14, padding: 24, border: '1px solid rgba(201,168,76,0.15)', marginBottom: 24 }}>
+        {compareMode === 'bars' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+            {[['rdv','RDV','#C9A84C'],['visites','Visites','#4CAF7D'],['ventes','Ventes','#1a6b3c']].map(([k,l,c]) => (
+              <div key={k}>
+                <div style={{ fontSize: 12, fontWeight: 500, color: c, marginBottom: 12 }}>{l}</div>
+                {Object.keys(EQUIPES).map(eq => {
+                  const stats = statsParEquipe[eq] || {}
+                  const val = stats[k] || 0
+                  const maxVal = Math.max(...Object.keys(EQUIPES).map(e => statsParEquipe[e]?.[k]||0), 1)
+                  return (
+                    <div key={eq} style={{ marginBottom: 10 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <div style={{ fontSize: 12, color: '#5A5A5A' }}>{EQUIPES[eq].label}</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: EQUIPES[eq].color }}>{val}</div>
+                      </div>
+                      <div style={{ height: 8, background: 'rgba(201,168,76,0.1)', borderRadius: 4, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${(val/maxVal)*100}%`, background: EQUIPES[eq].color, borderRadius: 4 }}></div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             ))}
           </div>
-        </div>
-        {loading ? (
-          <div style={{ height: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8A8A7A', fontSize: 13 }}>Chargement...</div>
-        ) : chartData.length === 0 ? (
-          <div style={{ height: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8A8A7A', fontSize: 13 }}>Aucune donnée pour cette période</div>
-        ) : (
-          <ResponsiveContainer width="100%" height={320}>
-            <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.1)" />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#8A8A7A' }} />
-              <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#8A8A7A' }} unit="%" domain={[0, 'auto']} />
-              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#8A8A7A' }} unit="%" domain={[0, 'auto']} />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
-              {visibleLines.txJour && <Line yAxisId="left" type="monotone" dataKey="txJour" name="Tx Conv. (période)" stroke="#C9A84C" strokeWidth={2.5} dot={{ r: 3, fill: '#C9A84C' }} activeDot={{ r: 5 }} />}
-              {visibleLines.moyenne && <Line yAxisId="left" type="monotone" dataKey="moyenne" name="Moyenne cumulée" stroke="#2E9455" strokeWidth={2} strokeDasharray="5 3" dot={{ r: 3, fill: '#2E9455' }} activeDot={{ r: 5 }} />}
-              {visibleLines.cv && <Line yAxisId="right" type="monotone" dataKey="cv" name="CV Cumulatif" stroke="#534AB7" strokeWidth={2} strokeDasharray="5 3" dot={{ r: 3, fill: '#534AB7' }} activeDot={{ r: 5 }} />}
-            </LineChart>
+        )}
+        {compareMode === 'graph' && (
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={Object.keys(EQUIPES).map(eq => ({ label: EQUIPES[eq].label, rdv: statsParEquipe[eq]?.rdv||0, visites: statsParEquipe[eq]?.visites||0, ventes: statsParEquipe[eq]?.ventes||0 }))}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.08)"/>
+              <XAxis dataKey="label" tick={{ fontSize: 11 }}/>
+              <YAxis tick={{ fontSize: 10 }}/>
+              <Tooltip contentStyle={{ background: '#2C2C2C', border: 'none', borderRadius: 8, color: '#fff', fontSize: 12 }}/>
+              <Bar dataKey="rdv" fill="#C9A84C" radius={[4,4,0,0]} name="RDV"/>
+              <Bar dataKey="visites" fill="#4CAF7D" radius={[4,4,0,0]} name="Visites"/>
+              <Bar dataKey="ventes" fill="#1a6b3c" radius={[4,4,0,0]} name="Ventes"/>
+            </BarChart>
           </ResponsiveContainer>
         )}
+        {compareMode === 'pct' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            {Object.keys(EQUIPES).map(eq => {
+              const s = statsParEquipe[eq] || {}
+              return (
+                <div key={eq} style={{ background: '#F8F7F4', borderRadius: 10, padding: 16 }}>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: EQUIPES[eq].color, marginBottom: 12 }}>{EQUIPES[eq].label}</div>
+                  {[['Tx Présence', s.taux_presence||0, '#534AB7'],['Tx Vente', s.taux_vente||0, '#378ADD']].map(([l,v,c]) => (
+                    <div key={l} style={{ marginBottom: 8 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                        <span style={{ fontSize: 12, color: '#5A5A5A' }}>{l}</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: c }}>{v}%</span>
+                      </div>
+                      <div style={{ height: 6, background: 'rgba(201,168,76,0.1)', borderRadius: 3, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${Math.min(v,100)}%`, background: c, borderRadius: 3 }}></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            })}
+          </div>
+        )}
+        {compareMode === 'num' && (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>{['Équipe','Responsable','RDV','Visites','Ventes','Tx Présence','Tx Vente','CV RDV'].map(h => (
+                <th key={h} style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '8px', borderBottom: '1px solid rgba(201,168,76,0.15)', textTransform: 'uppercase', fontWeight: 500 }}>{h}</th>
+              ))}</tr>
+            </thead>
+            <tbody>
+              {Object.keys(EQUIPES).map(eq => {
+                const s = statsParEquipe[eq] || {}
+                return (
+                  <tr key={eq} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                    <td style={{ padding: '10px 8px', fontSize: 13, fontWeight: 500, color: EQUIPES[eq].color }}>{EQUIPES[eq].label}</td>
+                    <td style={{ padding: '10px 8px', fontSize: 12, color: '#5A5A5A' }}>{EQUIPES[eq].responsable}</td>
+                    <td style={{ padding: '10px 8px', fontSize: 13, fontWeight: 600, color: '#C9A84C' }}>{s.rdv||0}</td>
+                    <td style={{ padding: '10px 8px', fontSize: 13, color: '#4CAF7D' }}>{s.visites||0}</td>
+                    <td style={{ padding: '10px 8px', fontSize: 13, color: '#1a6b3c' }}>{s.ventes||0}</td>
+                    <td style={{ padding: '10px 8px', fontSize: 13, color: '#534AB7' }}>{s.taux_presence||0}%</td>
+                    <td style={{ padding: '10px 8px', fontSize: 13, color: '#378ADD' }}>{s.taux_vente||0}%</td>
+                    <td style={{ padding: '10px 8px', fontSize: 13, color: s.cv>30?'#E05C5C':'#4CAF7D' }}>{s.cv||0}%</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
+      </>}
+
+      {/* Historique saisies - super_admin uniquement */}
+      {isSuperAdmin && <>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showHistorique ? 12 : 0, marginTop: 8 }}>
+        <div onClick={() => setShowHistorique(p=>!p)} style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
+          Historique des saisies
+          <span style={{ fontSize: 12, color: '#C9A84C', fontFamily: 'DM Sans' }}>{showHistorique ? '▲ Fermer' : '▼ Ouvrir'}</span>
+        </div>
+      </div>
+      {showHistorique && (
+        <div style={{ background: '#fff', borderRadius: 14, padding: 24, border: '1px solid rgba(201,168,76,0.15)' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>{['Période','Commercial','Équipe','RDV','Visites','Ventes','Actions'].map(h => (
+                  <th key={h} style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '8px 10px', borderBottom: '1px solid rgba(201,168,76,0.15)', textTransform: 'uppercase', fontWeight: 500 }}>{h}</th>
+                ))}</tr>
+              </thead>
+              <tbody>
+                {[...fluxData].filter(f => ['periode','non_reconnue'].includes(f.type_saisie)).sort((a,b)=>(b.date_debut||'').localeCompare(a.date_debut||'')).slice(0,100).map(f => {
+                  const comm = commerciaux.find(c=>c.id===f.commercial_id)
+                  const periode = f.date_debut && f.date_fin && f.date_debut !== f.date_fin
+                    ? `${f.date_debut.substring(8)}/${f.date_debut.substring(5,7)} → ${f.date_fin.substring(8)}/${f.date_fin.substring(5,7)}`
+                    : (f.date_debut || f.date_fin || '—')
+                  const eq = comm ? EQUIPES[comm.equipe] : null
+                  return (
+                    <tr key={f.id} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                      <td style={{ padding: '9px 10px', fontSize: 12, fontWeight: 500, color: '#C9A84C' }}>{periode}</td>
+                      <td style={{ padding: '9px 10px', fontSize: 12, fontWeight: 500 }}>{comm?.nom || '—'}</td>
+                      <td style={{ padding: '9px 10px' }}>{eq && <span style={{ padding: '2px 8px', borderRadius: 8, fontSize: 11, background: `${eq.color}15`, color: eq.color }}>{eq.label}</span>}</td>
+                      <td style={{ padding: '9px 10px', fontSize: 12, color: '#C9A84C', fontWeight: 500 }}>{f.rdv}</td>
+                      <td style={{ padding: '9px 10px', fontSize: 12, color: '#4CAF7D' }}>{f.visites}</td>
+                      <td style={{ padding: '9px 10px', fontSize: 12, color: '#1a6b3c' }}>{f.ventes}</td>
+                      <td style={{ padding: '9px 10px' }}>
+                        <button onClick={async () => {
+  if(!window.confirm('Supprimer ?')) return
+  // Recuperer la ligne avant suppression pour savoir conseillere + periode
+  const ligne = fluxData.find(x => x.id === f.id)
+  await supabase.from('flux_rdv').delete().eq('id', f.id)
+  // Recalculer et sync vers CC
+  if (ligne) {
+    const { data: remaining } = await supabase.from('flux_rdv')
+      .select('rdv, visites, ventes')
+      .eq('conseillere_id', ligne.conseillere_id)
+      .eq('date_debut', ligne.date_debut)
+    const totBruts = (remaining || []).reduce((acc, x) => ({
+      rdv: acc.rdv + parseFloat(x.rdv||0),
+      visites: acc.visites + parseFloat(x.visites||0),
+      ventes: acc.ventes + parseFloat(x.ventes||0),
+    }), { rdv:0, visites:0, ventes:0 })
+    const t = calcTotaux(totBruts)
+    const { data: existSaisie } = await supabase.from('saisies')
+      .select('id').eq('conseillere_id', ligne.conseillere_id)
+      .gte('date_debut', ligne.date_debut)
+      .lte('date_debut', ligne.date_fin || ligne.date_debut)
+      .order('date_debut', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (existSaisie) {
+      await supabase.from('saisies').update({
+        rdv: Math.round(t.rdv), visites: Math.round(t.visites), ventes: Math.round(t.ventes)
+      }).eq('id', existSaisie.id)
+    }
+  }
+  loadData()
+}} style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(224,92,92,0.3)', color: '#E05C5C', background: 'transparent', fontSize: 11, cursor: 'pointer' }}>Suppr.</button>
+                      </td>
+                    </tr>
+                  )
+                })}
+                {fluxData.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: '32px', color: '#5A5A5A', fontSize: 13 }}>Aucune saisie</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      </>}
     </div>
   )
 }
