@@ -27,7 +27,9 @@ function getTrendArrow(chartDataConseillere) {
     ? { dir: '↑', color: '#2E9455' }
     : { dir: '↓', color: '#E05C5C' }
 }
-  return Math.round((visites || 0) * TARIFS.visite + (ventes || 0) * TARIFS.vente)
+
+function calcPrime(visites, ventes) {
+  return Math.round((visites || 0) * 15 + (ventes || 0) * 300)
 }
 
 function formatDh(val) {
