@@ -1031,15 +1031,13 @@ export default function FluxRDV({ conseilleres }) {
 
       {/* Alerte visites non reconnues */}
       {totalNR > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderRadius: 10, background: 'rgba(224,92,92,0.08)', border: '1.5px solid rgba(224,92,92,0.3)', marginBottom: 16 }}>
-          <span style={{ fontSize: 20 }}>❗</span>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#E05C5C' }}>Visites non reconnues détectées</div>
-            <div style={{ fontSize: 11, color: '#5A5A5A', marginTop: 2 }}>
-              {totalNR} visite(s) sans commercial identifié —{' '}
-              {Object.entries(nrParEquipe).filter(([,v])=>v>0).map(([eq,v]) => `${EQUIPES[eq].label}: ${v}`).join(' · ')}
-              {' '}· Vérifier les saisies passagers correspondantes
-            </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderRadius: 10, background: 'rgba(224,123,48,0.08)', border: '1.5px solid rgba(224,123,48,0.3)', marginBottom: 16 }}>
+          <span style={{ fontSize: 18 }}>⚠️</span>
+          <div style={{ fontSize: 12, color: '#E07B30' }}>
+            <strong>{totalNR} visite(s) sans commercial identifié</strong>
+            {' — '}
+            {Object.entries(nrParEquipe).filter(([,v])=>v>0).map(([eq,v]) => `${EQUIPES[eq].label}: ${v}`).join(' · ')}
+            {' · Manque de saisie des passagers'}
           </div>
         </div>
       )}
@@ -1105,6 +1103,13 @@ export default function FluxRDV({ conseilleres }) {
                   })()}
               </div>
             </div>
+            {totalNR > 0 && (
+              <div style={{ padding: '7px 18px', background: 'rgba(224,123,48,0.07)', borderBottom: '1px solid rgba(224,123,48,0.15)', fontSize: 11, color: '#E07B30' }}>
+                ⚠️ <strong>{totalNR} visite(s) sans commercial identifié</strong>
+                {' — '}{Object.entries(nrParEquipe).filter(([,v])=>v>0).map(([eq,v]) => `${EQUIPES[eq].label}: ${v}`).join(' · ')}
+                {' · Manque de saisie des passagers'}
+              </div>
+            )}
             <div>
               {/* Lignes Non Reconnus en rouge gras EN HAUT */}
               {commerciaux.filter(c => c.nom.includes('Non reconnu')).map(c => {
@@ -1170,6 +1175,12 @@ export default function FluxRDV({ conseilleres }) {
                   <div style={{ fontSize: singleEquipe ? 28 : 22, fontWeight: 700, color: EQUIPES[eq].color }}>{getKpiValFromTotaux(stats, kpi)}{selectedKpi?.unit}</div>
                 </div>
               </div>
+              {/* Alerte NR par équipe */}
+              {nrParEquipe[eq] > 0 && (
+                <div style={{ padding: '7px 14px', background: 'rgba(224,123,48,0.07)', borderBottom: '1px solid rgba(224,123,48,0.15)', fontSize: 11, color: '#E07B30' }}>
+                  ⚠️ <strong>{nrParEquipe[eq]} visite(s) sans commercial identifié</strong> · Manque de saisie des passagers
+                </div>
+              )}
               {/* Lignes commerciaux */}
               <div>
                 {ranking.map((c, i) => {
