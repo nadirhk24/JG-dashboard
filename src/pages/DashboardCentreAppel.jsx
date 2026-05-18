@@ -127,6 +127,10 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
   const [showDetail, setShowDetail] = useState(false)
   const [chartType, setChartType] = useState('bar')
   const [saisieMode, setSaisieMode] = useState('jour')
+  const [ccView, setCcView] = useState('global') // 'global' | 'details'
+  const [fluxDetails, setFluxDetails] = useState([])
+  const [commerciaux, setCommerciaux] = useState([])
+  const [loadingDetails, setLoadingDetails] = useState(false)
   const today = new Date().toISOString().split('T')[0]
   const [form, setForm] = useState({ conseillere_id: '', date: today, date_debut: '', date_fin: '', leads_bruts: '', indispos: '', non_exploitables: '', echanges: '', rdv: '', visites: '', ventes: '' })
 
@@ -134,6 +138,22 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
     loadObjectifsPeriode()
     localStorage.setItem('jg_selected_cc', JSON.stringify(selected))
   }, [selected])
+
+  // Charger flux_rdv + commerciaux pour la vue détails
+  useEffect(() => {
+    if (ccView !== 'details') return
+    async function loadDetails() {
+      setLoadingDetails(true)
+      const [{ data: comms }, { data: flux }] = await Promise.all([
+        supabase.from('commerciaux').select('id, nom, equipe').eq('actif', true).order('equipe').order('nom'),
+        supabase.from('flux_rdv').select('conseillere_id, commercial_id, date_debut, visites, ventes, type_saisie').order('date_debut'),
+      ])
+      setCommerciaux(comms || [])
+      setFluxDetails(flux || [])
+      setLoadingDetails(false)
+    }
+    loadDetails()
+  }, [ccView])
 
   // Pour une conseillère : bloquer le filtre sur son propre ID
   useEffect(() => {
@@ -538,6 +558,14 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
       )}
 
       <PageHeader title="Call Center" subtitle={selected.label}>
+        {/* Toggle Global / Détails */}
+        {isSuperAdmin && (
+          <div style={{ display: 'flex', gap: 4, background: '#F8F7F4', borderRadius: 20, padding: 3, border: '1px solid rgba(201,168,76,0.2)' }}>
+            {[['global','Global CC'],['details','Détails CC']].map(([k,l]) => (
+              <button key={k} onClick={() => setCcView(k)} style={{ padding: '5px 14px', borderRadius: 16, border: 'none', background: ccView===k?'#C9A84C':'transparent', color: ccView===k?'#fff':'#5A5A5A', fontSize: 12, fontWeight: ccView===k?500:400, cursor: 'pointer', transition: 'all 0.15s' }}>{l}</button>
+            ))}
+          </div>
+        )}
         {isConseillere ? (
           <div style={{ padding: '6px 16px', borderRadius: 20, background: 'rgba(201,168,76,0.1)', border: '1.5px solid rgba(201,168,76,0.3)', fontSize: 13, fontWeight: 500, color: '#C9A84C' }}>
             {conseilleres.find(c => c.id === myConseillereId)?.nom || ''}
@@ -937,6 +965,132 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
           </table>
         </div>
       </div>}
+      {/* ── VUE DÉTAILS CC ── */}
+      {isSuperAdmin && ccView === 'details' && (() => {
+        if (loadingDetails) return <div style={{ padding: 32, textAlign: 'center', color: '#8A8A7A' }}>Chargement détails...</div>
+
+        // Filtrer flux par période sélectionnée
+        const fluxFiltres = filterBySelected(fluxDetails, selected, 'date_debut')
+
+        // Totaux visites par conseillère × commercial
+        const totaux = {} // { conseillere_id: { commercial_id: visites } }
+        fluxFiltres.forEach(f => {
+          if (!f.conseillere_id) return
+          const isPeriode = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
+          const vis = parseFloat(f.visites || 0)
+          const ven = parseFloat(f.ventes  || 0)
+          const visTotal = isPeriode ? vis : vis + ven
+          const commKey = f.commercial_id || '__nr__'
+          if (!totaux[f.conseillere_id]) totaux[f.conseillere_id] = {}
+          totaux[f.conseillere_id][commKey] = (totaux[f.conseillere_id][commKey] || 0) + visTotal
+        })
+
+        // NR par équipe par conseillère
+        const nrTotaux = {} // { conseillere_id: { sale: n, kenitra: n } }
+        fluxFiltres.filter(f => !f.commercial_id).forEach(f => {
+          if (!f.conseillere_id) return
+          const isPeriode = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
+          const vis = parseFloat(f.visites || 0)
+          const ven = parseFloat(f.ventes  || 0)
+          const visTotal = isPeriode ? vis : vis + ven
+          // Déterminer la région via commerciaux fictifs NR
+          const commNR = commerciaux.find(c => c.id === f.commercial_id)
+          const eq = commNR?.equipe || 'sale'
+          if (!nrTotaux[f.conseillere_id]) nrTotaux[f.conseillere_id] = { sale: 0, kenitra: 0 }
+          nrTotaux[f.conseillere_id][eq] = (nrTotaux[f.conseillere_id][eq] || 0) + visTotal
+        })
+
+        const commsSale    = commerciaux.filter(c => c.equipe === 'sale'    && !c.nom.includes('Non reconnu'))
+        const commsKenitra = commerciaux.filter(c => c.equipe === 'kenitra' && !c.nom.includes('Non reconnu'))
+
+        return (
+          <div style={{ overflowX: 'auto', marginTop: 8 }}>
+            <table style={{ borderCollapse: 'collapse', minWidth: '100%', fontSize: 12 }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, color: '#8A8A7A', fontWeight: 500, textTransform: 'uppercase', borderBottom: '2px solid rgba(201,168,76,0.2)', background: '#F8F7F4', position: 'sticky', left: 0, minWidth: 160 }}>Commercial</th>
+                  {conseilleresFiltrees.map(c => (
+                    <th key={c.id} style={{ padding: '10px 12px', textAlign: 'center', fontSize: 11, color: '#C9A84C', fontWeight: 600, borderBottom: '2px solid rgba(201,168,76,0.2)', background: '#F8F7F4', minWidth: 110, whiteSpace: 'nowrap' }}>
+                      {c.nom.split(' ')[0]}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {/* Équipe Sale header */}
+                <tr>
+                  <td colSpan={conseilleresFiltrees.length + 1} style={{ padding: '8px 12px', background: 'rgba(201,168,76,0.08)', fontSize: 11, fontWeight: 700, color: '#C9A84C', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    Équipe Sale
+                  </td>
+                </tr>
+                {commsSale.map(comm => (
+                  <tr key={comm.id} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                    <td style={{ padding: '8px 12px', fontWeight: 500, color: '#2C2C2C', borderBottom: '1px solid rgba(201,168,76,0.06)', position: 'sticky', left: 0, background: 'inherit' }}>{comm.nom}</td>
+                    {conseilleresFiltrees.map(c => {
+                      const val = Math.round(totaux[c.id]?.[comm.id] || 0)
+                      return (
+                        <td key={c.id} style={{ padding: '8px 12px', textAlign: 'center', borderBottom: '1px solid rgba(201,168,76,0.06)', color: val > 0 ? '#C9A84C' : '#D5D2CA', fontWeight: val > 0 ? 600 : 400 }}>
+                          {val > 0 ? val : '—'}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))}
+                {/* NR Sale */}
+                <tr style={{ background: 'rgba(224,92,92,0.03)' }} onMouseEnter={e=>e.currentTarget.style.background='rgba(224,92,92,0.07)'} onMouseLeave={e=>e.currentTarget.style.background='rgba(224,92,92,0.03)'}>
+                  <td style={{ padding: '8px 12px', fontWeight: 700, color: '#E05C5C', borderBottom: '1px solid rgba(201,168,76,0.06)', fontStyle: 'italic', position: 'sticky', left: 0, background: 'inherit' }}>⚠️ Non reconnu Sale</td>
+                  {conseilleresFiltrees.map(c => {
+                    const val = Math.round(nrTotaux[c.id]?.sale || 0)
+                    return <td key={c.id} style={{ padding: '8px 12px', textAlign: 'center', borderBottom: '1px solid rgba(201,168,76,0.06)', color: val > 0 ? '#E05C5C' : '#D5D2CA', fontWeight: val > 0 ? 700 : 400 }}>{val > 0 ? val : '—'}</td>
+                  })}
+                </tr>
+
+                {/* Équipe Kenitra header */}
+                <tr>
+                  <td colSpan={conseilleresFiltrees.length + 1} style={{ padding: '8px 12px', background: 'rgba(83,74,183,0.08)', fontSize: 11, fontWeight: 700, color: '#534AB7', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    Équipe Kenitra
+                  </td>
+                </tr>
+                {commsKenitra.map(comm => (
+                  <tr key={comm.id} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                    <td style={{ padding: '8px 12px', fontWeight: 500, color: '#2C2C2C', borderBottom: '1px solid rgba(201,168,76,0.06)', position: 'sticky', left: 0, background: 'inherit' }}>{comm.nom}</td>
+                    {conseilleresFiltrees.map(c => {
+                      const val = Math.round(totaux[c.id]?.[comm.id] || 0)
+                      return (
+                        <td key={c.id} style={{ padding: '8px 12px', textAlign: 'center', borderBottom: '1px solid rgba(201,168,76,0.06)', color: val > 0 ? '#534AB7' : '#D5D2CA', fontWeight: val > 0 ? 600 : 400 }}>
+                          {val > 0 ? val : '—'}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))}
+                {/* NR Kenitra */}
+                <tr style={{ background: 'rgba(224,92,92,0.03)' }} onMouseEnter={e=>e.currentTarget.style.background='rgba(224,92,92,0.07)'} onMouseLeave={e=>e.currentTarget.style.background='rgba(224,92,92,0.03)'}>
+                  <td style={{ padding: '8px 12px', fontWeight: 700, color: '#E05C5C', borderBottom: '1px solid rgba(201,168,76,0.06)', fontStyle: 'italic', position: 'sticky', left: 0, background: 'inherit' }}>⚠️ Non reconnu Kenitra</td>
+                  {conseilleresFiltrees.map(c => {
+                    const val = Math.round(nrTotaux[c.id]?.kenitra || 0)
+                    return <td key={c.id} style={{ padding: '8px 12px', textAlign: 'center', borderBottom: '1px solid rgba(201,168,76,0.06)', color: val > 0 ? '#E05C5C' : '#D5D2CA', fontWeight: val > 0 ? 700 : 400 }}>{val > 0 ? val : '—'}</td>
+                  })}
+                </tr>
+
+                {/* Total */}
+                <tr style={{ background: 'rgba(201,168,76,0.06)', borderTop: '2px solid rgba(201,168,76,0.2)' }}>
+                  <td style={{ padding: '10px 12px', fontWeight: 700, color: '#C9A84C', position: 'sticky', left: 0, background: 'rgba(201,168,76,0.06)' }}>TOTAL VISITES</td>
+                  {conseilleresFiltrees.map(c => {
+                    const total = Math.round(
+                      Object.values(totaux[c.id] || {}).reduce((s,v) => s+v, 0) +
+                      (nrTotaux[c.id]?.sale || 0) +
+                      (nrTotaux[c.id]?.kenitra || 0)
+                    )
+                    return <td key={c.id} style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 700, fontSize: 14, color: '#C9A84C' }}>{total}</td>
+                  })}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )
+      })()}
+
     </div>
   )
 }
