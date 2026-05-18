@@ -17,7 +17,7 @@ export default function DrillNav({ data, onSelect, selected, dateField = 'date' 
     data.forEach(s => {
       const dateVal = s[dateField] || s.date || s.date_debut
       if (!dateVal) return
-      const d = new Date(dateVal)
+      const d = new Date((String(dateVal).substring(0, 10)) + 'T12:00:00')
       const y = d.getFullYear(), m = d.getMonth(), q = getQuarter(m)
       if (!ys[y]) ys[y] = {}
       if (!ys[y][q]) ys[y][q] = new Set()

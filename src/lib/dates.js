@@ -80,7 +80,7 @@ export function groupByDay(saisies) {
 export function groupByWeek(saisies) {
   const groups = {}
   saisies.forEach(s => {
-    const date = parseISO(s.date_debut || s.date)
+    const date = parseISO((s.date_debut || s.date).substring(0,10) + 'T12:00:00')
     const weekStart = startOfWeek(date, { weekStartsOn: 1 })
     const key = format(weekStart, 'yyyy-MM-dd')
     if (!groups[key]) groups[key] = []
@@ -102,7 +102,7 @@ export function groupByMonth(saisies) {
 export function groupByQuarter(saisies) {
   const groups = {}
   saisies.forEach(s => {
-    const date = parseISO(s.date_debut || s.date)
+    const date = parseISO((s.date_debut || s.date).substring(0,10) + 'T12:00:00')
     const q = Math.floor(date.getMonth() / 3) + 1
     const key = `${date.getFullYear()}-Q${q}`
     if (!groups[key]) groups[key] = []
