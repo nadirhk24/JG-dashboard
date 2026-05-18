@@ -25,7 +25,7 @@ const NAV_STRUCTURE = [
     items: [
       { path: '/perf-commercial', label: 'Perf. Commerciale',     permKey: 'perf_commercial' },
       { path: '/flux-rdv',     label: 'Flux RDV',               permKey: 'flux_rdv' },
-      { path: '/passagers',    label: '🚶 Passagers',            permKey: 'passagers' },
+      { path: '/passagers',    label: 'Passagers',               permKey: 'passagers' },
       { path: '/centre-appel', label: 'Call Center',             permKey: 'centre_appel' },
       { path: '/marketing',    label: 'Performance Marketing',   permKey: 'marketing' },
       { path: '/analyse-cv',   label: 'Analyse Capabilité',      permKey: 'analyse_cv' },
