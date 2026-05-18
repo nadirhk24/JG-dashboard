@@ -1070,149 +1070,88 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
           return Math.ceil((calc.rdvTotal / totalParts) * part)
         }
 
-        // ── Rendu tableau ──
-        const thStyle = { padding: '10px 12px', textAlign: 'center', fontSize: 11, fontWeight: 600, borderBottom: '2px solid rgba(201,168,76,0.2)', background: '#F8F7F4', minWidth: 120, whiteSpace: 'nowrap' }
-
-        function renderCell(val, rdvNecessaires, equipeColor) {
-          const hasRdv = rdvNecessaires !== null
+        // ── Fonction rendu liste commerciaux dans une carte ──
+        function renderEquipeInCard(comms, equipe, consId, equipeColor) {
+          const nrVal = Math.round(nrTotaux[consId]?.[equipe] || 0)
           return (
-            <td style={{ padding: '6px 10px', textAlign: 'center', borderBottom: '1px solid rgba(201,168,76,0.06)', verticalAlign: 'top' }}>
-              <div style={{ fontWeight: 600, color: val > 0 ? equipeColor : '#8A8A7A', fontSize: 13 }}>{val}</div>
-              {hasRdv && (
-                <div style={{ fontSize: 10, color: '#E07B30', marginTop: 2, lineHeight: 1.3 }}>
-                  📅 Fixer {rdvNecessaires} RDV
+            <div style={{ marginBottom: 8 }}>
+              {/* Header équipe */}
+              <div style={{ fontSize: 10, fontWeight: 700, color: equipeColor, textTransform: 'uppercase', letterSpacing: 0.5, padding: '5px 0 4px', borderBottom: `1px solid ${equipeColor}20`, marginBottom: 4 }}>
+                {equipe === 'sale' ? 'Équipe Sale' : 'Équipe Kenitra'}
+              </div>
+              {/* Commerciaux */}
+              {comms.map(comm => {
+                const val = Math.round(totaux[consId]?.[comm.id] || 0)
+                const rdvNec = calc => calc ? getRdvPourConseillere(comm.id, equipe, conseilleresFiltrees.find(c => c.id === consId)) : null
+                const calcResult = calcRdvNecessaires(comm.id, equipe)
+                const rdv = calcResult ? getRdvPourConseillere(comm.id, equipe, conseilleresFiltrees.find(c => c.id === consId)) : null
+                return (
+                  <div key={comm.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '4px 0', borderBottom: '1px solid rgba(201,168,76,0.05)' }}>
+                    <div style={{ fontSize: 11, color: '#2C2C2C', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{comm.nom}</div>
+                    <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 6 }}>
+                      <div style={{ fontWeight: 700, color: val > 0 ? equipeColor : '#8A8A7A', fontSize: 12 }}>{val}</div>
+                      {rdv !== null && <div style={{ fontSize: 9, color: '#E07B30' }}>📅 {rdv} RDV</div>}
+                    </div>
+                  </div>
+                )
+              })}
+              {/* NR */}
+              {nrVal > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderTop: '1px dashed rgba(224,92,92,0.2)', marginTop: 2 }}>
+                  <div style={{ fontSize: 10, color: '#E05C5C', fontStyle: 'italic' }}>⚠️ Non reconnu</div>
+                  <div style={{ fontWeight: 700, color: '#E05C5C', fontSize: 11 }}>{nrVal}</div>
                 </div>
               )}
-            </td>
+            </div>
           )
         }
 
         return (
           <div style={{ marginTop: 8 }}>
             {/* ── Saisie seuils ── */}
-            <div style={{ background: '#fff', borderRadius: 12, padding: '16px 20px', border: '1px solid rgba(201,168,76,0.2)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
+            <div style={{ background: '#fff', borderRadius: 12, padding: '14px 18px', border: '1px solid rgba(201,168,76,0.2)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: '#2C2C2C' }}>Seuil visites/mois</div>
               {['sale', 'kenitra'].map(eq => (
                 <div key={eq} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 12, color: eq === 'sale' ? '#C9A84C' : '#534AB7', fontWeight: 500 }}>{eq === 'sale' ? 'Équipe Sale' : 'Équipe Kenitra'}</span>
+                  <span style={{ fontSize: 12, color: eq === 'sale' ? '#C9A84C' : '#534AB7', fontWeight: 500 }}>{eq === 'sale' ? 'Sale' : 'Kenitra'}</span>
                   <input type="number" min="0" value={seuilVisites[eq] || ''}
                     onChange={e => setSeuilVisites(p => ({ ...p, [eq]: parseInt(e.target.value) || 0 }))}
                     placeholder="ex: 20"
-                    style={{ width: 70, padding: '5px 8px', border: `1.5px solid ${eq === 'sale' ? 'rgba(201,168,76,0.3)' : 'rgba(83,74,183,0.3)'}`, borderRadius: 6, fontSize: 12, textAlign: 'center', outline: 'none' }} />
-                  <span style={{ fontSize: 11, color: '#8A8A7A' }}>vis. · Taux présence : <strong style={{ color: eq === 'sale' ? '#C9A84C' : '#534AB7' }}>{Math.round(tauxPresence[eq]*100)}%</strong> → <strong>{rdvParVisite[eq]} RDV/visite</strong></span>
+                    style={{ width: 60, padding: '4px 8px', border: `1.5px solid ${eq === 'sale' ? 'rgba(201,168,76,0.3)' : 'rgba(83,74,183,0.3)'}`, borderRadius: 6, fontSize: 12, textAlign: 'center', outline: 'none' }} />
+                  <span style={{ fontSize: 11, color: '#8A8A7A' }}>vis. · <strong style={{ color: eq === 'sale' ? '#C9A84C' : '#534AB7' }}>{Math.round(tauxPresence[eq]*100)}%</strong> présence → <strong>{rdvParVisite[eq]} RDV/vis.</strong></span>
                 </div>
               ))}
-              <div style={{ fontSize: 11, color: '#8A8A7A', marginLeft: 'auto', fontStyle: 'italic' }}>
-                Hala + Siham partagent 1 objectif (0.5 part chacune) · 4 autres conseillères = 1 part
+              <div style={{ fontSize: 10, color: '#8A8A7A', marginLeft: 'auto', fontStyle: 'italic' }}>
+                Hala + Siham = ½ objectif · 4 autres = 1 objectif
               </div>
             </div>
 
-            {/* ── Tableau ── */}
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ borderCollapse: 'collapse', minWidth: '100%', fontSize: 12 }}>
-                <thead>
-                  <tr>
-                    <th style={{ ...thStyle, textAlign: 'left', position: 'sticky', left: 0, minWidth: 170, color: '#8A8A7A', fontWeight: 500, textTransform: 'uppercase' }}>Commercial</th>
-                    <th style={{ ...thStyle, color: '#8A8A7A', fontWeight: 500, minWidth: 80 }}>Total vis.</th>
-                    {conseilleresFiltrees.map(c => (
-                      <th key={c.id} style={{ ...thStyle, color: '#C9A84C' }}>
-                        {c.nom.split(' ')[0]}
-                        {(c.nom.toUpperCase().includes('HALA') || c.nom.toUpperCase().includes('SIHAM')) &&
-                          <div style={{ fontSize: 9, color: '#8A8A7A', fontWeight: 400 }}>½ obj.</div>}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {/* ── SALE ── */}
-                  <tr>
-                    <td colSpan={conseilleresFiltrees.length + 2} style={{ padding: '8px 12px', background: 'rgba(201,168,76,0.08)', fontSize: 11, fontWeight: 700, color: '#C9A84C', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                      Équipe Sale · Taux présence {Math.round(tauxPresence.sale*100)}% · {rdvParVisite.sale} RDV nécessaires par visite manquante
-                    </td>
-                  </tr>
-                  {commsSale.map(comm => {
-                    const visTotal = Math.round(visParComm[comm.id] || 0)
-                    const calc     = calcRdvNecessaires(comm.id, 'sale')
-                    return (
-                      <tr key={comm.id} style={{ background: calc ? 'rgba(224,123,48,0.03)' : 'transparent' }}
-                        onMouseEnter={e=>e.currentTarget.style.background=calc?'rgba(224,123,48,0.08)':'#F7F0DC'}
-                        onMouseLeave={e=>e.currentTarget.style.background=calc?'rgba(224,123,48,0.03)':'transparent'}>
-                        <td style={{ padding: '8px 12px', fontWeight: 500, color: '#2C2C2C', borderBottom: '1px solid rgba(201,168,76,0.06)', position: 'sticky', left: 0, background: 'inherit' }}>
-                          {comm.nom}
-                          {calc && <div style={{ fontSize: 10, color: '#E07B30', marginTop: 1 }}>⚠ {visTotal} vis. / {seuilVisites.sale} requis → {calc.rdvTotal} RDV total</div>}
-                        </td>
-                        <td style={{ padding: '8px 12px', textAlign: 'center', borderBottom: '1px solid rgba(201,168,76,0.06)', fontWeight: 700, color: calc ? '#E07B30' : '#C9A84C' }}>{visTotal}</td>
-                        {conseilleresFiltrees.map(c => {
-                          const val = Math.round(totaux[c.id]?.[comm.id] || 0)
-                          const rdvNec = calc ? getRdvPourConseillere(comm.id, 'sale', c) : null
-                          return renderCell(val, rdvNec, '#C9A84C')
-                        })}
-                      </tr>
-                    )
-                  })}
-                  {/* NR Sale */}
-                  <tr style={{ background: 'rgba(224,92,92,0.03)' }}>
-                    <td style={{ padding: '8px 12px', fontWeight: 700, color: '#E05C5C', borderBottom: '1px solid rgba(201,168,76,0.06)', fontStyle: 'italic', position: 'sticky', left: 0, background: 'inherit' }}>⚠️ Non reconnu Sale</td>
-                    <td style={{ padding: '8px 12px', textAlign: 'center', borderBottom: '1px solid rgba(201,168,76,0.06)', fontWeight: 700, color: '#E05C5C' }}>
-                      {Math.round(Object.values(nrTotaux).reduce((s,v) => s + (v.sale||0), 0))}
-                    </td>
-                    {conseilleresFiltrees.map(c => {
-                      const val = Math.round(nrTotaux[c.id]?.sale || 0)
-                      return <td key={c.id} style={{ padding: '8px 12px', textAlign: 'center', borderBottom: '1px solid rgba(201,168,76,0.06)', color: val > 0 ? '#E05C5C' : '#8A8A7A', fontWeight: val > 0 ? 700 : 400 }}>{val}</td>
-                    })}
-                  </tr>
-
-                  {/* ── KENITRA ── */}
-                  <tr>
-                    <td colSpan={conseilleresFiltrees.length + 2} style={{ padding: '8px 12px', background: 'rgba(83,74,183,0.08)', fontSize: 11, fontWeight: 700, color: '#534AB7', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                      Équipe Kenitra · Taux présence {Math.round(tauxPresence.kenitra*100)}% · {rdvParVisite.kenitra} RDV nécessaires par visite manquante
-                    </td>
-                  </tr>
-                  {commsKenitra.map(comm => {
-                    const visTotal = Math.round(visParComm[comm.id] || 0)
-                    const calc     = calcRdvNecessaires(comm.id, 'kenitra')
-                    return (
-                      <tr key={comm.id} style={{ background: calc ? 'rgba(224,123,48,0.03)' : 'transparent' }}
-                        onMouseEnter={e=>e.currentTarget.style.background=calc?'rgba(224,123,48,0.08)':'#F7F0DC'}
-                        onMouseLeave={e=>e.currentTarget.style.background=calc?'rgba(224,123,48,0.03)':'transparent'}>
-                        <td style={{ padding: '8px 12px', fontWeight: 500, color: '#2C2C2C', borderBottom: '1px solid rgba(83,74,183,0.06)', position: 'sticky', left: 0, background: 'inherit' }}>
-                          {comm.nom}
-                          {calc && <div style={{ fontSize: 10, color: '#E07B30', marginTop: 1 }}>⚠ {visTotal} vis. / {seuilVisites.kenitra} requis → {calc.rdvTotal} RDV total</div>}
-                        </td>
-                        <td style={{ padding: '8px 12px', textAlign: 'center', borderBottom: '1px solid rgba(83,74,183,0.06)', fontWeight: 700, color: calc ? '#E07B30' : '#534AB7' }}>{visTotal}</td>
-                        {conseilleresFiltrees.map(c => {
-                          const val = Math.round(totaux[c.id]?.[comm.id] || 0)
-                          const rdvNec = calc ? getRdvPourConseillere(comm.id, 'kenitra', c) : null
-                          return renderCell(val, rdvNec, '#534AB7')
-                        })}
-                      </tr>
-                    )
-                  })}
-                  {/* NR Kenitra */}
-                  <tr style={{ background: 'rgba(224,92,92,0.03)' }}>
-                    <td style={{ padding: '8px 12px', fontWeight: 700, color: '#E05C5C', borderBottom: '1px solid rgba(83,74,183,0.06)', fontStyle: 'italic', position: 'sticky', left: 0, background: 'inherit' }}>⚠️ Non reconnu Kenitra</td>
-                    <td style={{ padding: '8px 12px', textAlign: 'center', borderBottom: '1px solid rgba(83,74,183,0.06)', fontWeight: 700, color: '#E05C5C' }}>
-                      {Math.round(Object.values(nrTotaux).reduce((s,v) => s + (v.kenitra||0), 0))}
-                    </td>
-                    {conseilleresFiltrees.map(c => {
-                      const val = Math.round(nrTotaux[c.id]?.kenitra || 0)
-                      return <td key={c.id} style={{ padding: '8px 12px', textAlign: 'center', borderBottom: '1px solid rgba(83,74,183,0.06)', color: val > 0 ? '#E05C5C' : '#8A8A7A', fontWeight: val > 0 ? 700 : 400 }}>{val}</td>
-                    })}
-                  </tr>
-
-                  {/* Total */}
-                  <tr style={{ background: 'rgba(201,168,76,0.06)', borderTop: '2px solid rgba(201,168,76,0.2)' }}>
-                    <td style={{ padding: '10px 12px', fontWeight: 700, color: '#C9A84C', position: 'sticky', left: 0, background: 'rgba(201,168,76,0.06)' }}>TOTAL VISITES</td>
-                    <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 700, fontSize: 14, color: '#C9A84C' }}>
-                      {Math.round(Object.values(visParComm).reduce((s,v) => s+v, 0))}
-                    </td>
-                    {conseilleresFiltrees.map(c => {
-                      const total = Math.round(Object.values(totaux[c.id] || {}).reduce((s,v) => s+v, 0))
-                      return <td key={c.id} style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 700, fontSize: 14, color: '#C9A84C' }}>{total}</td>
-                    })}
-                  </tr>
-                </tbody>
-              </table>
+            {/* ── 6 cartes conseillères ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+              {conseilleresFiltrees.map(cons => {
+                const isHalaOrSiham = cons.nom.toUpperCase().includes('HALA') || cons.nom.toUpperCase().includes('SIHAM')
+                const totalVis = Math.round(Object.values(totaux[cons.id] || {}).reduce((s,v) => s+v, 0) + (nrTotaux[cons.id]?.sale||0) + (nrTotaux[cons.id]?.kenitra||0))
+                return (
+                  <div key={cons.id} style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(201,168,76,0.15)', borderTop: '3px solid #C9A84C', padding: '14px 16px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                    {/* Header conseillère */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid rgba(201,168,76,0.1)' }}>
+                      <div>
+                        <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 15, fontWeight: 600, color: '#C9A84C' }}>{cons.nom.split(' ')[0]}</div>
+                        <div style={{ fontSize: 10, color: '#8A8A7A', marginTop: 1 }}>{cons.nom}</div>
+                        {isHalaOrSiham && <div style={{ fontSize: 9, color: '#534AB7', marginTop: 2 }}>½ objectif partagé</div>}
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: 20, fontWeight: 700, color: '#C9A84C' }}>{totalVis}</div>
+                        <div style={{ fontSize: 9, color: '#8A8A7A' }}>Total visites</div>
+                      </div>
+                    </div>
+                    {/* Équipe Sale */}
+                    {renderEquipeInCard(commsSale, 'sale', cons.id, '#C9A84C')}
+                    {/* Équipe Kenitra */}
+                    {renderEquipeInCard(commsKenitra, 'kenitra', cons.id, '#534AB7')}
+                  </div>
+                )
+              })}
             </div>
           </div>
         )
