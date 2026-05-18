@@ -1094,13 +1094,23 @@ export default function FluxRDV({ conseilleres }) {
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 10, color: '#5A5A5A', textTransform: 'uppercase' }}>Total {selectedKpi?.label}</div>
                 {(() => {
-                    // Inclure les Non reconnu dans le total global
-                    const nonReconnuTotal = commerciaux
-                      .filter(c => c.nom.includes('Non reconnu'))
-                      .reduce((s,c) => s + getKpiVal(fluxParCommercial[c.id] || {rdv:0,visites:0,ventes:0}, kpi), 0)
-                    const rankingTotal = allRanking.reduce((s,c)=>s+c.val,0)
-                    return <div style={{ fontSize: 22, fontWeight: 700, color: '#C9A84C' }}>{Math.round(rankingTotal + nonReconnuTotal)}{selectedKpi?.unit}</div>
-                  })()}
+                  const isRate = selectedKpi?.isRate
+                  if (isRate) {
+                    // Recalculer depuis les totaux bruts (pas additionner les taux)
+                    const totRdv = allRanking.reduce((s,c) => s + (fluxParCommercial[c.id]?.rdv||0), 0)
+                    const totVis = allRanking.reduce((s,c) => s + (fluxParCommercial[c.id]?.visites||0), 0)
+                    const totVen = allRanking.reduce((s,c) => s + (fluxParCommercial[c.id]?.ventes||0), 0)
+                    const val = kpi === 'taux_presence'
+                      ? (totRdv > 0 ? parseFloat(((totVis/totRdv)*100).toFixed(1)) : 0)
+                      : (totVis > 0 ? parseFloat(((totVen/totVis)*100).toFixed(1)) : 0)
+                    return <div style={{ fontSize: 22, fontWeight: 700, color: '#C9A84C' }}>{val}%</div>
+                  }
+                  const nonReconnuTotal = commerciaux
+                    .filter(c => c.nom.includes('Non reconnu'))
+                    .reduce((s,c) => s + getKpiVal(fluxParCommercial[c.id] || {rdv:0,visites:0,ventes:0}, kpi), 0)
+                  const rankingTotal = allRanking.reduce((s,c)=>s+c.val,0)
+                  return <div style={{ fontSize: 22, fontWeight: 700, color: '#C9A84C' }}>{Math.round(rankingTotal + nonReconnuTotal)}{selectedKpi?.unit}</div>
+                })()}
               </div>
             </div>
             {totalNR > 0 && (
