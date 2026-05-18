@@ -187,7 +187,7 @@ export default function Primes() {
 
   // Agréger visites+ventes par conseillère par mois
   // T1 (jan-mar) : type_saisie = 'periode' → cumul mensuel
-  // Avril+ : type_saisie = 'jour' → cumul des jours
+  // Avril+ : toutes saisies sauf 'periode' pure (jour + non_reconnue)
   const aggParConseillereParMois = useMemo(() => {
     const res = {}
     fluxData.forEach(f => {
@@ -195,19 +195,19 @@ export default function Primes() {
       const mois = (f.date_debut || '').substring(0, 7)
       if (!mois) return
 
-      const isPeriode = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
+      const isPeriode = f.type_saisie === 'periode'
       const isAvrilPlus = mois >= '2026-04'
 
-      // Avril+ : on prend seulement les saisies jour (pas les périodes)
-      // T1 : on prend seulement les saisies période
+      // Avril+ : exclure seulement les saisies 'periode'
       if (isAvrilPlus && isPeriode) return
-      if (!isAvrilPlus && !isPeriode) return
+      // T1 : exclure les saisies 'jour'
+      if (!isAvrilPlus && f.type_saisie === 'jour') return
 
       const vis = parseFloat(f.visites || 0)
       const ven = parseFloat(f.ventes  || 0)
+      // Pour type période/non_reconnue : visites inclut déjà les ventes
       // Pour type jour : visites brutes + ventes (1 vente = 1 visite)
-      // Pour type période : visites inclut déjà les ventes
-      const visTotal = isPeriode ? vis : vis + ven
+      const visTotal = isPeriode || f.type_saisie === 'non_reconnue' ? vis : vis + ven
 
       if (!res[f.conseillere_id])       res[f.conseillere_id] = {}
       if (!res[f.conseillere_id][mois]) res[f.conseillere_id][mois] = { visites: 0, ventes: 0 }
@@ -241,7 +241,9 @@ export default function Primes() {
 
   // Prime manager (50% du total, seulement Avril+)
   function getPrimeManager(mois) {
-    return mois >= '2026-04' ? Math.round(primeTotaleParMois[mois] * 0.5) : null
+    if (mois < '2026-04') return null
+    const total = primeTotaleParMois[mois] || 0
+    return Math.round(total * 0.5)
   }
 
   // Données graphe pour une conseillère
