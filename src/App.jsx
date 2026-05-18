@@ -61,20 +61,22 @@ function AppContent() {
       // Charger conseillères
       const { data: cons } = await supabase.from('conseilleres').select('*').order('nom')
 
-      // Charger saisies avec pagination (Supabase limite à 1000 lignes par requête)
-      // Filtrer sur les 2 dernières années pour éviter les dépassements
+      // Charger saisies — filtre année en cours uniquement, max 5000 lignes
       const currentYear = new Date().getFullYear()
-      const dateFrom = `${currentYear - 1}-01-01`
+      const dateFrom = `${currentYear}-01-01`
+      const dateTo   = `${currentYear}-12-31`
 
       let allSaisies = []
       let from = 0
       const pageSize = 1000
+      const maxRows  = 5000
 
-      while (true) {
+      while (allSaisies.length < maxRows) {
         const { data: page, error } = await supabase
           .from('saisies')
           .select('*')
           .gte('date_debut', dateFrom)
+          .lte('date_debut', dateTo)
           .order('date_debut', { ascending: false })
           .range(from, from + pageSize - 1)
 
