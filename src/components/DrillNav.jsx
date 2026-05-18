@@ -104,8 +104,8 @@ export default function DrillNav({ data, onSelect, selected, dateField = 'date' 
                         const allDays = []
                         for (let d = 1; d <= daysInMonth; d++) {
                           const dateStr = `${mKey}-${String(d).padStart(2, '0')}`
-                          // Exclure les dimanches (jour 0 = dimanche)
-                          const dayOfWeek = new Date(dateStr).getDay()
+                          // Exclure les dimanches (jour 0 = dimanche) — T12:00:00 évite le bug UTC
+                          const dayOfWeek = new Date(dateStr + 'T12:00:00').getDay()
                           if (dayOfWeek !== 0) {
                             allDays.push(dateStr)
                           }
