@@ -25,6 +25,7 @@ const NAV_STRUCTURE = [
     items: [
       { path: '/perf-commercial', label: 'Perf. Commerciale',     permKey: 'perf_commercial' },
       { path: '/flux-rdv',     label: 'Flux RDV',               permKey: 'flux_rdv' },
+      { path: '/passagers',    label: '🚶 Passagers',            permKey: 'passagers' },
       { path: '/centre-appel', label: 'Call Center',             permKey: 'centre_appel' },
       { path: '/marketing',    label: 'Performance Marketing',   permKey: 'marketing' },
       { path: '/analyse-cv',   label: 'Analyse Capabilité',      permKey: 'analyse_cv' },
@@ -35,8 +36,7 @@ const NAV_STRUCTURE = [
     items: [
       { path: '/stock',     label: '🏗️ Stock',  permKey: 'stock' },
       { path: '/primes',    label: '💰 Primes',    permKey: 'primes' },
-      { path: '/passagers', label: '🚶 Passagers', permKey: 'passagers' },
-      { path: '/objectifs', label: 'Objectifs', permKey: 'objectifs' },
+      { path: '/objectifs', label: '🎯 Objectifs', permKey: 'objectifs' },
     ]
   },
   {
