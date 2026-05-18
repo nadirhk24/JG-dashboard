@@ -174,14 +174,27 @@ export default function Primes() {
 
   async function loadData() {
     setLoading(true)
-    const [{ data: cons }, { data: flux }] = await Promise.all([
-      supabase.from('conseilleres').select('*').order('nom'),
-      supabase.from('flux_rdv')
+    const { data: cons } = await supabase.from('conseilleres').select('*').order('nom')
+
+    // Pagination pour charger TOUT flux_rdv (>1000 lignes)
+    let allFlux = []
+    let from = 0
+    const PAGE_SIZE = 1000
+    while (true) {
+      const { data: page, error } = await supabase
+        .from('flux_rdv')
         .select('conseillere_id, date_debut, visites, ventes, type_saisie')
-        .gte('date_debut', '2026-01-01').order('date_debut'),
-    ])
+        .gte('date_debut', '2026-01-01')
+        .order('date_debut')
+        .range(from, from + PAGE_SIZE - 1)
+      if (error || !page || page.length === 0) break
+      allFlux = [...allFlux, ...page]
+      if (page.length < PAGE_SIZE) break
+      from += PAGE_SIZE
+    }
+
     setConseilleres(cons || [])
-    setFluxData(flux || [])
+    setFluxData(allFlux)
     setLoading(false)
   }
 
