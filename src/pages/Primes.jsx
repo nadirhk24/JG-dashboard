@@ -10,7 +10,23 @@ const TARIFS = { visite: 15, vente: 300 }
 const MOIS_LABELS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
 const MOIS_KEYS = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12']
 
-function calcPrime(visites, ventes) {
+function getPrimeCouleur(prime) {
+  if (prime < 1000)  return { color: '#E05C5C', bg: 'rgba(224,92,92,0.06)',  border: 'rgba(224,92,92,0.2)',  isGold: false }
+  if (prime < 2000)  return { color: '#E07B30', bg: 'rgba(224,123,48,0.06)', border: 'rgba(224,123,48,0.2)', isGold: false }
+  if (prime < 3000)  return { color: '#4CAF7D', bg: 'rgba(76,175,125,0.06)', border: 'rgba(76,175,125,0.2)', isGold: false }
+  if (prime < 5000)  return { color: '#1a6b3c', bg: 'rgba(26,107,60,0.06)',  border: 'rgba(26,107,60,0.2)',  isGold: false }
+  return { color: '#B8860B', bg: 'linear-gradient(135deg, rgba(201,168,76,0.12), rgba(184,134,11,0.08))', border: 'rgba(201,168,76,0.5)', isGold: true }
+}
+
+function getTrendArrow(chartDataConseillere) {
+  if (!chartDataConseillere || chartDataConseillere.length < 2) return null
+  const last  = chartDataConseillere[chartDataConseillere.length - 1]?.prime || 0
+  const prev  = chartDataConseillere[chartDataConseillere.length - 2]?.prime || 0
+  if (last === prev) return { dir: '→', color: '#8A8A7A' }
+  return last > prev
+    ? { dir: '↑', color: '#2E9455' }
+    : { dir: '↓', color: '#E05C5C' }
+}
   return Math.round((visites || 0) * TARIFS.visite + (ventes || 0) * TARIFS.vente)
 }
 
@@ -29,18 +45,19 @@ function calcCV(values) {
 
 // ─── Graphe prime style PerfCommercial ───────────────────────────────────────
 function PrimeChart({ data, title, color = '#C9A84C', loading }) {
-  const [visibleLines, setVisibleLines] = useState({ prime: true, moyenne: true, cv: true })
-  const toggle = k => setVisibleLines(p => ({ ...p, [k]: !p[k] }))
+
+  // Calcul flèche tendance (2ème moitié vs 1ère moitié)
+  const trend = useMemo(() => {
+    if (!data || data.length < 2) return null
+    const mid = Math.floor(data.length / 2)
+    const avg1 = data.slice(0, mid).reduce((s, d) => s + d.prime, 0) / mid
+    const avg2 = data.slice(mid).reduce((s, d) => s + d.prime, 0) / (data.length - mid)
+    return avg2 - avg1
+  }, [data])
 
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return []
-    const allPrimes = []
-    return data.map(d => {
-      allPrimes.push(d.prime)
-      const moyenne = allPrimes.reduce((s, v) => s + v, 0) / allPrimes.length
-      const cv = calcCV([...allPrimes])
-      return { ...d, moyenne: parseFloat(moyenne.toFixed(0)), cv: parseFloat(cv.toFixed(1)) }
-    })
+    return data
   }, [data])
 
   const CustomTooltip = ({ active, payload, label }) => {
@@ -49,34 +66,27 @@ function PrimeChart({ data, title, color = '#C9A84C', loading }) {
       <div style={{ background: '#fff', border: '1px solid rgba(201,168,76,0.2)', borderRadius: 10, padding: '10px 14px', fontSize: 12 }}>
         <div style={{ fontWeight: 600, marginBottom: 6, color: '#2C2C2C' }}>{label}</div>
         {payload.map((p, i) => (
-          <div key={i} style={{ color: p.color, marginBottom: 2 }}>{p.name}: <strong>{p.dataKey === 'cv' ? `${p.value}%` : formatDh(p.value)}</strong></div>
+          <div key={i} style={{ color: p.color, marginBottom: 2 }}>{p.name}: <strong>{formatDh(p.value)}</strong></div>
         ))}
       </div>
     )
   }
 
-  const lines = [
-    { key: 'prime',   label: 'Prime',           color },
-    { key: 'moyenne', label: 'Moyenne cumulée',  color: '#2E9455' },
-    { key: 'cv',      label: 'CV Cumulatif',     color: '#534AB7' },
-  ]
-
   return (
     <div style={{ background: '#fff', borderRadius: 16, padding: '20px 24px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', border: '1px solid rgba(201,168,76,0.1)' }}>
       <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-        <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C' }}>{title}</div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {lines.map(l => (
-            <button key={l.key} onClick={() => toggle(l.key)} style={{
-              display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 16, cursor: 'pointer', fontSize: 11, fontWeight: 500,
-              border: `1.5px solid ${visibleLines[l.key] ? l.color : 'rgba(0,0,0,0.1)'}`,
-              background: visibleLines[l.key] ? `${l.color}15` : '#F8F7F4',
-              color: visibleLines[l.key] ? l.color : '#8A8A7A', opacity: visibleLines[l.key] ? 1 : 0.6,
-            }}>
-              <span style={{ width: 20, height: 2, background: visibleLines[l.key] ? l.color : '#ccc', display: 'inline-block', borderRadius: 1 }} />
-              {l.label}
-            </button>
-          ))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C' }}>{title}</div>
+          {trend !== null && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 20, background: trend >= 0 ? 'rgba(46,148,85,0.1)' : 'rgba(224,92,92,0.1)', color: trend >= 0 ? '#2E9455' : '#E05C5C', fontSize: 12, fontWeight: 600 }}>
+              <span style={{ fontSize: 16 }}>{trend >= 0 ? '↑' : '↓'}</span>
+              {trend >= 0 ? 'En hausse' : 'En baisse'}
+            </div>
+          )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 16, border: `1.5px solid ${color}`, background: `${color}15`, color, fontSize: 11, fontWeight: 500 }}>
+          <span style={{ width: 20, height: 2, background: color, display: 'inline-block', borderRadius: 1 }} />
+          Prime
         </div>
       </div>
       {loading ? (
@@ -88,12 +98,9 @@ function PrimeChart({ data, title, color = '#C9A84C', loading }) {
           <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.1)" />
             <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#8A8A7A' }} />
-            <YAxis yAxisId="left" tick={{ fontSize: 10, fill: '#8A8A7A' }} tickFormatter={v => v >= 1000 ? `${Math.round(v/1000)}k` : v} />
-            <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: '#8A8A7A' }} unit="%" />
+            <YAxis tick={{ fontSize: 10, fill: '#8A8A7A' }} tickFormatter={v => v >= 1000 ? `${Math.round(v/1000)}k` : v} />
             <Tooltip content={<CustomTooltip />} />
-            {visibleLines.prime   && <Line yAxisId="left"  type="monotone" dataKey="prime"   name="Prime"           stroke={color}    strokeWidth={2.5} dot={{ r: 4, fill: color,     stroke: '#fff', strokeWidth: 2 }} />}
-            {visibleLines.moyenne && <Line yAxisId="left"  type="monotone" dataKey="moyenne" name="Moyenne cumulée" stroke="#2E9455" strokeWidth={2}   strokeDasharray="5 3" dot={{ r: 3, fill: '#2E9455' }} />}
-            {visibleLines.cv      && <Line yAxisId="right" type="monotone" dataKey="cv"      name="CV Cumulatif"    stroke="#534AB7" strokeWidth={2}   strokeDasharray="5 3" dot={{ r: 3, fill: '#534AB7' }} />}
+            <Line type="monotone" dataKey="prime" name="Prime" stroke={color} strokeWidth={2.5} dot={{ r: 4, fill: color, stroke: '#fff', strokeWidth: 2 }} activeDot={{ r: 6 }} />
           </LineChart>
         </ResponsiveContainer>
       )}
@@ -122,12 +129,11 @@ function PopupCourbe({ conseillere, chartData, onClose }) {
           <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: '50%', border: '1.5px solid rgba(201,168,76,0.2)', background: '#fff', color: '#5A5A5A', fontSize: 16, cursor: 'pointer' }}>✕</button>
         </div>
         {/* KPIs */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
           {[
-            { label: 'Total Primes', value: formatDh(totalPrime), color: '#C9A84C' },
+            { label: 'Total Primes', value: formatDh(totalPrime), color: getPrimeCouleur(totalPrime).color },
             { label: 'Total Visites', value: totalVisites, color: '#4CAF7D' },
             { label: 'Total Ventes', value: totalVentes, color: '#1a6b3c' },
-            { label: 'CV Primes', value: `${cv}%`, color: cv > 100 ? '#E05C5C' : cv > 50 ? '#E07B30' : '#4CAF7D' },
           ].map(k => (
             <div key={k.label} style={{ background: '#fff', borderRadius: 12, padding: '14px 16px', border: '1px solid rgba(201,168,76,0.1)', borderTop: `3px solid ${k.color}` }}>
               <div style={{ fontSize: 10, color: '#8A8A7A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>{k.label}</div>
@@ -314,13 +320,26 @@ export default function Primes() {
           <div style={{ fontSize: 13, color: '#8A8A7A' }}>{cons?.nom}</div>
         </div>
         {/* KPIs */}
-        <div style={{ display: 'flex', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: 140 }}><KpiCard label={`Prime ${moisCourantLabel}`} value={formatDh(primeCeMois.prime)} unit="" sub="Mois en cours" /></div>
-          <div style={{ flex: 1, minWidth: 140 }}><KpiCard label="Prime annuelle" value={formatDh(totalAnnee)} unit="" sub="Cumul 2026" /></div>
-          <div style={{ flex: 1, minWidth: 140 }}><KpiCard label="Total Visites" value={totalVisites} unit="" sub="Cumul 2026" /></div>
-          <div style={{ flex: 1, minWidth: 140 }}><KpiCard label="Total Ventes" value={totalVentes} unit="" sub="Cumul 2026" /></div>
-          <div style={{ flex: 1, minWidth: 140 }}><KpiCard label="CV Primes" value={`${cv}%`} unit="" sub="Coefficient de variation" /></div>
-        </div>
+        {(() => {
+          const { color, isGold } = getPrimeCouleur(primeCeMois.prime)
+          const trend = getTrendArrow(chartData)
+          return (
+            <div style={{ display: 'flex', gap: 16, marginBottom: 20, flexWrap: 'wrap', alignItems: 'stretch' }}>
+              {/* Carte prime mois — avec couleur */}
+              <div style={{ flex: 1, minWidth: 160, background: '#fff', borderRadius: 14, padding: '18px 20px', border: `1.5px solid ${color}40`, borderTop: `3px solid ${color}`, boxShadow: isGold ? '0 4px 16px rgba(201,168,76,0.2)' : undefined }}>
+                <div style={{ fontSize: 11, color: '#8A8A7A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Prime {moisCourantLabel}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ fontSize: isGold ? 26 : 24, fontWeight: 700, color, fontFamily: isGold ? 'Cormorant Garamond, serif' : 'inherit' }}>{formatDh(primeCeMois.prime)}</div>
+                  {trend && <span style={{ fontSize: 20, fontWeight: 700, color: trend.color }}>{trend.dir}</span>}
+                </div>
+                <div style={{ fontSize: 11, color: '#8A8A7A', marginTop: 4 }}>Mois en cours</div>
+              </div>
+              <div style={{ flex: 1, minWidth: 140 }}><KpiCard label="Prime annuelle" value={formatDh(totalAnnee)} unit="" sub="Cumul 2026" /></div>
+              <div style={{ flex: 1, minWidth: 140 }}><KpiCard label="Total Visites" value={totalVisites} unit="" sub="Cumul 2026" /></div>
+              <div style={{ flex: 1, minWidth: 140 }}><KpiCard label="Total Ventes" value={totalVentes} unit="" sub="Cumul 2026" /></div>
+            </div>
+          )
+        })()}
         <PrimeChart data={chartData} title="Évolution de mes primes" color="#C9A84C" loading={loading} />
       </div>
     )
@@ -343,14 +362,12 @@ export default function Primes() {
         <div style={{ fontSize: 13, color: '#8A8A7A' }}>Primes conseillères & manager · {TARIFS.visite} dh/visite · {TARIFS.vente} dh/vente</div>
       </div>
 
-      {/* KPIs globaux */}
+      {/* KPIs globaux - 2 cartes seulement */}
       <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 140 }}><KpiCard label={`Total Équipe — ${moisCourantLabel}`} value={formatDh(totalEquipeCeMois)} unit="" sub="Mois en cours" /></div>
         {primeManagerCeMois !== null && (
           <div style={{ flex: 1, minWidth: 140 }}><KpiCard label="Prime Manager" value={formatDh(primeManagerCeMois)} unit="" sub="50% du total mensuel" /></div>
         )}
-        <div style={{ flex: 1, minWidth: 140 }}><KpiCard label="CV Primes" value={`${cvGlobal}%`} unit="" sub="Régularité équipe" /></div>
-        <div style={{ flex: 1, minWidth: 140 }}><KpiCard label="Conseillères actives" value={conseilleres.filter(c => (aggParConseillereParMois[c.id]?.[moisCourant]?.visites || 0) > 0).length} unit="" sub={moisCourantLabel} /></div>
       </div>
 
       {/* Graphe global / manager */}
@@ -366,25 +383,46 @@ export default function Primes() {
         {conseilleres.map((c, i) => {
           const d = getPrimeMois(c.id, moisCourant)
           const totalAnnee = moisDisponibles.reduce((s, m) => s + getPrimeMois(c.id, m).prime, 0)
-          const trend = moisDisponibles.length >= 2
-            ? getPrimeMois(c.id, moisDisponibles[moisDisponibles.length-1]).prime - getPrimeMois(c.id, moisDisponibles[moisDisponibles.length-2]).prime
-            : 0
+          const chartData  = getChartDataConseillere(c.id)
+          const trend      = getTrendArrow(chartData)
+          const { color, bg, border, isGold } = getPrimeCouleur(d.prime)
+          const moisPrev   = moisDisponibles[moisDisponibles.length - 2]
+          const prevPrime  = moisPrev ? getPrimeMois(c.id, moisPrev).prime : 0
+          const diff       = d.prime - prevPrime
+
           return (
             <div key={c.id} onClick={() => setSelectedPopup(c)}
-              style={{ background: '#fff', borderRadius: 14, padding: '16px 18px', border: '1px solid rgba(201,168,76,0.15)', borderTop: '3px solid #C9A84C', cursor: 'pointer', transition: 'all 0.15s', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
-              onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 6px 20px rgba(201,168,76,0.15)'; e.currentTarget.style.transform = 'translateY(-2px)' }}
-              onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)'; e.currentTarget.style.transform = 'translateY(0)' }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#2C2C2C', marginBottom: 10, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.nom}</div>
-              <div style={{ fontSize: 22, fontWeight: 700, color: '#C9A84C', marginBottom: 6 }}>{formatDh(d.prime)}</div>
-              <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
-                <div style={{ fontSize: 11, color: '#4CAF7D' }}>👁 {d.visites} visites</div>
-                <div style={{ fontSize: 11, color: '#1a6b3c' }}>✓ {d.ventes} ventes</div>
+              style={{
+                background: isGold ? bg : '#fff',
+                borderRadius: 14, padding: '16px 18px',
+                border: `1.5px solid ${border}`,
+                borderTop: `3px solid ${color}`,
+                cursor: 'pointer', transition: 'all 0.15s',
+                boxShadow: isGold ? `0 4px 16px rgba(201,168,76,0.2)` : '0 2px 8px rgba(0,0,0,0.04)',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)' }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#2C2C2C', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '75%' }}>{c.nom}</div>
+                {trend && <span style={{ fontSize: 18, fontWeight: 700, color: trend.color, lineHeight: 1 }}>{trend.dir}</span>}
+              </div>
+              <div style={{
+                fontSize: isGold ? 24 : 22, fontWeight: 700, color,
+                marginBottom: 6,
+                fontFamily: isGold ? 'Cormorant Garamond, serif' : 'inherit',
+                letterSpacing: isGold ? 1 : 0,
+              }}>
+                {formatDh(d.prime)}
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+                <div style={{ fontSize: 11, color: '#4CAF7D' }}>👁 {d.visites}</div>
+                <div style={{ fontSize: 11, color: '#1a6b3c' }}>✓ {d.ventes}</div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontSize: 10, color: '#8A8A7A' }}>Annuel: <span style={{ color: '#C9A84C', fontWeight: 600 }}>{formatDh(totalAnnee)}</span></div>
-                {trend !== 0 && (
-                  <div style={{ fontSize: 11, fontWeight: 600, color: trend > 0 ? '#4CAF7D' : '#E05C5C' }}>
-                    {trend > 0 ? '↑' : '↓'} {formatDh(Math.abs(trend))}
+                <div style={{ fontSize: 10, color: '#8A8A7A' }}>Annuel: <span style={{ color, fontWeight: 600 }}>{formatDh(totalAnnee)}</span></div>
+                {diff !== 0 && moisPrev && (
+                  <div style={{ fontSize: 11, fontWeight: 600, color: diff > 0 ? '#4CAF7D' : '#E05C5C' }}>
+                    {diff > 0 ? '↑' : '↓'} {formatDh(Math.abs(diff))}
                   </div>
                 )}
               </div>
