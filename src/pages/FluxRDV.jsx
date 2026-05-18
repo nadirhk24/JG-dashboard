@@ -479,6 +479,8 @@ export default function FluxRDV({ conseilleres }) {
     else { setMsg({ type: 'success', text: `${allRows.length} saisie(s) enregistrée(s) et Call Center mis à jour !` }); loadData(); setSaisieForm({}); setTimeout(() => setMsg(null), 3000) }
   }
 
+  const selectedKpi = KPIS.find(k => k.key === kpi)
+
   // Totaux visites non reconnues par équipe
   const nrParEquipe = useMemo(() => {
     const res = {}
