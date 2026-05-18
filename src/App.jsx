@@ -21,6 +21,7 @@ import BulleNotes from './components/BulleNotes'
 import TopBar from './components/TopBar'
 import Stock from './pages/Stock'
 import Primes from './pages/Primes'
+import Passagers from './pages/Passagers'
 import { AuthProvider, useAuth } from './context/AuthContext'
 
 
@@ -136,6 +137,7 @@ function AppContent() {
               <Route path="/commerciaux" element={<ProtectedRoute permKey="commerciaux"><Commerciaux /></ProtectedRoute>} />
               <Route path="/stock" element={<ProtectedRoute permKey="stock"><Stock /></ProtectedRoute>} />
               <Route path="/primes" element={<ProtectedRoute permKey="primes"><Primes /></ProtectedRoute>} />
+              <Route path="/passagers" element={<ProtectedRoute permKey="passagers"><Passagers /></ProtectedRoute>} />
               <Route path="/perf-commercial" element={<ProtectedRoute permKey="perf_commercial"><PerfCommercial /></ProtectedRoute>} />
               <Route path="/flux-rdv" element={<ProtectedRoute permKey="flux_rdv"><FluxRDV conseilleres={conseilleres} /></ProtectedRoute>} />
               <Route path="/analyse-cv" element={<ProtectedRoute permKey="analyse_cv"><AnalyseCV {...sharedProps} /></ProtectedRoute>} />
