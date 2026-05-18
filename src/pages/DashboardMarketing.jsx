@@ -194,8 +194,9 @@ export default function DashboardMarketing() {
   const dataFiltree = useMemo(() => {
     if (!selected || selected.type === 'global') return marketingData
     return marketingData.filter(s => {
-      // Exclure dimanches et fériés
-      if (estJourExclu(s.date, joursFeries)) return false
+      // Exclure dimanches et fériés SEULEMENT pour les saisies jour par jour
+      // Les saisies 'periode' ont date = 1er du mois → ne pas les exclure
+      if (s.type_saisie !== 'periode' && estJourExclu(s.date, joursFeries)) return false
       if (selected.type === 'year') return s.date.startsWith(selected.value)
       if (selected.type === 'quarter') {
         const [y, q] = selected.value.split('-Q')
