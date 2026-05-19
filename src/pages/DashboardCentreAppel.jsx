@@ -140,21 +140,49 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
     localStorage.setItem('jg_selected_cc', JSON.stringify(selected))
   }, [selected])
 
-  // Charger flux_rdv + commerciaux pour la vue détails
+  // Charger flux_rdv + commerciaux pour la vue details
   useEffect(() => {
     if (ccView !== 'details') return
     async function loadDetails() {
       setLoadingDetails(true)
+
+      // Plage de dates selon la periode selectionnee
+      let dateFrom = '2026-01-01'
+      let dateTo   = '2030-12-31'
+      if (selected?.type === 'month' && selected?.value) {
+        const [y, m] = selected.value.split('-')
+        dateFrom = selected.value + '-01'
+        dateTo   = selected.value + '-' + String(new Date(parseInt(y), parseInt(m), 0).getDate()).padStart(2,'0')
+      } else if (selected?.type === 'year' && selected?.value) {
+        dateFrom = selected.value + '-01-01'
+        dateTo   = selected.value + '-12-31'
+      } else if (selected?.type === 'quarter' && selected?.value) {
+        const [y, q] = selected.value.split('-Q')
+        const startM = (parseInt(q) - 1) * 3 + 1
+        const endM   = startM + 2
+        dateFrom = `${y}-${String(startM).padStart(2,'0')}-01`
+        dateTo   = `${y}-${String(endM).padStart(2,'0')}-${String(new Date(parseInt(y), endM, 0).getDate()).padStart(2,'0')}`
+      } else if (selected?.type === 'custom' && selected?.from) {
+        dateFrom = selected.from
+        dateTo   = selected.to || selected.from
+      }
+
       const [{ data: comms }, { data: flux }] = await Promise.all([
         supabase.from('commerciaux').select('id, nom, equipe').eq('actif', true).order('equipe').order('nom'),
-        supabase.from('flux_rdv').select('conseillere_id, commercial_id, date_debut, visites, ventes, type_saisie').gte('date_debut', '2026-01-01').order('date_debut').limit(5000),
+        supabase.from('flux_rdv')
+          .select('conseillere_id, commercial_id, date_debut, rdv, visites, ventes, type_saisie')
+          .gte('date_debut', dateFrom)
+          .lte('date_debut', dateTo)
+          .order('date_debut')
+          .limit(5000),
       ])
       setCommerciaux(comms || [])
       setFluxDetails(flux || [])
       setLoadingDetails(false)
     }
     loadDetails()
-  }, [ccView])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ccView, selected])
 
   // Pour une conseillère : bloquer le filtre sur son propre ID
   useEffect(() => {
