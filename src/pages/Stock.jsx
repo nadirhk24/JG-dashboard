@@ -267,12 +267,15 @@ export default function Stock() {
                       </span>
                     )}
                   </div>
-                  {/* Région + stock + commerciaux liés */}
+                  {/* Région + stock + délai */}
                   <div style={{ fontSize: 13, color: '#8A8A7A', marginTop: 5, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
                     <span>{selectedProjet.regions?.nom}</span>
                     <span>·</span>
                     <span style={{ fontWeight: 600, color: totalUnites > 0 ? '#2E9455' : '#E05C5C' }}>{totalUnites} unité{totalUnites > 1 ? 's' : ''} disponible{totalUnites > 1 ? 's' : ''}</span>
-
+                    {selectedProjet.delai_livraison && <>
+                      <span>·</span>
+                      <span style={{ color: '#534AB7', fontWeight: 500 }}>🏗️ Livraison : {selectedProjet.delai_livraison}</span>
+                    </>}
                   </div>
                   {/* Commerciaux liés (tags) */}
                   {commerciauxProjet.length > 0 && (
