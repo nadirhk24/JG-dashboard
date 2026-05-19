@@ -19,7 +19,7 @@ const TYPES_ABSENCE = [
 function getDaysInMonth(year, month) { return new Date(year, month + 1, 0).getDate() }
 function getFirstDayOfMonth(year, month) { const d = new Date(year, month, 1).getDay(); return d === 0 ? 6 : d - 1 }
 
-export default function Calendrier({ conseilleres }) {
+export default function Calendrier() {
   const { profil } = useAuth()
   const isSuperAdmin = profil?.role === 'super_admin'
   const isConseillere = profil?.role === 'conseillere'
@@ -29,7 +29,7 @@ export default function Calendrier({ conseilleres }) {
   const [month, setMonth] = useState(now.getMonth())
   const [joursSpeciaux, setJoursSpeciaux] = useState([])
   const [absences, setAbsences] = useState([])
-  const [conseilleres, setConseilleres] = useState([])
+  const [conseilleresList, setConseilleresList] = useState([])
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState(null)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -52,13 +52,13 @@ export default function Calendrier({ conseilleres }) {
 
   async function loadAbsences() {
     const { data } = await supabase.from('absences_conseilleres')
-      .select('*, conseilleres(nom)').order('date_debut', { ascending: false })
+      .select('*, conseilleresList(nom)').order('date_debut', { ascending: false })
     setAbsences(data || [])
   }
 
   async function loadConseilleres() {
-    const { data } = await supabase.from('conseilleres').select('id, nom').eq('actif', true).order('nom')
-    setConseilleres(data || [])
+    const { data } = await supabase.from('conseilleresList').select('id, nom').eq('actif', true).order('nom')
+    setConseilleresList(data || [])
   }
 
   async function addJour() {
@@ -170,13 +170,13 @@ export default function Calendrier({ conseilleres }) {
       else if (special?.type === 'ferie') type = 'ferie'
       else if (special?.type === 'conge') type = 'conge'
       // Compter combien de conseillères sont absentes ce jour
-      const absentes = conseilleres.filter(c =>
+      const absentes = conseilleresList.filter(c =>
         absencesDuMois[c.id]?.includes(dateStr)
       )
       cells.push({ day: d, date: dateStr, type, label: special?.label, id: special?.id, isSamedi: dayOfWeek === 6, absentes })
     }
     return cells
-  }, [year, month, joursMap, absencesDuMois, conseilleres])
+  }, [year, month, joursMap, absencesDuMois, conseilleresList])
 
   const typeColors = {
     ouvrable: { bg: '#F8F7F4', color: '#2C2C2C', border: 'rgba(201,168,76,0.1)' },
@@ -197,7 +197,7 @@ export default function Calendrier({ conseilleres }) {
 
   // Stats absences du mois par conseillère
   const statsAbsences = useMemo(() => {
-    return conseilleres.map(c => ({
+    return conseilleresList.map(c => ({
       ...c,
       jours: absencesDuMois[c.id]?.length || 0,
       absencesActives: absences.filter(a =>
@@ -206,7 +206,7 @@ export default function Calendrier({ conseilleres }) {
         a.date_fin >= `${year}-${String(month+1).padStart(2,'0')}-01`
       )
     })).filter(c => c.jours > 0)
-  }, [conseilleres, absencesDuMois, absences, year, month])
+  }, [conseilleresList, absencesDuMois, absences, year, month])
 
   return (
     <div>
@@ -382,12 +382,12 @@ export default function Calendrier({ conseilleres }) {
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               {isConseillere ? (
                 <div style={{ padding: '6px 14px', borderRadius: 20, background: 'rgba(201,168,76,0.1)', border: '1.5px solid rgba(201,168,76,0.3)', fontSize: 12, fontWeight: 500, color: '#C9A84C' }}>
-                  {conseilleres?.find(c => c.id === myConseillereId)?.nom || 'Mes absences'}
+                  {conseilleresList?.find(c => c.id === myConseillereId)?.nom || 'Mes absences'}
                 </div>
               ) : (
                 <select value={filterConseillere} onChange={e => setFilterConseillere(e.target.value)} style={{ ...inputStyle, fontSize: 12 }}>
                   <option value="all">Toutes les conseillères</option>
-                  {conseilleres.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
+                  {conseilleresList.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
                 </select>
               )}
             </div>
@@ -405,7 +405,7 @@ export default function Calendrier({ conseilleres }) {
                   <div style={labelStyle}>Conseillère *</div>
                   <select value={newAbsence.conseillere_id} onChange={e=>setNewAbsence(p=>({...p,conseillere_id:e.target.value}))} style={{ ...inputStyle, width: '100%' }}>
                     <option value="">-- Choisir --</option>
-                    {conseilleres.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
+                    {conseilleresList.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
                   </select>
                 </div>
                 <div>
@@ -462,7 +462,7 @@ export default function Calendrier({ conseilleres }) {
                     return (
                       <tr key={a.id} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                         <td style={{ padding: '10px 10px', fontSize: 12 }}>
-                          <div style={{ fontWeight: 500, color: '#2C2C2C' }}>{a.conseilleres?.nom || '—'}</div>
+                          <div style={{ fontWeight: 500, color: '#2C2C2C' }}>{a.conseilleresList?.nom || '—'}</div>
                         </td>
                         <td style={{ padding: '10px 10px', fontSize: 12, color: '#C9A84C', fontWeight: 500 }}>
                           {a.date_debut} → {a.date_fin}
