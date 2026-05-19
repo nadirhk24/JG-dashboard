@@ -617,7 +617,7 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
 
       <PageHeader title="Call Center" subtitle={selected.label}>
         {/* Toggle Global / Détails */}
-        {isSuperAdmin && (
+        {(isSuperAdmin || isConseillere) && (
           <div style={{ display: 'flex', gap: 4, background: '#F8F7F4', borderRadius: 20, padding: 3, border: '1px solid rgba(201,168,76,0.2)' }}>
             {[['global','Global CC'],['details','Détails CC']].map(([k,l]) => (
               <button key={k} onClick={() => setCcView(k)} style={{ padding: '5px 14px', borderRadius: 16, border: 'none', background: ccView===k?'#C9A84C':'transparent', color: ccView===k?'#fff':'#5A5A5A', fontSize: 12, fontWeight: ccView===k?500:400, cursor: 'pointer', transition: 'all 0.15s' }}>{l}</button>
@@ -1032,7 +1032,7 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
       {ccView === 'details' && <DrillNav data={saisies} onSelect={setSelected} selected={selected} />}
 
       {/* ── VUE DÉTAILS CC ── */}
-      {isSuperAdmin && ccView === 'details' && (() => {
+      {(isSuperAdmin || isConseillere) && ccView === 'details' && (() => {
         if (loadingDetails) return <div style={{ padding: 32, textAlign: 'center', color: '#8A8A7A' }}>Chargement détails...</div>
 
         // Filtrer flux par période sélectionnée
@@ -1166,7 +1166,8 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
 
         return (
           <div style={{ marginTop: 8 }}>
-            {/* ── Saisie seuils ── */}
+            {/* ── Saisie seuils (admin) ou info seuils (conseillère) ── */}
+            {isSuperAdmin ? (
             <div style={{ background: '#fff', borderRadius: 12, padding: '14px 18px', border: '1px solid rgba(201,168,76,0.2)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: '#2C2C2C' }}>Seuil visites/mois</div>
               {['sale', 'kenitra'].map(eq => (
@@ -1191,10 +1192,22 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
                 Hala + Siham = ½ objectif · 4 autres = 1 objectif
               </div>
             </div>
+            ) : (
+            <div style={{ background: 'rgba(201,168,76,0.06)', borderRadius: 10, padding: '10px 16px', marginBottom: 16, display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+              {['sale', 'kenitra'].map(eq => seuilVisites[eq] > 0 && (
+                <div key={eq} style={{ fontSize: 12, color: '#5A5A5A' }}>
+                  <strong style={{ color: eq === 'sale' ? '#C9A84C' : '#534AB7' }}>{eq === 'sale' ? 'Sale' : 'Kenitra'}</strong>
+                  {' · '}{seuilVisites[eq]} vis. objectif · {Math.round(tauxPresence[eq]*100)}% présence → <strong>{rdvParVisite[eq]} RDV/visite</strong>
+                </div>
+              ))}
+            </div>
+            )}
 
-            {/* ── 6 cartes conseillères ── */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-              {conseilleresFiltrees.map(cons => {
+            {/* ── 6 cartes conseillères (ou 1 seule si conseillère connectée) ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: isConseillere ? '1fr' : 'repeat(3, 1fr)', gap: 14 }}>
+              {conseilleresFiltrees
+                .filter(cons => !isConseillere || cons.id === myConseillereId)
+                .map(cons => {
                 const isHalaOrSiham = cons.nom.toUpperCase().includes('HALA') || cons.nom.toUpperCase().includes('SIHAM')
                 const totalVis = Math.round(Object.values(totaux[cons.id] || {}).reduce((s,v) => s+v, 0) + (nrTotaux[cons.id]?.sale||0) + (nrTotaux[cons.id]?.kenitra||0))
                 return (
