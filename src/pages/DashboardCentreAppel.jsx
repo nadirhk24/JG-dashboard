@@ -147,7 +147,7 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
       setLoadingDetails(true)
       const [{ data: comms }, { data: flux }] = await Promise.all([
         supabase.from('commerciaux').select('id, nom, equipe').eq('actif', true).order('equipe').order('nom'),
-        supabase.from('flux_rdv').select('conseillere_id, commercial_id, date_debut, visites, ventes, type_saisie').order('date_debut'),
+        supabase.from('flux_rdv').select('conseillere_id, commercial_id, date_debut, visites, ventes, type_saisie').gte('date_debut', '2026-01-01').order('date_debut').limit(5000),
       ])
       setCommerciaux(comms || [])
       setFluxDetails(flux || [])
