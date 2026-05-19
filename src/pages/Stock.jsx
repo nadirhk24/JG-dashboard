@@ -272,9 +272,12 @@ export default function Stock() {
                     <span>{selectedProjet.regions?.nom}</span>
                     <span>·</span>
                     <span style={{ fontWeight: 600, color: totalUnites > 0 ? '#2E9455' : '#E05C5C' }}>{totalUnites} unité{totalUnites > 1 ? 's' : ''} disponible{totalUnites > 1 ? 's' : ''}</span>
-                    {selectedProjet.delai_livraison && <>
+                    {selectedProjet.delai_livraison ? <>
                       <span>·</span>
                       <span style={{ color: '#534AB7', fontWeight: 500 }}>🏗️ Livraison : {selectedProjet.delai_livraison}</span>
+                    </> : <>
+                      <span>·</span>
+                      <span style={{ color: '#E07B30', fontWeight: 500 }}>🏗️ En cours</span>
                     </>}
                   </div>
                   {/* Commerciaux liés (tags) */}
