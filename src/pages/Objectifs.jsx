@@ -521,7 +521,6 @@ function SectionVentesDelais() {
                             <div>
                               <div style={{ fontSize: 14, fontWeight: 700, color: '#2C2C2C' }}>{p.nom_projet}</div>
                               <div style={{ fontSize: 11, color: '#8A8A7A', marginTop: 2 }}>
-                                {p.commerciaux && <span>{p.commerciaux} · </span>}
                                 {p.delai_mois} mois · Mise à jour : {lastUpdate}
                               </div>
                             </div>

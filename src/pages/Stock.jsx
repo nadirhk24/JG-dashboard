@@ -272,7 +272,7 @@ export default function Stock() {
                     <span>{selectedProjet.regions?.nom}</span>
                     <span>·</span>
                     <span style={{ fontWeight: 600, color: totalUnites > 0 ? '#2E9455' : '#E05C5C' }}>{totalUnites} unité{totalUnites > 1 ? 's' : ''} disponible{totalUnites > 1 ? 's' : ''}</span>
-                    {selectedProjet.commerciaux_lies && <><span>·</span><span style={{ color: '#534AB7' }}>👥 {selectedProjet.commerciaux_lies}</span></>}
+
                   </div>
                   {/* Commerciaux liés (tags) */}
                   {commerciauxProjet.length > 0 && (
