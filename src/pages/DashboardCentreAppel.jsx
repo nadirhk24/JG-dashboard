@@ -67,8 +67,9 @@ function getMoisCourant() {
 const MOIS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
 
 const ALL_RANK_COLS = [
-  { key: 'leads_bruts', label: 'Leads Bruts', hideForConseillere: true },
-  { key: 'leads_nets', label: 'Leads Nets', hideForConseillere: true },
+  { key: 'leads_bruts', label: 'Injections', hideForConseillere: true, color: '#C9A84C' },
+  { key: 'indispos',    label: 'Indispos',   hideForConseillere: true, color: '#E05C5C' },
+  { key: 'leads_nets',  label: 'Leads Nets', hideForConseillere: true, color: '#2E9455' },
   { key: 'echanges', label: 'Échanges' },
   { key: 'echanges_nettes', label: 'Éch. Nettes', color: '#534AB7' },
   { key: 'productivite', label: 'Productivité', color: '#378ADD' },
@@ -799,8 +800,9 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
                 const stars = getStars(i, rankingSorted.length)
                 const score = parseFloat((Math.min(c.productivite,100)*0.4+c.conversion_tel*0.3+c.taux_presence*0.3).toFixed(1))
                 const colValues = {
-                  leads_bruts: { val: c.leads_bruts, style: tdStyle },
-                  leads_nets: { val: c.leads_nets, style: tdStyle },
+                  leads_bruts: { val: c.leads_bruts,  style: {...tdStyle, color:'#C9A84C', fontWeight:700, fontSize:13} },
+                  indispos:    { val: c.indispos,     style: {...tdStyle, color:'#E05C5C', fontWeight:700, fontSize:13} },
+                  leads_nets:  { val: c.leads_nets,   style: {...tdStyle, color:'#2E9455', fontWeight:700, fontSize:13} },
                   echanges: { val: c.echanges, style: tdStyle },
                   echanges_nettes: { val: c.echanges_exploitables, style: {...tdStyle, color: '#534AB7', fontWeight: 500} },
                   productivite: { val: `${c.productivite}%`, style: {...tdStyle,fontWeight:500,color:getColorFromObjectif(c.productivite,objectifs.obj_productivite_pct)} },
