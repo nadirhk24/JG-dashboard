@@ -222,7 +222,7 @@ export default function Calendrier({ conseilleres }) {
       <div style={{ display: 'flex', gap: 8, marginBottom: 24, borderBottom: '1px solid rgba(201,168,76,0.15)', paddingBottom: 0 }}>
         {[
           { id: 'calendrier', label: 'Calendrier équipe' },
-          { id: 'absences', label: `Absences conseillères${statsAbsences.length > 0 ? ` (${statsAbsences.length} ce mois)` : ''}` },
+          ...(!isConseillere ? [{ id: 'absences', label: `Absences conseillères${statsAbsences.length > 0 ? ` (${statsAbsences.length} ce mois)` : ''}` }] : []),
         ].map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
             padding: '10px 20px', border: 'none', background: 'none', cursor: 'pointer',
