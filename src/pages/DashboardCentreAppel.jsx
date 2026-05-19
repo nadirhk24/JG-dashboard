@@ -96,9 +96,13 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
   const conseillerePerms = profil?.permissions?.centre_appel_conseilleres || {}
   const conseilleresFiltrees = useMemo(() => {
     if (isSuperAdmin || !isConseillere) return conseilleres
-    // Pour une conseillère : afficher seulement elle-même
+    // Pour une conseillère en vue Global CC : afficher seulement elle-même
     return conseilleres.filter(c => c.id === myConseillereId)
   }, [conseilleres, isSuperAdmin, isConseillere, myConseillereId])
+
+  // Pour la vue Détails CC : toujours toutes les conseillères (sauf filtre admin)
+  // La carte affichée est filtrée dans le rendu via .filter(cons => !isConseillere || cons.id === myConseillereId)
+  const toutesConseilleres = useMemo(() => conseilleres, [conseilleres])
   // Mon propre ID conseillère (pour vue restreinte)
   const myConseillereId = profil?.conseillere_id || null
 
@@ -1111,7 +1115,7 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
           if (nom.includes('HALA') || nom.includes('SIHAM')) return 0.5
           return 1
         }
-        const totalParts = conseilleresFiltrees.reduce((s, c) => s + getPartConseillere(c), 0) // = 5
+        const totalParts = toutesConseilleres.reduce((s, c) => s + getPartConseillere(c), 0) // = 5
 
         function calcRdvNecessaires(commId, equipe) {
           if (!seuilVisites[equipe] || seuilVisites[equipe] <= 0) return null
@@ -1143,7 +1147,7 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
                 const val = Math.round(totaux[consId]?.[comm.id] || 0)
                 const rdvNec = calc => calc ? getRdvPourConseillere(comm.id, equipe, conseilleresFiltrees.find(c => c.id === consId)) : null
                 const calcResult = calcRdvNecessaires(comm.id, equipe)
-                const rdv = calcResult ? getRdvPourConseillere(comm.id, equipe, conseilleresFiltrees.find(c => c.id === consId)) : null
+                const rdv = calcResult ? getRdvPourConseillere(comm.id, equipe, toutesConseilleres.find(c => c.id === consId)) : null
                 return (
                   <div key={comm.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '4px 0', borderBottom: '1px solid rgba(201,168,76,0.05)' }}>
                     <div style={{ fontSize: 11, color: '#2C2C2C', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{comm.nom}</div>
@@ -1206,7 +1210,7 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
 
             {/* ── 6 cartes conseillères (ou 1 seule si conseillère connectée) ── */}
             <div style={{ display: 'grid', gridTemplateColumns: isConseillere ? '1fr' : 'repeat(3, 1fr)', gap: 14 }}>
-              {conseilleresFiltrees
+              {toutesConseilleres
                 .filter(cons => !isConseillere || cons.id === myConseillereId)
                 .map(cons => {
                 const isHalaOrSiham = cons.nom.toUpperCase().includes('HALA') || cons.nom.toUpperCase().includes('SIHAM')
