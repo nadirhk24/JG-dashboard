@@ -96,8 +96,9 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
   const conseillerePerms = profil?.permissions?.centre_appel_conseilleres || {}
   const conseilleresFiltrees = useMemo(() => {
     if (isSuperAdmin || !isConseillere) return conseilleres
-    return conseilleres.filter(c => conseillerePerms[c.id] === true)
-  }, [conseilleres, isSuperAdmin, isConseillere, conseillerePerms])
+    // Pour une conseillère : afficher seulement elle-même
+    return conseilleres.filter(c => c.id === myConseillereId)
+  }, [conseilleres, isSuperAdmin, isConseillere, myConseillereId])
   // Mon propre ID conseillère (pour vue restreinte)
   const myConseillereId = profil?.conseillere_id || null
 
