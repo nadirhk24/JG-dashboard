@@ -171,7 +171,7 @@ export default function FluxRDV({ conseilleres }) {
 
   async function loadJourDetail(commercialId, jour) {
     const { data } = await supabase.from('flux_rdv')
-      .select('id, conseillere_id, visites, ventes, type_saisie')
+      .select('id, conseillere_id, rdv, visites, ventes, type_saisie')
       .eq('commercial_id', commercialId)
       .eq('date_debut', jour)
       .eq('date_fin', jour)
@@ -179,8 +179,8 @@ export default function FluxRDV({ conseilleres }) {
     setJourDetailSaisies(data || [])
   }
 
-  async function updateJourSaisie(saisieId, visites, ventes, jour, consId) {
-    await supabase.from('flux_rdv').update({ visites, ventes }).eq('id', saisieId)
+  async function updateJourSaisie(saisieId, rdv, visites, ventes, jour, consId) {
+    await supabase.from('flux_rdv').update({ rdv, visites, ventes }).eq('id', saisieId)
     // Recalculer et sync vers CC
     const { data: allFlux } = await supabase.from('flux_rdv')
       .select('visites, ventes')
@@ -702,7 +702,7 @@ export default function FluxRDV({ conseilleres }) {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    {['Conseillère', 'Visites', 'Ventes', 'Actions'].map(h => (
+                    {['Conseillère', 'RDV', 'Visites', 'Ventes', 'Actions'].map(h => (
                       <th key={h} style={{ fontSize: 10, color: '#5A5A5A', textAlign: 'left', padding: '8px 10px', borderBottom: '1px solid rgba(201,168,76,0.15)', textTransform: 'uppercase', fontWeight: 500 }}>{h}</th>
                     ))}
                   </tr>
@@ -717,9 +717,14 @@ export default function FluxRDV({ conseilleres }) {
                         {isEditing ? (
                           <>
                             <td style={{ padding: '6px 10px' }}>
+                              <input type="number" min="0" value={jourEditForm.rdv ?? s.rdv}
+                                onChange={e => setJourEditForm(p => ({ ...p, rdv: e.target.value }))}
+                                style={{ width: 60, padding: '5px 8px', border: '1.5px solid #C9A84C', borderRadius: 6, fontSize: 12, textAlign: 'center' }} />
+                            </td>
+                            <td style={{ padding: '6px 10px' }}>
                               <input type="number" min="0" value={jourEditForm.visites ?? s.visites}
                                 onChange={e => setJourEditForm(p => ({ ...p, visites: e.target.value }))}
-                                style={{ width: 60, padding: '5px 8px', border: '1.5px solid #C9A84C', borderRadius: 6, fontSize: 12, textAlign: 'center' }} />
+                                style={{ width: 60, padding: '5px 8px', border: '1.5px solid #4CAF7D', borderRadius: 6, fontSize: 12, textAlign: 'center' }} />
                             </td>
                             <td style={{ padding: '6px 10px' }}>
                               <input type="number" min="0" value={jourEditForm.ventes ?? s.ventes}
@@ -728,7 +733,7 @@ export default function FluxRDV({ conseilleres }) {
                             </td>
                             <td style={{ padding: '6px 10px' }}>
                               <div style={{ display: 'flex', gap: 4 }}>
-                                <button onClick={() => updateJourSaisie(s.id, parseFloat(jourEditForm.visites ?? s.visites)||0, parseFloat(jourEditForm.ventes ?? s.ventes)||0, selected.value, s.conseillere_id)}
+                                <button onClick={() => updateJourSaisie(s.id, parseFloat(jourEditForm.rdv ?? s.rdv)||0, parseFloat(jourEditForm.visites ?? s.visites)||0, parseFloat(jourEditForm.ventes ?? s.ventes)||0, selected.value, s.conseillere_id)}
                                   style={{ padding: '4px 10px', borderRadius: 6, background: '#C9A84C', color: '#fff', border: 'none', fontSize: 11, cursor: 'pointer' }}>✓</button>
                                 <button onClick={() => setJourEditId(null)}
                                   style={{ padding: '4px 10px', borderRadius: 6, background: '#F8F7F4', color: '#5A5A5A', border: '1px solid rgba(201,168,76,0.2)', fontSize: 11, cursor: 'pointer' }}>✕</button>
@@ -737,11 +742,12 @@ export default function FluxRDV({ conseilleres }) {
                           </>
                         ) : (
                           <>
+                            <td style={{ padding: '10px', fontSize: 12, color: '#C9A84C', fontWeight: 600 }}>{s.rdv || 0}</td>
                             <td style={{ padding: '10px', fontSize: 12, color: '#4CAF7D' }}>{s.visites}</td>
                             <td style={{ padding: '10px', fontSize: 12, color: '#1a6b3c' }}>{s.ventes}</td>
                             <td style={{ padding: '10px' }}>
                               <div style={{ display: 'flex', gap: 4 }}>
-                                <button onClick={() => { setJourEditId(s.id); setJourEditForm({ visites: s.visites, ventes: s.ventes }) }}
+                                <button onClick={() => { setJourEditId(s.id); setJourEditForm({ rdv: s.rdv, visites: s.visites, ventes: s.ventes }) }}
                                   style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(201,168,76,0.3)', color: '#C9A84C', background: 'transparent', fontSize: 11, cursor: 'pointer' }}>✏️</button>
                                 <button onClick={() => deleteJourSaisie(s.id, selected.value, s.conseillere_id)}
                                   style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(224,92,92,0.3)', color: '#E05C5C', background: 'transparent', fontSize: 11, cursor: 'pointer' }}>🗑️</button>
