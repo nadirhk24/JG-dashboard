@@ -132,6 +132,31 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
   const [commerciaux, setCommerciaux] = useState([])
   const [loadingDetails, setLoadingDetails] = useState(false)
   const [seuilVisites, setSeuilVisites] = useState({ sale: 0, kenitra: 0 })
+  const [savingSeuilEq, setSavingSeuilEq] = useState(null) // 'sale' | 'kenitra' | null
+
+  // Charger les seuils depuis Supabase pour le mois sélectionné
+  async function loadSeuils(moisKey) {
+    if (!moisKey) return
+    const { data } = await supabase.from('seuils_visites').select('equipe, valeur').eq('mois', moisKey)
+    if (data && data.length > 0) {
+      const s = { sale: 0, kenitra: 0 }
+      data.forEach(d => { s[d.equipe] = d.valeur })
+      setSeuilVisites(s)
+    } else {
+      setSeuilVisites({ sale: 0, kenitra: 0 })
+    }
+  }
+
+  // Sauvegarder un seuil dans Supabase
+  async function saveSeuil(equipe, valeur, moisKey) {
+    if (!moisKey) return
+    setSavingSeuilEq(equipe)
+    await supabase.from('seuils_visites').upsert(
+      { equipe, mois: moisKey, valeur, updated_at: new Date().toISOString() },
+      { onConflict: 'equipe,mois' }
+    )
+    setSavingSeuilEq(null)
+  }
   const today = new Date().toISOString().split('T')[0]
   const [form, setForm] = useState({ conseillere_id: '', date: today, date_debut: '', date_fin: '', leads_bruts: '', indispos: '', non_exploitables: '', echanges: '', rdv: '', visites: '', ventes: '' })
 
@@ -181,6 +206,9 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
       setLoadingDetails(false)
     }
     loadDetails()
+    // Charger les seuils pour la periode selectionnee
+    const moisKey = selected?.type === 'month' ? selected.value : null
+    if (moisKey) loadSeuils(moisKey)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ccView, selected])
 
@@ -1144,8 +1172,16 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
                   <span style={{ fontSize: 12, color: eq === 'sale' ? '#C9A84C' : '#534AB7', fontWeight: 500 }}>{eq === 'sale' ? 'Sale' : 'Kenitra'}</span>
                   <input type="number" min="0" value={seuilVisites[eq] || ''}
                     onChange={e => setSeuilVisites(p => ({ ...p, [eq]: parseInt(e.target.value) || 0 }))}
+                    onBlur={e => {
+                      const moisKey = selected?.type === 'month' ? selected.value : null
+                      if (moisKey) saveSeuil(eq, parseInt(e.target.value) || 0, moisKey)
+                    }}
                     placeholder="ex: 20"
                     style={{ width: 60, padding: '4px 8px', border: `1.5px solid ${eq === 'sale' ? 'rgba(201,168,76,0.3)' : 'rgba(83,74,183,0.3)'}`, borderRadius: 6, fontSize: 12, textAlign: 'center', outline: 'none' }} />
+                  {savingSeuilEq === eq && <span style={{ fontSize: 9, color: '#8A8A7A' }}>...</span>}
+                  {savingSeuilEq !== eq && seuilVisites[eq] > 0 && (
+                    <span style={{ fontSize: 9, color: '#2E9455' }}>✓</span>
+                  )}
                   <span style={{ fontSize: 11, color: '#8A8A7A' }}>vis. · <strong style={{ color: eq === 'sale' ? '#C9A84C' : '#534AB7' }}>{Math.round(tauxPresence[eq]*100)}%</strong> présence → <strong>{rdvParVisite[eq]} RDV/vis.</strong></span>
                 </div>
               ))}
