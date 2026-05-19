@@ -120,7 +120,7 @@ export default function Calendrier() {
       const end = new Date(Math.min(new Date(a.date_fin), new Date(lastDay)))
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         if (d.getDay() !== 0) { // Exclure dimanches
-          result[a.conseillere_id].push(d.toISOString().split('T')[0])
+          result[a.conseillere_id].push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)
         }
       }
     })
@@ -144,7 +144,7 @@ export default function Calendrier() {
     let ouvrables = 0, feries = 0, conges = 0, repos = 0
     for (let d = 1; d <= days; d++) {
       const date = new Date(year, month, d)
-      const dateStr = date.toISOString().split('T')[0]
+      const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
       const dayOfWeek = date.getDay()
       if (dayOfWeek === 0) { repos++; continue }
       const special = joursMap[dateStr]
@@ -162,7 +162,7 @@ export default function Calendrier() {
     for (let i = 0; i < firstDay; i++) cells.push(null)
     for (let d = 1; d <= days; d++) {
       const date = new Date(year, month, d)
-      const dateStr = date.toISOString().split('T')[0]
+      const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
       const dayOfWeek = date.getDay()
       const special = joursMap[dateStr]
       let type = 'ouvrable'
