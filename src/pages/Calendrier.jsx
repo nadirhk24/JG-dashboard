@@ -52,12 +52,12 @@ export default function Calendrier() {
 
   async function loadAbsences() {
     const { data } = await supabase.from('absences_conseilleres')
-      .select('*, conseilleresList(nom)').order('date_debut', { ascending: false })
+      .select('*, conseilleres(nom)').order('date_debut', { ascending: false })
     setAbsences(data || [])
   }
 
   async function loadConseilleres() {
-    const { data } = await supabase.from('conseilleresList').select('id, nom').eq('actif', true).order('nom')
+    const { data } = await supabase.from('conseilleres').select('id, nom').eq('actif', true).order('nom')
     setConseilleresList(data || [])
   }
 
