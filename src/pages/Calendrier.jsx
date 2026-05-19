@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import PageHeader from '../components/PageHeader'
 import SectionTitle from '../components/SectionTitle'
 
@@ -19,7 +19,11 @@ const TYPES_ABSENCE = [
 function getDaysInMonth(year, month) { return new Date(year, month + 1, 0).getDate() }
 function getFirstDayOfMonth(year, month) { const d = new Date(year, month, 1).getDay(); return d === 0 ? 6 : d - 1 }
 
-export default function Calendrier() {
+export default function Calendrier({ conseilleres }) {
+  const { profil } = useAuth()
+  const isSuperAdmin = profil?.role === 'super_admin'
+  const isConseillere = profil?.role === 'conseillere'
+  const myConseillereId = profil?.conseillere_id || null
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth())
@@ -184,7 +188,12 @@ export default function Calendrier() {
   const inputStyle = { padding: '8px 12px', border: '1.5px solid rgba(201,168,76,0.25)', borderRadius: 8, fontSize: 13, color: '#2C2C2C', background: '#F8F7F4', outline: 'none', fontFamily: 'DM Sans, sans-serif' }
   const labelStyle = { fontSize: 11, color: '#5A5A5A', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 500 }
 
-  const filteredAbsences = filterConseillere === 'all' ? absences : absences.filter(a => a.conseillere_id === filterConseillere)
+  const filteredAbsences = useMemo(() => {
+    let base = absences
+    if (isConseillere && myConseillereId) base = base.filter(a => a.conseillere_id === myConseillereId)
+    else if (filterConseillere !== 'all') base = base.filter(a => a.conseillere_id === filterConseillere)
+    return base
+  }, [absences, isConseillere, myConseillereId, filterConseillere])
 
   // Stats absences du mois par conseillère
   const statsAbsences = useMemo(() => {
@@ -251,9 +260,9 @@ export default function Calendrier() {
                 <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 20, fontWeight: 600, color: '#2C2C2C', minWidth: 160, textAlign: 'center' }}>{MOIS[month]} {year}</div>
                 <button onClick={() => { if (month === 11) { setMonth(0); setYear(y=>y+1) } else setMonth(m=>m+1) }} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(201,168,76,0.2)', background: '#fff', color: '#C9A84C', cursor: 'pointer', fontSize: 16 }}>›</button>
               </div>
-              <button onClick={() => setShowAddForm(p=>!p)} style={{ padding: '8px 18px', borderRadius: 20, border: '1.5px solid #C9A84C', background: showAddForm ? '#C9A84C' : '#fff', color: showAddForm ? '#fff' : '#C9A84C', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+              {isSuperAdmin && <button onClick={() => setShowAddForm(p=>!p)} style={{ padding: '8px 18px', borderRadius: 20, border: '1.5px solid #C9A84C', background: showAddForm ? '#C9A84C' : '#fff', color: showAddForm ? '#fff' : '#C9A84C', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
                 {showAddForm ? '✕ Annuler' : '+ Ajouter jour'}
-              </button>
+              </button>}
             </div>
 
             {showAddForm && (
@@ -371,18 +380,24 @@ export default function Calendrier() {
           {/* Header + filtres */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <select value={filterConseillere} onChange={e => setFilterConseillere(e.target.value)} style={{ ...inputStyle, fontSize: 12 }}>
-                <option value="all">Toutes les conseillères</option>
-                {conseilleres.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
-              </select>
+              {isConseillere ? (
+                <div style={{ padding: '6px 14px', borderRadius: 20, background: 'rgba(201,168,76,0.1)', border: '1.5px solid rgba(201,168,76,0.3)', fontSize: 12, fontWeight: 500, color: '#C9A84C' }}>
+                  {conseilleres?.find(c => c.id === myConseillereId)?.nom || 'Mes absences'}
+                </div>
+              ) : (
+                <select value={filterConseillere} onChange={e => setFilterConseillere(e.target.value)} style={{ ...inputStyle, fontSize: 12 }}>
+                  <option value="all">Toutes les conseillères</option>
+                  {conseilleres.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
+                </select>
+              )}
             </div>
-            <button onClick={() => setShowAbsenceForm(p=>!p)} style={{ padding: '9px 18px', borderRadius: 20, border: '1.5px solid #C9A84C', background: showAbsenceForm ? '#C9A84C' : '#fff', color: showAbsenceForm ? '#fff' : '#C9A84C', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+            {isSuperAdmin && <button onClick={() => setShowAbsenceForm(p=>!p)} style={{ padding: '9px 18px', borderRadius: 20, border: '1.5px solid #C9A84C', background: showAbsenceForm ? '#C9A84C' : '#fff', color: showAbsenceForm ? '#fff' : '#C9A84C', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
               {showAbsenceForm ? '✕ Annuler' : '+ Déclarer une absence'}
-            </button>
+            </button>}
           </div>
 
-          {/* Formulaire absence */}
-          {showAbsenceForm && (
+          {/* Formulaire absence - super admin uniquement */}
+          {isSuperAdmin && showAbsenceForm && (
             <div style={{ background: 'rgba(201,168,76,0.05)', borderRadius: 12, padding: 20, marginBottom: 20, border: '1.5px solid rgba(201,168,76,0.25)' }}>
               <div style={{ fontSize: 13, fontWeight: 500, color: '#2C2C2C', marginBottom: 16 }}>Nouvelle absence</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
@@ -462,7 +477,7 @@ export default function Calendrier() {
                         </td>
                         <td style={{ padding: '10px 10px', fontSize: 12, color: '#8A8A7A' }}>{a.motif || '—'}</td>
                         <td style={{ padding: '10px 10px' }}>
-                          <button onClick={() => removeAbsence(a.id)} style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(224,92,92,0.3)', color: '#E05C5C', background: 'transparent', fontSize: 11, cursor: 'pointer' }}>Supprimer</button>
+                          {isSuperAdmin && <button onClick={() => removeAbsence(a.id)} style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(224,92,92,0.3)', color: '#E05C5C', background: 'transparent', fontSize: 11, cursor: 'pointer' }}>Supprimer</button>}
                         </td>
                       </tr>
                     )
