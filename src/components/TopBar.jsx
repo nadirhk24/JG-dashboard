@@ -236,7 +236,13 @@ function StockPopup({ onClose }) {
                     {statutLabel[selectedProjet.statut]}
                   </span>
                 </div>
-                <div style={{ fontSize: 11, color: '#8A8A7A' }}>{selectedProjet.regions?.nom} · {totalUnites} unité{totalUnites > 1 ? 's' : ''} disponible{totalUnites > 1 ? 's' : ''}</div>
+                <div style={{ fontSize: 11, color: '#8A8A7A' }}>
+                  {selectedProjet.regions?.nom} · {totalUnites} unité{totalUnites > 1 ? 's' : ''} disponible{totalUnites > 1 ? 's' : ''}
+                  {selectedProjet.delai_livraison
+                    ? <span style={{ color: '#534AB7', fontWeight: 500 }}> · 🏗️ Livraison : {selectedProjet.delai_livraison}</span>
+                    : <span style={{ color: '#E07B30', fontWeight: 500 }}> · 🏗️ En cours</span>
+                  }
+                </div>
               </div>
 
               {/* Stock par type */}
