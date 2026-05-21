@@ -68,26 +68,20 @@ function AppContent() {
       const dateFrom = `${currentYear}-01-01`
       const dateTo   = `${currentYear}-12-31`
 
+      // Charger saisies journalières (champ date) + saisies période (champ date_debut)
+      const [{ data: saisiesJour }, { data: saisiesPeriode }] = await Promise.all([
+        supabase.from('saisies').select('*')
+          .gte('date', dateFrom).lte('date', dateTo)
+          .order('date', { ascending: false }).limit(5000),
+        supabase.from('saisies').select('*')
+          .gte('date_debut', dateFrom).lte('date_debut', dateTo)
+          .order('date_debut', { ascending: false }).limit(1000),
+      ])
+      // Fusionner et dédupliquer par id
+      const seen = new Set()
       let allSaisies = []
-      let from = 0
-      const pageSize = 1000
-      const maxRows  = 5000
-
-      while (allSaisies.length < maxRows) {
-        const { data: page, error } = await supabase
-          .from('saisies')
-          .select('*')
-          .or(`date.gte.${dateFrom},date_debut.gte.${dateFrom}`)
-          .or(`date.lte.${dateTo},date_debut.lte.${dateTo}`)
-          .order('date', { ascending: false })
-          .range(from, from + pageSize - 1)
-
-        if (error) { console.error(error); break }
-        if (!page || page.length === 0) break
-
-        allSaisies = [...allSaisies, ...page]
-        if (page.length < pageSize) break
-        from += pageSize
+      for (const s of [...(saisiesJour || []), ...(saisiesPeriode || [])]) {
+        if (!seen.has(s.id)) { seen.add(s.id); allSaisies.push(s) }
       }
 
       setConseilleres(cons || [])
