@@ -77,9 +77,9 @@ function AppContent() {
         const { data: page, error } = await supabase
           .from('saisies')
           .select('*')
-          .gte('date_debut', dateFrom)
-          .lte('date_debut', dateTo)
-          .order('date_debut', { ascending: false })
+          .or(`date.gte.${dateFrom},date_debut.gte.${dateFrom}`)
+          .or(`date.lte.${dateTo},date_debut.lte.${dateTo}`)
+          .order('date', { ascending: false })
           .range(from, from + pageSize - 1)
 
         if (error) { console.error(error); break }
