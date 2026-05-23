@@ -711,20 +711,14 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
 
       <SectionTitle>KPIs Globaux — {selected.label}</SectionTitle>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 16, marginBottom: 16 }}>
-        <KpiCard label="Productivité" value={kpisGlobal.productivite} sub="" 
-          valeurNb={kpisGlobal.echanges_nets}
-          objectifNb={isConseillere
+        <KpiCard label="Productivité" value={kpisGlobal.productivite}
+          sub={`${kpisGlobal.echanges_nets || 0} échanges nets`}
+          badge={`Obj: ${isConseillere
             ? (objectifsIndiv?.obj_echanges_nb > 0 ? objectifsIndiv.obj_echanges_nb : objParConseillere.obj_echanges_nb)
             : filtreConseillere !== 'all'
               ? (objectifsIndiv?.obj_echanges_nb > 0 ? objectifsIndiv.obj_echanges_nb : objParConseillere.obj_echanges_nb)
-              : objectifs.obj_echanges_nb}
-          badge={`Obj: ${
-          isConseillere
-            ? (objectifsIndiv?.obj_echanges_nb > 0 ? objectifsIndiv.obj_echanges_nb : objParConseillere.obj_echanges_nb)
-            : filtreConseillere !== 'all'
-              ? (objectifsIndiv?.obj_echanges_nb > 0 ? objectifsIndiv.obj_echanges_nb : objParConseillere.obj_echanges_nb)
-              : objectifs.obj_echanges_nb
-        }`} objectifPct={objectifs.obj_productivite_pct} />
+              : objectifs.obj_echanges_nb}`}
+          objectifPct={objectifs.obj_productivite_pct} />
         <KpiCard label="Conv. Téléphonique" value={kpisGlobal.conversion_tel} sub="RDV / Échanges" badge={`CV: ${cvConvTel}%`} objectifPct={objectifs.obj_conv_tel_pct} objectifNb={objectifs.obj_conv_tel_nb} valeurNb={kpisGlobal.rdv} />
         <KpiCard label="Taux de Présence" value={kpisGlobal.taux_presence} sub="Visites / RDV" badge={`CV: ${cvPresence}%`} objectifPct={objectifs.obj_presence_pct} />
       </div>
