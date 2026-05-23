@@ -712,7 +712,7 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
       <SectionTitle>KPIs Globaux — {selected.label}</SectionTitle>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 16, marginBottom: 16 }}>
         <KpiCard label="Productivité" value={kpisGlobal.productivite}
-          sub={`${kpisGlobal.echanges_nets || 0} échanges nets`}
+          sub={`${kpisGlobal.echanges || 0} échanges nets`}
           badge={`Obj: ${isConseillere
             ? (objectifsIndiv?.obj_echanges_nb > 0 ? objectifsIndiv.obj_echanges_nb : objParConseillere.obj_echanges_nb)
             : filtreConseillere !== 'all'
