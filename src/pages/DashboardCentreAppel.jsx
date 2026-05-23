@@ -266,13 +266,28 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
     if (isConseillere && myConseillereId) return agregerParPeriode(saisiesFiltrees, myConseillereId, { objEchangesNb: objEch })
     return agregerParPeriode(saisiesFiltrees, null, { objEchangesNb: objEch })
   }, [saisiesFiltrees, isConseillere, myConseillereId, filtreConseillere, objParConseillere, objectifs, objectifsIndiv])
+  const [objectifsParConseillere, setObjectifsParConseillere] = useState({}) // { conseillere_id: obj_echanges_nb }
+
+  // Charger les objectifs individuels pour toutes les conseillères (pour le ranking)
+  useEffect(() => {
+    async function loadAllObjIndiv() {
+      if (!conseilleres.length || !selected) return
+      const results = {}
+      await Promise.all(conseilleres.map(async c => {
+        const obj = await getObjectifsConseillere(c.id, selected)
+        results[c.id] = obj?.obj_echanges_nb > 0 ? obj.obj_echanges_nb : objParConseillere.obj_echanges_nb
+      }))
+      setObjectifsParConseillere(results)
+    }
+    loadAllObjIndiv()
+  }, [conseilleres, selected, objParConseillere])
+
   // Ranking : utilise saisiesParPeriode (toutes les conseillères, filtrées par période seulement)
-  // Même pour une conseillère connectée, le ranking doit montrer tout le monde avec ses vraies données
   const kpisParConseillere = useMemo(() => conseilleres.map(c => ({ ...c, ...agregerParPeriode(
     saisiesParPeriode,
     c.id,
-    { objEchangesNb: objParConseillere.obj_echanges_nb }
-  ) })), [conseilleres, saisiesParPeriode, objParConseillere])
+    { objEchangesNb: objectifsParConseillere[c.id] || objParConseillere.obj_echanges_nb }
+  ) })), [conseilleres, saisiesParPeriode, objParConseillere, objectifsParConseillere])
   const cvConvTel = useMemo(() => calcCV(kpisParConseillere.map(c => c.conversion_tel)), [kpisParConseillere])
   const cvPresence = useMemo(() => calcCV(kpisParConseillere.map(c => c.taux_presence)), [kpisParConseillere])
   const cvEfficacite = useMemo(() => calcCV(kpisParConseillere.map(c => c.efficacite_comm)), [kpisParConseillere])
@@ -696,7 +711,14 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
 
       <SectionTitle>KPIs Globaux — {selected.label}</SectionTitle>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 16, marginBottom: 16 }}>
-        <KpiCard label="Productivité" value={kpisGlobal.productivite} sub="(Leads nets + Éch. nets) / Objectif" badge={`Obj: ${
+        <KpiCard label="Productivité" value={kpisGlobal.productivite} sub="" 
+          valeurNb={kpisGlobal.echanges_nets}
+          objectifNb={isConseillere
+            ? (objectifsIndiv?.obj_echanges_nb > 0 ? objectifsIndiv.obj_echanges_nb : objParConseillere.obj_echanges_nb)
+            : filtreConseillere !== 'all'
+              ? (objectifsIndiv?.obj_echanges_nb > 0 ? objectifsIndiv.obj_echanges_nb : objParConseillere.obj_echanges_nb)
+              : objectifs.obj_echanges_nb}
+          badge={`Obj: ${
           isConseillere
             ? (objectifsIndiv?.obj_echanges_nb > 0 ? objectifsIndiv.obj_echanges_nb : objParConseillere.obj_echanges_nb)
             : filtreConseillere !== 'all'
