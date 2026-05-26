@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react'
+import { useAuth } from '../context/AuthContext'
 import { useJoursExclus, estJourExclu } from '../lib/dates'
 import DrillNav, { MOIS_SHORT } from '../components/DrillNav'
 import { supabase } from '../lib/supabase'
@@ -146,7 +147,13 @@ const COHORT_COLS = [
 ]
 
 export default function DashboardMarketing() {
-  const [marketingData, setMarketingData] = useState([])
+  const { profil } = useAuth()
+  const isSuperAdmin = profil?.role === 'super_admin'
+  const [archives, setArchives] = useState([])
+  const [showArchives, setShowArchives] = useState(false)
+  const [selectedArchive, setSelectedArchive] = useState(null)
+  const [savingArchive, setSavingArchive] = useState(false)
+  const [archiveMsg, setArchiveMsg] = useState(null)
   const [saisiesCC, setSaisiesCC] = useState([])
   const [loading, setLoading] = useState(true)
   const [showSaisie, setShowSaisie] = useState(false)
@@ -176,7 +183,31 @@ export default function DashboardMarketing() {
 
   useEffect(() => { localStorage.setItem('jg_selected_mkt', JSON.stringify(selected)) }, [selected])
 
-  useEffect(() => { loadMarketing() }, [])
+  useEffect(() => { loadMarketing(); loadArchives() }, [])
+
+  async function loadArchives() {
+    const { data } = await supabase.from('archives_marketing').select('*').order('mois', { ascending: false })
+    setArchives(data || [])
+  }
+
+  async function archiveMois() {
+    if (!chartData.length) { setArchiveMsg({ type: 'error', text: 'Aucune donnée à archiver' }); return }
+    const moisKey = selected?.type === 'month' ? selected.value : null
+    if (!moisKey) { setArchiveMsg({ type: 'error', text: 'Sélectionne un mois spécifique pour archiver' }); return }
+    setSavingArchive(true)
+    const { error } = await supabase.from('archives_marketing').upsert({
+      mois: moisKey,
+      label: selected.label || moisKey,
+      chart_data: chartData,
+    }, { onConflict: 'mois' })
+    setSavingArchive(false)
+    if (error) setArchiveMsg({ type: 'error', text: error.message })
+    else {
+      setArchiveMsg({ type: 'success', text: `✅ ${selected.label} archivé !` })
+      loadArchives()
+      setTimeout(() => setArchiveMsg(null), 3000)
+    }
+  }
 
   async function loadMarketing() {
     setLoading(true)
@@ -265,6 +296,10 @@ export default function DashboardMarketing() {
       if (!groups[key]) groups[key] = { label, rows: [] }
       groups[key].rows.push(s)
     })
+    const now = new Date()
+    const moisCourant = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
+    const isCurrentMonth = selected?.type === 'month' && selected?.value === moisCourant
+
     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([key, { label, rows }]) => {
       const agg = aggreger(rows)
       const ccData = ccParPeriode[key] || { injections: 0, indispos: 0 }
@@ -285,6 +320,10 @@ export default function DashboardMarketing() {
         taux_visites: base_nette > 0 ? parseFloat(((agg.visites / base_nette) * 100).toFixed(1)) : 0,
         taux_ventes: base_nette > 0 ? parseFloat(((agg.ventes / base_nette) * 100).toFixed(1)) : 0,
       }
+    }).filter(r => {
+      // Mois en cours uniquement : ignorer les jours sans aucune donnée
+      if (!isCurrentMonth) return true
+      return r.injections > 0 || r.non_exploitables > 0 || r.suivis > 0 || r.rdv > 0 || r.visites > 0 || r.ventes > 0
     })
   }, [dataFiltree, selected, ccParPeriode])
 
@@ -405,6 +444,20 @@ export default function DashboardMarketing() {
   return (
     <div>
       <PageHeader title="Dashboard Marketing" subtitle={selected.label}>
+        {/* Bouton archiver (super admin + mois sélectionné) */}
+        {isSuperAdmin && selected?.type === 'month' && (
+          <button onClick={archiveMois} disabled={savingArchive}
+            style={{ padding: '8px 16px', borderRadius: 20, border: '1.5px solid #534AB7', background: savingArchive ? '#eee' : '#fff', color: '#534AB7', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+            {savingArchive ? '...' : '📦 Archiver ce mois'}
+          </button>
+        )}
+        {/* Bouton archives */}
+        {archives.length > 0 && (
+          <button onClick={() => { setShowArchives(p => !p); setSelectedArchive(null) }}
+            style={{ padding: '8px 16px', borderRadius: 20, border: `1.5px solid ${showArchives ? '#534AB7' : 'rgba(83,74,183,0.3)'}`, background: showArchives ? '#534AB7' : '#fff', color: showArchives ? '#fff' : '#534AB7', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+            🗂 Archives ({archives.length})
+          </button>
+        )}
         {confirmModal && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
             <div style={{ background: '#fff', borderRadius: 16, padding: 32, maxWidth: 540, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
@@ -473,7 +526,106 @@ export default function DashboardMarketing() {
         </button>
       </PageHeader>
 
-      {showSaisie && (
+      {/* Message archive */}
+      {archiveMsg && (
+        <div style={{ padding: '10px 16px', borderRadius: 8, marginBottom: 12, fontSize: 12, fontWeight: 500, background: archiveMsg.type === 'success' ? 'rgba(76,175,125,0.1)' : 'rgba(224,92,92,0.1)', color: archiveMsg.type === 'success' ? '#2d7a54' : '#a03030' }}>
+          {archiveMsg.text}
+        </div>
+      )}
+
+      {/* Panneau archives */}
+      {showArchives && (
+        <div style={{ background: '#fff', borderRadius: 14, padding: 20, border: '1.5px solid rgba(83,74,183,0.2)', marginBottom: 20 }}>
+          <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#534AB7', marginBottom: 14 }}>🗂 Archives mensuelles</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: selectedArchive ? 16 : 0 }}>
+            {archives.map(a => (
+              <button key={a.id} onClick={() => setSelectedArchive(selectedArchive?.id === a.id ? null : a)}
+                style={{ padding: '6px 16px', borderRadius: 16, border: `1.5px solid ${selectedArchive?.id === a.id ? '#534AB7' : 'rgba(83,74,183,0.25)'}`, background: selectedArchive?.id === a.id ? '#534AB7' : '#fff', color: selectedArchive?.id === a.id ? '#fff' : '#534AB7', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+                {a.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Graphes archivés */}
+          {selectedArchive && selectedArchive.chart_data?.length > 0 && (() => {
+            const data = selectedArchive.chart_data
+            return (
+              <div>
+                <div style={{ fontSize: 12, color: '#8A8A7A', marginBottom: 12 }}>
+                  Snapshot archivé le {new Date(selectedArchive.created_at).toLocaleDateString('fr-FR')} · {data.length} points de données
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                  {/* Graphe Joignabilité */}
+                  <div style={{ background: '#F8F7F4', borderRadius: 12, padding: '16px' }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#2C2C2C', marginBottom: 12 }}>Joignabilité — {selectedArchive.label}</div>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <LineChart data={data} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.1)" />
+                        <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+                        <YAxis tick={{ fontSize: 10 }} unit="%" domain={[0, 100]} />
+                        <Tooltip contentStyle={{ background: '#2C2C2C', border: 'none', borderRadius: 8, color: '#fff', fontSize: 11 }} formatter={v => [`${v}%`]} />
+                        <Line type="monotone" dataKey="taux_joignabilite" name="Joignabilité" stroke="#C9A84C" strokeWidth={2} dot={{ r: 3 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                  {/* Graphe Exploitation */}
+                  <div style={{ background: '#F8F7F4', borderRadius: 12, padding: '16px' }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#2C2C2C', marginBottom: 12 }}>Exploitabilité — {selectedArchive.label}</div>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <LineChart data={data} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.1)" />
+                        <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+                        <YAxis tick={{ fontSize: 10 }} unit="%" domain={[0, 100]} />
+                        <Tooltip contentStyle={{ background: '#2C2C2C', border: 'none', borderRadius: 8, color: '#fff', fontSize: 11 }} formatter={v => [`${v}%`]} />
+                        <Line type="monotone" dataKey="taux_exploitables" name="Exploitables" stroke="#534AB7" strokeWidth={2} dot={{ r: 3 }} />
+                        <Line type="monotone" dataKey="taux_non_exp" name="Non Exploit." stroke="#E05C5C" strokeWidth={1.5} strokeDasharray="4 2" dot={{ r: 2 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                  {/* Graphe RDV/Visites/Ventes */}
+                  <div style={{ background: '#F8F7F4', borderRadius: 12, padding: '16px' }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#2C2C2C', marginBottom: 12 }}>Conversion — {selectedArchive.label}</div>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <LineChart data={data} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(201,168,76,0.1)" />
+                        <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+                        <YAxis tick={{ fontSize: 10 }} unit="%" domain={[0, 100]} />
+                        <Tooltip contentStyle={{ background: '#2C2C2C', border: 'none', borderRadius: 8, color: '#fff', fontSize: 11 }} formatter={v => [`${v}%`]} />
+                        <Line type="monotone" dataKey="taux_rdv" name="Tx RDV" stroke="#4CAF7D" strokeWidth={2} dot={{ r: 3 }} />
+                        <Line type="monotone" dataKey="taux_visites" name="Tx Visites" stroke="#2E9455" strokeWidth={2} dot={{ r: 3 }} />
+                        <Line type="monotone" dataKey="taux_ventes" name="Tx Ventes" stroke="#1a6b3c" strokeWidth={2} dot={{ r: 3 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                  {/* Tableau récap */}
+                  <div style={{ background: '#F8F7F4', borderRadius: 12, padding: '16px', overflowY: 'auto', maxHeight: 240 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#2C2C2C', marginBottom: 12 }}>Récap journalier — {selectedArchive.label}</div>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                      <thead>
+                        <tr>{['Jour','Injec.','Joign.','Expl.','RDV%','Vis%'].map(h => (
+                          <th key={h} style={{ fontSize: 9, color: '#5A5A5A', padding: '4px 6px', borderBottom: '1px solid rgba(201,168,76,0.15)', textAlign: 'right', fontWeight: 500 }}>{h}</th>
+                        ))}</tr>
+                      </thead>
+                      <tbody>
+                        {data.map((r, i) => (
+                          <tr key={i} style={{ borderBottom: '1px solid rgba(201,168,76,0.06)' }}>
+                            <td style={{ padding: '4px 6px', color: '#C9A84C', fontWeight: 500 }}>{r.label}</td>
+                            <td style={{ padding: '4px 6px', textAlign: 'right' }}>{r.injections}</td>
+                            <td style={{ padding: '4px 6px', textAlign: 'right', color: '#C9A84C' }}>{r.taux_joignabilite}%</td>
+                            <td style={{ padding: '4px 6px', textAlign: 'right', color: '#534AB7' }}>{r.taux_exploitables}%</td>
+                            <td style={{ padding: '4px 6px', textAlign: 'right', color: '#4CAF7D' }}>{r.taux_rdv}%</td>
+                            <td style={{ padding: '4px 6px', textAlign: 'right', color: '#2E9455' }}>{r.taux_visites}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+        </div>
+      )}
         <div style={{ ...cardStyle, borderColor: '#C9A84C' }}>
           <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4, color: '#2C2C2C' }}>Saisie Marketing</div>
           <div style={{ padding: '8px 12px', background: 'rgba(201,168,76,0.06)', borderRadius: 8, marginBottom: 16, fontSize: 12, color: '#8a6a1a', border: '1px solid rgba(201,168,76,0.2)' }}>
