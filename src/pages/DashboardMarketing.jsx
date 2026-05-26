@@ -154,6 +154,7 @@ export default function DashboardMarketing() {
   const [selectedArchive, setSelectedArchive] = useState(null)
   const [savingArchive, setSavingArchive] = useState(false)
   const [archiveMsg, setArchiveMsg] = useState(null)
+  const [marketingData, setMarketingData] = useState([])
   const [saisiesCC, setSaisiesCC] = useState([])
   const [loading, setLoading] = useState(true)
   const [showSaisie, setShowSaisie] = useState(false)
