@@ -301,13 +301,14 @@ export default function Primes() {
   // Mois courant
   const now = new Date()
   const moisCourant = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
-  const moisCourantLabel = MOIS_LABELS[now.getMonth()]
+  const [selectedMois, setSelectedMois] = useState(moisCourant)
+  const moisCourantLabel = MOIS_LABELS[parseInt(selectedMois.split('-')[1]) - 1]
 
   // ── Vue conseillère ───────────────────────────────────────────────────────
   if (isConseillere && myConseillereId) {
     const chartData = getChartDataConseillere(myConseillereId)
     const cons = conseilleres.find(c => c.id === myConseillereId)
-    const primeCeMois = getPrimeMois(myConseillereId, moisCourant)
+    const primeCeMois = getPrimeMois(myConseillereId, selectedMois)
     const totalAnnee  = moisDisponibles.reduce((s, m) => s + getPrimeMois(myConseillereId, m).prime, 0)
     const totalVisites = moisDisponibles.reduce((s, m) => s + getPrimeMois(myConseillereId, m).visites, 0)
     const totalVentes  = moisDisponibles.reduce((s, m) => s + getPrimeMois(myConseillereId, m).ventes, 0)
@@ -327,14 +328,22 @@ export default function Primes() {
           const trend = getTrendArrow(chartData)
           return (
             <div style={{ display: 'flex', gap: 16, marginBottom: 20, flexWrap: 'wrap', alignItems: 'stretch' }}>
-              {/* Carte prime mois — avec couleur */}
-              <div style={{ flex: 1, minWidth: 160, background: '#fff', borderRadius: 14, padding: '18px 20px', border: `1.5px solid ${color}40`, borderTop: `3px solid ${color}`, boxShadow: isGold ? '0 4px 16px rgba(201,168,76,0.2)' : undefined }}>
+              {/* Carte prime mois — avec couleur + sélecteur mois */}
+              <div style={{ flex: 1, minWidth: 180, background: '#fff', borderRadius: 14, padding: '18px 20px', border: `1.5px solid ${color}40`, borderTop: `3px solid ${color}`, boxShadow: isGold ? '0 4px 16px rgba(201,168,76,0.2)' : undefined }}>
                 <div style={{ fontSize: 11, color: '#8A8A7A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Prime {moisCourantLabel}</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                   <div style={{ fontSize: isGold ? 26 : 24, fontWeight: 700, color, fontFamily: isGold ? 'Cormorant Garamond, serif' : 'inherit' }}>{formatDh(primeCeMois.prime)}</div>
                   {trend && <span style={{ fontSize: 20, fontWeight: 700, color: trend.color }}>{trend.dir}</span>}
                 </div>
-                <div style={{ fontSize: 11, color: '#8A8A7A', marginTop: 4 }}>Mois en cours</div>
+                {/* Sélecteur mois */}
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                  {moisDisponibles.map(m => (
+                    <button key={m} onClick={() => setSelectedMois(m)}
+                      style={{ padding: '2px 8px', borderRadius: 10, fontSize: 10, cursor: 'pointer', fontWeight: selectedMois === m ? 600 : 400, border: `1px solid ${selectedMois === m ? color : 'rgba(0,0,0,0.1)'}`, background: selectedMois === m ? color : '#F8F7F4', color: selectedMois === m ? '#fff' : '#5A5A5A' }}>
+                      {MOIS_SHORT[parseInt(m.split('-')[1])-1]}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div style={{ flex: 1, minWidth: 140 }}><KpiCard label="Prime annuelle" value={formatDh(totalAnnee)} unit="" sub="Cumul 2026" /></div>
               <div style={{ flex: 1, minWidth: 140 }}><KpiCard label="Total Visites" value={totalVisites} unit="" sub="Cumul 2026" /></div>
@@ -348,8 +357,8 @@ export default function Primes() {
   }
 
   // ── Vue super admin ───────────────────────────────────────────────────────
-  const totalEquipeCeMois = primeTotaleParMois[moisCourant] || 0
-  const primeManagerCeMois = getPrimeManager(moisCourant)
+  const totalEquipeCeMois = primeTotaleParMois[selectedMois] || 0
+  const primeManagerCeMois = getPrimeManager(selectedMois)
   const cvGlobal = calcCV(chartDataGlobal.map(d => d.prime))
 
   const chartToShow = managerMode ? chartDataManager : chartDataGlobal
@@ -366,7 +375,19 @@ export default function Primes() {
 
       {/* KPIs globaux - 2 cartes seulement */}
       <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: 140 }}><KpiCard label={`Total Équipe — ${moisCourantLabel}`} value={formatDh(totalEquipeCeMois)} unit="" sub="Mois en cours" /></div>
+        <div style={{ flex: 1, minWidth: 200, background: '#fff', borderRadius: 14, padding: '18px 20px', border: '1px solid rgba(201,168,76,0.15)', borderTop: '3px solid #C9A84C' }}>
+          <div style={{ fontSize: 11, color: '#8A8A7A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Total Équipe</div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: '#C9A84C', marginBottom: 10 }}>{formatDh(totalEquipeCeMois)}</div>
+          {/* Sélecteur mois */}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {moisDisponibles.map(m => (
+              <button key={m} onClick={() => setSelectedMois(m)}
+                style={{ padding: '3px 10px', borderRadius: 12, fontSize: 11, cursor: 'pointer', fontWeight: selectedMois === m ? 600 : 400, border: `1.5px solid ${selectedMois === m ? '#C9A84C' : 'rgba(201,168,76,0.2)'}`, background: selectedMois === m ? '#C9A84C' : '#F8F7F4', color: selectedMois === m ? '#fff' : '#5A5A5A', transition: 'all 0.15s' }}>
+                {MOIS_SHORT[parseInt(m.split('-')[1])-1]}
+              </button>
+            ))}
+          </div>
+        </div>
         {primeManagerCeMois !== null && (
           <div style={{ flex: 1, minWidth: 140 }}><KpiCard label="Prime Manager" value={formatDh(primeManagerCeMois)} unit="" sub="50% du total mensuel" /></div>
         )}
@@ -383,7 +404,7 @@ export default function Primes() {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14, marginBottom: 16 }}>
         {conseilleres.map((c, i) => {
-          const d = getPrimeMois(c.id, moisCourant)
+          const d = getPrimeMois(c.id, selectedMois)
           const totalAnnee = moisDisponibles.reduce((s, m) => s + getPrimeMois(c.id, m).prime, 0)
           const chartData  = getChartDataConseillere(c.id)
           const trend      = getTrendArrow(chartData)
