@@ -160,6 +160,7 @@ export default function Primes() {
   const [conseilleres, setConseilleres]   = useState([])
   const [fluxData, setFluxData]           = useState([])
   const [loading, setLoading]             = useState(true)
+  const [selectedPopup, setSelectedPopup] = useState(null)   // conseillère popup
   const [detailVentes, setDetailVentes] = useState({}) // { conseillere_id_mois: { appt, bureau, magasin } }
   const [popupVentes, setPopupVentes] = useState(null)  // { consId, mois, totalVentes }
   const [popupForm, setPopupForm] = useState({ appt: '', bureau: '', magasin: '' })
