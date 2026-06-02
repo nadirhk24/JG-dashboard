@@ -576,6 +576,8 @@ export default function Primes() {
           </div>
         </div>
       )}
+
+      {selectedPopup && (
         <PopupCourbe
           conseillere={selectedPopup}
           chartData={getChartDataConseillere(selectedPopup.id)}
