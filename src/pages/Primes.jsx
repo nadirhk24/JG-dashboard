@@ -160,7 +160,10 @@ export default function Primes() {
   const [conseilleres, setConseilleres]   = useState([])
   const [fluxData, setFluxData]           = useState([])
   const [loading, setLoading]             = useState(true)
-  const [selectedPopup, setSelectedPopup] = useState(null)   // conseillère popup
+  const [detailVentes, setDetailVentes] = useState({}) // { conseillere_id_mois: { appt, bureau, magasin } }
+  const [popupVentes, setPopupVentes] = useState(null)  // { consId, mois, totalVentes }
+  const [popupForm, setPopupForm] = useState({ appt: '', bureau: '', magasin: '' })
+  const [savingPopup, setSavingPopup] = useState(false)
   const [managerMode, setManagerMode]     = useState(false)  // courbe manager active
 
   useEffect(() => { loadData() }, [])
@@ -201,8 +204,14 @@ export default function Primes() {
       from += PAGE_SIZE
     }
 
+    // Charger détails ventes
+    const { data: details } = await supabase.from('primes_detail_ventes').select('*')
+    const detailMap = {}
+    ;(details || []).forEach(d => { detailMap[`${d.conseillere_id}_${d.mois}`] = d })
+
     setConseilleres(cons || [])
     setFluxData(allFlux)
+    setDetailVentes(detailMap)
     setLoading(false)
   }
 
@@ -245,10 +254,38 @@ export default function Primes() {
     return MOIS_KEYS.filter(m => set.has(m))
   }, [aggParConseillereParMois])
 
-  // Prime par conseillère par mois
+  // Calcul prime ventes avec détail types de biens
+  function calcPrimeVentes(totalVentes, consId, mois) {
+    const key = `${consId}_${mois}`
+    const detail = detailVentes[key]
+    if (!detail) return totalVentes * 300
+    const magasin = detail.magasin || 0
+    const autres = (detail.appt || 0) + (detail.bureau || 0)
+    // Si total déclaré ne correspond pas → fallback 300 dh/vente
+    if (magasin + autres !== totalVentes && magasin + autres > 0) return totalVentes * 300
+    return (magasin * 600) + (autres * 300)
+  }
+
+  async function saveDetailVentes() {
+    const { consId, mois, totalVentes } = popupVentes
+    const appt = parseInt(popupForm.appt) || 0
+    const bureau = parseInt(popupForm.bureau) || 0
+    const magasin = parseInt(popupForm.magasin) || 0
+    if (appt + bureau + magasin !== totalVentes) return // validation
+    setSavingPopup(true)
+    await supabase.from('primes_detail_ventes').upsert({
+      conseillere_id: consId, mois, appt, bureau, magasin, updated_at: new Date().toISOString()
+    }, { onConflict: 'conseillere_id,mois' })
+    setSavingPopup(false)
+    setPopupVentes(null)
+    loadData()
+  }
+
   function getPrimeMois(consId, mois) {
     const d = aggParConseillereParMois[consId]?.[mois] || { visites: 0, ventes: 0 }
-    return { prime: calcPrime(d.visites, d.ventes), visites: Math.round(d.visites), ventes: Math.round(d.ventes) }
+    const visites = Math.round(d.visites)
+    const ventes  = Math.round(d.ventes)
+    return { prime: Math.round(visites * TARIFS.visite + calcPrimeVentes(ventes, consId, mois)), visites, ventes }
   }
 
   // Prime totale équipe par mois
@@ -439,7 +476,10 @@ export default function Primes() {
               </div>
               <div style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
                 <div style={{ fontSize: 11, color: '#4CAF7D' }}>👁 {d.visites}</div>
-                <div style={{ fontSize: 11, color: '#1a6b3c' }}>✓ {d.ventes}</div>
+                <div style={{ fontSize: 11, color: '#1a6b3c', cursor: 'pointer', textDecoration: 'underline dotted' }}
+                  onClick={e => { e.stopPropagation(); const key = `${c.id}_${selectedMois}`; const detail = detailVentes[key]; setPopupForm({ appt: detail?.appt ?? '', bureau: detail?.bureau ?? '', magasin: detail?.magasin ?? '' }); setPopupVentes({ consId: c.id, mois: selectedMois, totalVentes: d.ventes, nomCons: c.nom }) }}>
+                  ✓ {d.ventes}
+                </div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ fontSize: 10, color: '#8A8A7A' }}>Annuel: <span style={{ color, fontWeight: 600 }}>{formatDh(totalAnnee)}</span></div>
@@ -482,8 +522,59 @@ export default function Primes() {
         </div>
       </div>
 
-      {/* Popup courbe conseillère */}
-      {selectedPopup && (
+      {/* Popup détail ventes */}
+      {popupVentes && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+          onClick={() => setPopupVentes(null)}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '90%', maxWidth: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div>
+                <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 20, fontWeight: 600, color: '#C9A84C' }}>{popupVentes.nomCons}</div>
+                <div style={{ fontSize: 12, color: '#8A8A7A', marginTop: 2 }}>Détail des {popupVentes.totalVentes} ventes — {MOIS_LABELS[parseInt(popupVentes.mois.split('-')[1])-1]}</div>
+              </div>
+              <button onClick={() => setPopupVentes(null)} style={{ width: 32, height: 32, borderRadius: '50%', border: '1.5px solid rgba(201,168,76,0.2)', background: '#fff', fontSize: 16, cursor: 'pointer' }}>✕</button>
+            </div>
+
+            <div style={{ background: 'rgba(201,168,76,0.06)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#8a6a1a' }}>
+              💡 Total déclaré doit être égal à <strong>{popupVentes.totalVentes}</strong> ventes · Appt/Bureau = 300 dh · Magasin = 600 dh
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 16 }}>
+              {[['appt','🏠 Appt.','#C9A84C'],['bureau','🏢 Bureau','#534AB7'],['magasin','🏪 Magasin','#2E9455']].map(([k,l,c]) => (
+                <div key={k}>
+                  <div style={{ fontSize: 11, color: '#5A5A5A', marginBottom: 5, fontWeight: 500 }}>{l}</div>
+                  <input type="number" min="0" value={popupForm[k]}
+                    onChange={e => setPopupForm(p => ({ ...p, [k]: e.target.value }))}
+                    placeholder="0"
+                    style={{ width: '100%', padding: '8px 10px', border: `1.5px solid ${c}40`, borderRadius: 8, fontSize: 14, textAlign: 'center', outline: 'none', fontWeight: 600, color: c }} />
+                </div>
+              ))}
+            </div>
+
+            {/* Total déclaré */}
+            {(() => {
+              const total = (parseInt(popupForm.appt)||0) + (parseInt(popupForm.bureau)||0) + (parseInt(popupForm.magasin)||0)
+              const ok = total === popupVentes.totalVentes
+              const prime = (parseInt(popupForm.magasin)||0) * 600 + ((parseInt(popupForm.appt)||0) + (parseInt(popupForm.bureau)||0)) * 300
+              return (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 8, background: ok ? 'rgba(46,148,85,0.08)' : 'rgba(224,92,92,0.08)', marginBottom: 16 }}>
+                    <span style={{ fontSize: 12, color: ok ? '#2E9455' : '#E05C5C' }}>
+                      {ok ? '✅ Total correct' : `⚠️ Total: ${total} / ${popupVentes.totalVentes}`}
+                    </span>
+                    {ok && <span style={{ fontSize: 12, fontWeight: 700, color: '#2E9455' }}>Prime ventes: {formatDh(prime)}</span>}
+                  </div>
+                  <button onClick={saveDetailVentes} disabled={!ok || savingPopup}
+                    style={{ width: '100%', padding: '11px', borderRadius: 8, background: ok ? '#C9A84C' : '#eee', color: ok ? '#fff' : '#aaa', border: 'none', fontSize: 13, fontWeight: 500, cursor: ok ? 'pointer' : 'not-allowed' }}>
+                    {savingPopup ? 'Enregistrement...' : 'Enregistrer'}
+                  </button>
+                </>
+              )
+            })()}
+          </div>
+        </div>
+      )}
         <PopupCourbe
           conseillere={selectedPopup}
           chartData={getChartDataConseillere(selectedPopup.id)}
