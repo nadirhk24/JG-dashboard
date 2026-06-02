@@ -178,11 +178,30 @@ export default function Primes() {
         schema: 'public',
         table: 'flux_rdv',
       }, () => {
-        loadData()
+        loadFluxOnly() // Ne recharge que flux_rdv, pas detailVentes
       })
       .subscribe()
     return () => supabase.removeChannel(channel)
   }, [])
+
+  async function loadFluxOnly() {
+    let allFlux = []
+    let from = 0
+    const PAGE_SIZE = 1000
+    while (true) {
+      const { data: page, error } = await supabase
+        .from('flux_rdv')
+        .select('conseillere_id, date_debut, visites, ventes, type_saisie')
+        .gte('date_debut', '2026-01-01')
+        .order('date_debut')
+        .range(from, from + PAGE_SIZE - 1)
+      if (error || !page || page.length === 0) break
+      allFlux = [...allFlux, ...page]
+      if (page.length < PAGE_SIZE) break
+      from += PAGE_SIZE
+    }
+    setFluxData(allFlux)
+  }
 
   async function loadData() {
     setLoading(true)
@@ -279,10 +298,8 @@ export default function Primes() {
     }, { onConflict: 'conseillere_id,mois' })
     setSavingPopup(false)
     setPopupVentes(null)
-    // Mettre à jour le state local immédiatement
     const key = `${consId}_${mois}`
     setDetailVentes(prev => ({ ...prev, [key]: { conseillere_id: consId, mois, appt, bureau, magasin } }))
-    loadData()
   }
 
   // Calculer toutes les primes par conseillère par mois en une seule fois
