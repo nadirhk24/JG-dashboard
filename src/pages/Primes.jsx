@@ -279,24 +279,49 @@ export default function Primes() {
     }, { onConflict: 'conseillere_id,mois' })
     setSavingPopup(false)
     setPopupVentes(null)
+    // Mettre à jour le state local immédiatement
+    const key = `${consId}_${mois}`
+    setDetailVentes(prev => ({ ...prev, [key]: { conseillere_id: consId, mois, appt, bureau, magasin } }))
     loadData()
   }
 
+  // Calculer toutes les primes par conseillère par mois en une seule fois
+  const primesMap = useMemo(() => {
+    const res = {}
+    conseilleres.forEach(c => {
+      res[c.id] = {}
+      MOIS_KEYS.forEach(mois => {
+        const d = aggParConseillereParMois[c.id]?.[mois] || { visites: 0, ventes: 0 }
+        const visites = Math.round(d.visites)
+        const ventes  = Math.round(d.ventes)
+        const primeVisites = visites * TARIFS.visite
+        // Calcul prime ventes avec détail
+        const key = `${c.id}_${mois}`
+        const detail = detailVentes[key]
+        let primeVentes = ventes * 300
+        if (detail) {
+          const magasin = detail.magasin || 0
+          const autres = (detail.appt || 0) + (detail.bureau || 0)
+          if (magasin + autres === ventes) primeVentes = magasin * 600 + autres * 300
+        }
+        res[c.id][mois] = { prime: Math.round(primeVisites + primeVentes), visites, ventes }
+      })
+    })
+    return res
+  }, [conseilleres, aggParConseillereParMois, detailVentes])
+
   function getPrimeMois(consId, mois) {
-    const d = aggParConseillereParMois[consId]?.[mois] || { visites: 0, ventes: 0 }
-    const visites = Math.round(d.visites)
-    const ventes  = Math.round(d.ventes)
-    return { prime: Math.round(visites * TARIFS.visite + calcPrimeVentes(ventes, consId, mois)), visites, ventes }
+    return primesMap[consId]?.[mois] || { prime: 0, visites: 0, ventes: 0 }
   }
 
   // Prime totale équipe par mois
   const primeTotaleParMois = useMemo(() => {
     const res = {}
     moisDisponibles.forEach(mois => {
-      res[mois] = conseilleres.reduce((s, c) => s + getPrimeMois(c.id, mois).prime, 0)
+      res[mois] = conseilleres.reduce((s, c) => s + (primesMap[c.id]?.[mois]?.prime || 0), 0)
     })
     return res
-  }, [conseilleres, aggParConseillereParMois, moisDisponibles])
+  }, [conseilleres, primesMap, moisDisponibles])
 
   // Prime manager (50% du total, seulement Avril+)
   function getPrimeManager(mois) {
@@ -321,7 +346,7 @@ export default function Primes() {
       visites: conseilleres.reduce((s,c) => s + getPrimeMois(c.id, mois).visites, 0),
       ventes:  conseilleres.reduce((s,c) => s + getPrimeMois(c.id, mois).ventes, 0),
     }))
-  }, [moisDisponibles, primeTotaleParMois, conseilleres])
+  }, [moisDisponibles, primeTotaleParMois, conseilleres, detailVentes])
 
   // Données graphe manager (même que global × 0.5, seulement Avril+)
   const chartDataManager = useMemo(() => {
