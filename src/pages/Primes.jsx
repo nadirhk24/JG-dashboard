@@ -272,7 +272,7 @@ export default function Primes() {
     const appt = parseInt(popupForm.appt) || 0
     const bureau = parseInt(popupForm.bureau) || 0
     const magasin = parseInt(popupForm.magasin) || 0
-    if (appt + bureau + magasin !== totalVentes) return // validation
+    if (appt + bureau + magasin !== Math.round(totalVentes)) return // validation
     setSavingPopup(true)
     await supabase.from('primes_detail_ventes').upsert({
       conseillere_id: consId, mois, appt, bureau, magasin, updated_at: new Date().toISOString()
@@ -503,7 +503,7 @@ export default function Primes() {
               <div style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
                 <div style={{ fontSize: 11, color: '#4CAF7D' }}>👁 {d.visites}</div>
                 <div style={{ fontSize: 11, color: '#1a6b3c', cursor: 'pointer', textDecoration: 'underline dotted' }}
-                  onClick={e => { e.stopPropagation(); const key = `${c.id}_${selectedMois}`; const detail = detailVentes[key]; setPopupForm({ appt: detail?.appt ?? '', bureau: detail?.bureau ?? '', magasin: detail?.magasin ?? '' }); setPopupVentes({ consId: c.id, mois: selectedMois, totalVentes: d.ventes, nomCons: c.nom }) }}>
+                  onClick={e => { e.stopPropagation(); const key = `${c.id}_${selectedMois}`; const detail = detailVentes[key]; setPopupForm({ appt: detail?.appt ?? '', bureau: detail?.bureau ?? '', magasin: detail?.magasin ?? '' }); setPopupVentes({ consId: c.id, mois: selectedMois, totalVentes: Math.round(d.ventes), nomCons: c.nom }) }}>
                   ✓ {d.ventes}
                 </div>
               </div>
