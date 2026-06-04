@@ -297,10 +297,6 @@ export default function DashboardMarketing() {
       if (!groups[key]) groups[key] = { label, rows: [] }
       groups[key].rows.push(s)
     })
-    const now = new Date()
-    const moisCourant = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
-    const isCurrentMonth = selected?.type === 'month' && selected?.value === moisCourant
-
     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([key, { label, rows }]) => {
       const agg = aggreger(rows)
       const ccData = ccParPeriode[key] || { injections: 0, indispos: 0 }
@@ -322,8 +318,7 @@ export default function DashboardMarketing() {
         taux_ventes: base_nette > 0 ? parseFloat(((agg.ventes / base_nette) * 100).toFixed(1)) : 0,
       }
     }).filter(r => {
-      // Mois en cours uniquement : ignorer les jours sans aucune donnée
-      if (!isCurrentMonth) return true
+      // Ignorer les jours sans aucune donnée (toutes périodes)
       return r.injections > 0 || r.non_exploitables > 0 || r.suivis > 0 || r.rdv > 0 || r.visites > 0 || r.ventes > 0
     })
   }, [dataFiltree, selected, ccParPeriode])
