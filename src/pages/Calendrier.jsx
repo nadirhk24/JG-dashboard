@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabase'
 import PageHeader from '../components/PageHeader'
 import SectionTitle from '../components/SectionTitle'
 
