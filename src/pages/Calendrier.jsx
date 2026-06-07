@@ -462,7 +462,7 @@ export default function Calendrier() {
                     return (
                       <tr key={a.id} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                         <td style={{ padding: '10px 10px', fontSize: 12 }}>
-                          <div style={{ fontWeight: 500, color: '#2C2C2C' }}>{a.conseilleresList?.nom || '—'}</div>
+                          <div style={{ fontWeight: 500, color: '#2C2C2C' }}>{a.conseilleres?.nom || '—'}</div>
                         </td>
                         <td style={{ padding: '10px 10px', fontSize: 12, color: '#C9A84C', fontWeight: 500 }}>
                           {a.date_debut} → {a.date_fin}
