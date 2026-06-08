@@ -1060,11 +1060,10 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
           const comm = commerciaux.find(c => c.id === f.commercial_id)
           const eq = comm?.equipe
           if (eq !== 'sale' && eq !== 'kenitra') return
-          const isPeriode = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
           const vis = parseFloat(f.visites || 0)
           const ven = parseFloat(f.ventes  || 0)
-          statsByEquipe[eq].visites += isPeriode ? vis : vis + ven
-          statsByEquipe[eq].rdv     += parseFloat(f.rdv || 0)
+          statsByEquipe[eq].visites += vis + ven
+          statsByEquipe[eq].rdv     += parseFloat(f.rdv || 0) + vis + ven
         })
         // Taux présence = visites / rdv (si rdv = 0 → utiliser 20% par défaut)
         const tauxPresence = {
@@ -1081,10 +1080,9 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
         const totaux = {}
         fluxFiltres.forEach(f => {
           if (!f.conseillere_id || !f.commercial_id) return
-          const isPeriode = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
           const vis = parseFloat(f.visites || 0)
           const ven = parseFloat(f.ventes  || 0)
-          const visTotal = isPeriode ? vis : vis + ven
+          const visTotal = vis + ven
           if (!totaux[f.conseillere_id]) totaux[f.conseillere_id] = {}
           totaux[f.conseillere_id][f.commercial_id] = (totaux[f.conseillere_id][f.commercial_id] || 0) + visTotal
         })
@@ -1093,20 +1091,18 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
         const visParComm = {}
         fluxFiltres.forEach(f => {
           if (!f.commercial_id) return
-          const isPeriode = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
           const vis = parseFloat(f.visites || 0)
           const ven = parseFloat(f.ventes  || 0)
-          visParComm[f.commercial_id] = (visParComm[f.commercial_id] || 0) + (isPeriode ? vis : vis + ven)
+          visParComm[f.commercial_id] = (visParComm[f.commercial_id] || 0) + (vis + ven)
         })
 
         // ── NR par équipe par conseillère ──
         const nrTotaux = {}
         fluxFiltres.filter(f => !f.commercial_id).forEach(f => {
           if (!f.conseillere_id) return
-          const isPeriode = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
           const vis = parseFloat(f.visites || 0)
           const ven = parseFloat(f.ventes  || 0)
-          const visTotal = isPeriode ? vis : vis + ven
+          const visTotal = vis + ven
           const commNR = commerciaux.find(c => c.id === f.commercial_id)
           const eq = commNR?.equipe || 'sale'
           if (!nrTotaux[f.conseillere_id]) nrTotaux[f.conseillere_id] = { sale: 0, kenitra: 0 }
