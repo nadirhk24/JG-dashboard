@@ -66,7 +66,7 @@ export function agregerParPeriode(saisies, conseillereId = null, options = {}) {
     echanges: acc.echanges + (s.echanges || 0),
     echanges_exploitables: acc.echanges_exploitables + (s.echanges_exploitables || 0),
     rdv: acc.rdv + (s.rdv || 0),
-    visites: acc.visites + (s.type_saisie === 'periode' ? (s.visites || 0) : (s.visites || 0) + (s.ventes || 0)),
+    visites: acc.visites + (s.visites || 0),
     ventes: acc.ventes + (s.ventes || 0),
   }), { leads_bruts: 0, non_exploitables_cc: 0, indispos: 0, echanges: 0, echanges_exploitables: 0, rdv: 0, visites: 0, ventes: 0 })
 
