@@ -280,17 +280,13 @@ export default function FluxRDV({ conseilleres }) {
     const agg = {}
     fluxFiltres.forEach(f => {
       if (!agg[f.commercial_id]) agg[f.commercial_id] = { rdv: 0, visites: 0, ventes: 0 }
-      const isPeriode = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
       const vis = parseFloat(f.visites || 0)
       const ven = parseFloat(f.ventes || 0)
       const rdv_f = parseFloat(f.rdv || 0)
-      // Pour periode : visites inclut déjà les ventes
-      // Pour jour : visites brutes + ventes
-      const vis_display = isPeriode ? vis : vis + ven
-      const rdv_display = rdv_f  // RDV = champ rdv uniquement, pas d'addition
-      agg[f.commercial_id].visites += vis_display
+      // visites = vis + ven, rdv = rdv + vis + ven (toujours, période ou jour)
+      agg[f.commercial_id].visites += vis + ven
       agg[f.commercial_id].ventes += ven
-      agg[f.commercial_id].rdv += rdv_display
+      agg[f.commercial_id].rdv += rdv_f + vis + ven
     })
     return agg
   }, [fluxFiltres])
@@ -307,12 +303,11 @@ export default function FluxRDV({ conseilleres }) {
       }, { rdv: 0, visites: 0, ventes: 0 })
       // Ajouter TOUTES les lignes sans commercial_id (NR, peu importe le type_saisie)
       fluxFiltres.filter(f => !f.commercial_id).forEach(f => {
-        const isPeriodeNR = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
         const visNR = parseFloat(f.visites || 0)
         const venNR = parseFloat(f.ventes || 0)
-        tot.visites += isPeriodeNR ? visNR : visNR + venNR
+        tot.visites += visNR + venNR
         tot.ventes += venNR
-        tot.rdv += parseFloat(f.rdv || 0)
+        tot.rdv += parseFloat(f.rdv || 0) + visNR + venNR
       })
       const cv = calcCV(comms.map(c => (fluxParCommercial[c.id] || {}).rdv || 0))
       res[eq] = { ...tot, cv,
@@ -331,13 +326,12 @@ export default function FluxRDV({ conseilleres }) {
       const m = f.date_debut?.substring(0, 7)
       if (!m) return
       if (!byMois[m]) byMois[m] = { rdv: 0, visites: 0, ventes: 0 }
-      const isPeriode = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
       const vis = parseFloat(f.visites || 0)
       const ven = parseFloat(f.ventes || 0)
       const rdvBrut = parseFloat(f.rdv || 0)
-      byMois[m].visites += isPeriode ? vis : vis + ven
+      byMois[m].visites += vis + ven
       byMois[m].ventes += ven
-      byMois[m].rdv += rdvBrut
+      byMois[m].rdv += rdvBrut + vis + ven
     })
     return Object.entries(byMois).sort(([a],[b]) => a.localeCompare(b)).map(([m, d]) => {
       // RDV = RDV fixés uniquement
@@ -428,8 +422,7 @@ export default function FluxRDV({ conseilleres }) {
           const vis = parseFloat(f.visites || 0)
           const ven = parseFloat(f.ventes || 0)
           const rdvBrut = parseFloat(f.rdv || 0)
-          const isPeriode = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
-          visTotal += isPeriode ? vis : vis + ven
+          visTotal += vis + ven
           venTotal += ven
           rdvBrutsTotal += rdvBrut
         }
@@ -548,10 +541,9 @@ export default function FluxRDV({ conseilleres }) {
     function calcKpiVal(rows) {
       let rdv = 0, vis = 0, ven = 0
       rows.forEach(f => {
-        const isPeriode = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
         const v = parseFloat(f.visites||0), ve = parseFloat(f.ventes||0)
-        rdv += parseFloat(f.rdv||0)
-        vis += isPeriode ? v : v + ve
+        rdv += parseFloat(f.rdv||0) + v + ve
+        vis += v + ve
         ven += ve
       })
       if (kpi === 'rdv')           return Math.round(rdv)
