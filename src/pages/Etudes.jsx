@@ -5,7 +5,7 @@ import PageHeader from '../components/PageHeader'
 const ETUDES = [
   {
     id: 'evolutions-2026',
-    titre: 'Étude d'Évolutions — Juin 2026',
+    titre: "Étude d'Évolutions — Juin 2026",
     periode: 'Janvier — Juin 2026',
     description: 'Tendances Marketing · Taux CC · Taux de vente · CV conseillères & commerciaux',
     date: '2026-06-09',
