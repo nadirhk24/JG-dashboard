@@ -14,6 +14,7 @@ import AnalyseCV from './pages/AnalyseCV'
 import GestionUsers from './pages/GestionUsers'
 import Etudes from './pages/Etudes'
 import EtudeCommerciale2026 from './pages/EtudeCommerciale2026'
+import EtudeEvolutions2026 from './pages/EtudeEvolutions2026'
 import ImportAgent from './pages/ImportAgent'
 import Login from './pages/Login'
 import { supabase } from './lib/supabase'
@@ -139,6 +140,7 @@ function AppContent() {
               <Route path="/import" element={<ImportAgent />} />
               <Route path="/etudes" element={<ProtectedRoute permKey={null}><Etudes /></ProtectedRoute>} />
               <Route path="/etudes/commerciale-2026" element={<ProtectedRoute permKey={null}><EtudeCommerciale2026 /></ProtectedRoute>} />
+              <Route path="/etudes/evolutions-2026" element={<ProtectedRoute permKey={null}><EtudeEvolutions2026 /></ProtectedRoute>} />
             </Routes>
           )}
         </main>

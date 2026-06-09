@@ -4,6 +4,16 @@ import PageHeader from '../components/PageHeader'
 
 const ETUDES = [
   {
+    id: 'evolutions-2026',
+    titre: 'Étude d'Évolutions — Juin 2026',
+    periode: 'Janvier — Juin 2026',
+    description: 'Tendances Marketing · Taux CC · Taux de vente · CV conseillères & commerciaux',
+    date: '2026-06-09',
+    equipes: 'Sale + Kénitra',
+    ventes: null,
+    path: '/etudes/evolutions-2026',
+  },
+  {
     id: 'commerciale-2026',
     titre: 'Étude Commerciale 2026',
     periode: 'Janvier — Avril 2026',
@@ -37,8 +47,8 @@ export default function Etudes() {
                 <div style={{ fontSize: 12, color: '#C9A84C', fontWeight: 500 }}>{e.periode}</div>
               </div>
               <div style={{ background: '#F8F7F4', border: '1px solid #E8E6DF', borderRadius: 8, padding: '4px 10px', textAlign: 'center' }}>
-                <div style={{ fontSize: 20, fontWeight: 700, color: '#2C2C2C' }}>{e.ventes}</div>
-                <div style={{ fontSize: 10, color: '#8A8A7A' }}>ventes</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: '#2C2C2C' }}>{e.ventes ?? '—'}</div>
+                <div style={{ fontSize: 10, color: '#8A8A7A' }}>{e.ventes !== null ? 'ventes' : 'dynamique'}</div>
               </div>
             </div>
             <div style={{ fontSize: 12, color: '#5A5A5A', lineHeight: 1.7, marginBottom: 14 }}>{e.description}</div>
