@@ -66,10 +66,37 @@ function CvBadge({ cv, label }) {
   )
 }
 
-// ── Graphe avec toggle courbes ────────────────────────────────────────────────
+// ── Tick X cliquable ─────────────────────────────────────────────────────────
+function ClickableTick({ x, y, payload, hiddenMois, toggleMois }) {
+  const isHidden = hiddenMois[payload.value]
+  return (
+    <g transform={`translate(${x},${y})`} style={{ cursor: 'pointer' }} onClick={() => toggleMois(payload.value)}>
+      <text
+        x={0} y={0} dy={14} textAnchor="middle"
+        fill={isHidden ? '#C8C5BC' : '#5A5A5A'}
+        fontSize={12}
+        fontWeight={isHidden ? 400 : 500}
+        textDecoration={isHidden ? 'line-through' : 'none'}
+      >
+        {payload.value}
+      </text>
+    </g>
+  )
+}
+
+// ── Graphe avec toggle courbes + toggle mois ──────────────────────────────────
 function TrendChart({ data, lines, title, subtitle, refLines, cvBadges }) {
   const [hidden, setHidden] = useState({})
+  const [hiddenMois, setHiddenMois] = useState({})
   const toggleLine = (key) => setHidden(h => ({ ...h, [key]: !h[key] }))
+  const toggleMois = (mois) => setHiddenMois(h => ({ ...h, [mois]: !h[mois] }))
+
+  // Filtrer les données selon les mois cachés
+  const filteredData = data.map(d =>
+    hiddenMois[d.mois]
+      ? { ...d, ...Object.fromEntries(lines.map(l => [l.key, null])) }
+      : d
+  )
 
   return (
     <div style={{ background: '#fff', border: '1px solid #E8E6DF', borderRadius: 14, padding: '24px 28px', marginBottom: 20 }}>
@@ -96,10 +123,18 @@ function TrendChart({ data, lines, title, subtitle, refLines, cvBadges }) {
           </button>
         ))}
       </div>
+      {Object.values(hiddenMois).some(v => v) && (
+        <div style={{ fontSize: 11, color: '#8A8A7A', marginBottom: 8 }}>
+          Cliquez sur un mois pour le réactiver
+        </div>
+      )}
       <ResponsiveContainer width="100%" height={220}>
-        <LineChart data={data} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+        <LineChart data={filteredData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#F0EDE6" />
-          <XAxis dataKey="mois" tick={{ fontSize: 12, fill: '#8A8A7A' }} />
+          <XAxis
+            dataKey="mois"
+            tick={<ClickableTick hiddenMois={hiddenMois} toggleMois={toggleMois} />}
+          />
           <YAxis tick={{ fontSize: 11, fill: '#8A8A7A' }} unit="%" domain={[0, 'auto']} />
           <Tooltip content={<CustomTooltip />} />
           {refLines?.map((r, i) => (
@@ -108,7 +143,12 @@ function TrendChart({ data, lines, title, subtitle, refLines, cvBadges }) {
           ))}
           {lines.map(l => !hidden[l.key] && (
             <Line key={l.key} type="monotone" dataKey={l.key} name={l.name}
-              stroke={l.color} strokeWidth={2.5} dot={{ r: 4, fill: l.color }}
+              stroke={l.color} strokeWidth={2.5}
+              dot={(props) => {
+                const { cx, cy, payload } = props
+                if (hiddenMois[payload.mois]) return null
+                return <circle key={props.key} cx={cx} cy={cy} r={4} fill={l.color} stroke={l.color} />
+              }}
               connectNulls={false} />
           ))}
         </LineChart>
@@ -245,7 +285,7 @@ export default function EtudeEvolutions2026() {
       const dayRows = rows.filter(r => r.type_saisie !== 'periode' && !joursExclus.includes(r.date_debut))
       // CV jour/jour uniquement pour MOIS_JOUR
       const cvJour = MOIS_JOUR.includes(m.value)
-        ? calcCV(dayRows.map(r => pct(r.ventes||0, (r.visites||0)+(r.ventes||0))))
+        ? calcCV(dayRows.filter(r => (r.visites||0)+(r.ventes||0) > 0).map(r => pct(r.ventes||0, (r.visites||0)+(r.ventes||0))))
         : null
       return { txVente: pct(ven, vis), cvJour, hasData: vis > 0 }
     }
@@ -281,7 +321,7 @@ export default function EtudeEvolutions2026() {
     const build = (comms) => MOIS.map(m => {
       const moys = comms.map(c => {
         const rows = fluxData.filter(r => r.commercial_id === c.id && (r.date_debut||'').startsWith(m.value) && r.type_saisie !== 'periode' && !joursExclus.includes(r.date_debut))
-        const vals = rows.map(r => pct(r.ventes||0, (r.visites||0)+(r.ventes||0))).filter(v => v !== null)
+        const vals = rows.filter(r => (r.visites||0)+(r.ventes||0) > 0).map(r => pct(r.ventes||0, (r.visites||0)+(r.ventes||0)))
         return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null
       }).filter(v => v !== null)
       return { mois: m.label, cv: calcCV(moys) }
@@ -314,7 +354,7 @@ export default function EtudeEvolutions2026() {
         !joursExclus.includes(r.date_debut) &&
         comms.some(c => c.id === r.commercial_id)
       )
-      const cv = calcCV(rows.map(r => pct(r.ventes||0, (r.visites||0)+(r.ventes||0))))
+      const cv = calcCV(rows.filter(r => (r.visites||0)+(r.ventes||0) > 0).map(r => pct(r.ventes||0, (r.visites||0)+(r.ventes||0))))
       return { mois: m.label, cv: cv ?? 0 }
     })
     const sale = commerciaux.filter(c => c.equipe === 'sale')
@@ -401,18 +441,16 @@ export default function EtudeEvolutions2026() {
             refLines={[{ value: 80, color: '#E8D5A3' }]}
             cvBadges={[
               { label: 'CV Exploitables', cv: mktCVGlobal.expl },
-              { label: 'CV Joignabilité', cv: mktCVGlobal.joign },
             ]}
             lines={[
               { key: 'Exploitables', name: 'Exploitables', color: '#4CAF7D' },
-              { key: 'Joignabilité', name: 'Joignabilité', color: '#5B6FC4' },
             ]}
           />
           <CvMensuelTable
             moisList={MOIS.filter(m => MOIS_JOUR.includes(m.value))}
             rows={[
               { label: 'CV Exploitables', color: '#4CAF7D', vals: Object.fromEntries(mktParMois.map(m => [m.moisVal, m.cvExpl])) },
-              { label: 'CV Joignabilité', color: '#5B6FC4', vals: Object.fromEntries(mktParMois.map(m => [m.moisVal, m.cvJoign])) },
+
             ]}
           />
         </>
