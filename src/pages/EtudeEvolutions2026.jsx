@@ -401,8 +401,10 @@ export default function EtudeEvolutions2026() {
         .map(n => NOM_MAP_COMPLET[n] || null).filter(Boolean)
 
       // Tous les commerciaux actifs ce mois (hors Non reconnu)
+      const EXCLUS_ZERO = ['Hicham Mechach', 'Asmaa Radouli']
       const commsActifsCeMois = commerciaux.filter(c => {
         if ((c.nom||'').toLowerCase().includes('non reconnu')) return false
+        if (EXCLUS_ZERO.includes(c.nom)) return false
         return isActifCeMois(c.nom, mVal)
       })
 
