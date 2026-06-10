@@ -7,7 +7,7 @@ import {
   ResponsiveContainer, ReferenceLine, PieChart, Pie, Cell, BarChart, Bar
 } from 'recharts'
 
-// ── Constantes ────────────────────────────────────────────────────────────────
+// ── Constantes ──────────────────────────────────────────────────────────────── v2
 const MOIS = [
   { label: 'Jan', value: '2026-01' },
   { label: 'Fév', value: '2026-02' },
@@ -768,47 +768,6 @@ export default function EtudeEvolutions2026() {
             </div>
           </div>
 
-          {/* Commerciaux à 0 vente par mois — séparé Sale / Kénitra */}
-          <div style={{ background: '#fff', border: '1px solid #E8E6DF', borderRadius: 14, padding: '24px 28px', marginBottom: 20 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: '#2C2C2C', marginBottom: 20 }}>Commerciaux à 0 vente — par mois</div>
-            {ventesDetailParMois.map(m => (
-              <div key={m.moisVal} style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#2C2C2C', marginBottom: 10, borderBottom: '1px solid #F0EDE6', paddingBottom: 6 }}>{m.mois}</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  {/* Salé */}
-                  <div style={{ background: '#F8F7F4', borderRadius: 10, padding: '12px 16px' }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: '#5B6FC4', marginBottom: 8 }}>
-                      Équipe Salé
-                      <span style={{ color: '#8A8A7A', fontWeight: 400, marginLeft: 6 }}>({m.zeroSale.length} à 0)</span>
-                    </div>
-                    {m.zeroSale.length === 0 ? (
-                      <div style={{ fontSize: 12, color: '#4CAF7D' }}>✓ Tous ont vendu</div>
-                    ) : m.zeroSale.map((c, i) => (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3 }}>
-                        <span style={{ color: '#2C2C2C' }}>{c.nom?.split(' ')[0]}</span>
-                        <span style={{ color: '#E05C5C', fontWeight: 600, background: '#FEF0F0', padding: '1px 8px', borderRadius: 8 }}>0</span>
-                      </div>
-                    ))}
-                  </div>
-                  {/* Kénitra */}
-                  <div style={{ background: '#F8F7F4', borderRadius: 10, padding: '12px 16px' }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: '#C9A84C', marginBottom: 8 }}>
-                      Équipe Kénitra
-                      <span style={{ color: '#8A8A7A', fontWeight: 400, marginLeft: 6 }}>({m.zeroKenitra.length} à 0)</span>
-                    </div>
-                    {m.zeroKenitra.length === 0 ? (
-                      <div style={{ fontSize: 12, color: '#4CAF7D' }}>✓ Tous ont vendu</div>
-                    ) : m.zeroKenitra.map((c, i) => (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3 }}>
-                        <span style={{ color: '#2C2C2C' }}>{c.nom?.split(' ')[0]}</span>
-                        <span style={{ color: '#E05C5C', fontWeight: 600, background: '#FEF0F0', padding: '1px 8px', borderRadius: 8 }}>0</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
         )
       })()}
