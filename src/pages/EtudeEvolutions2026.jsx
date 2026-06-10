@@ -303,27 +303,34 @@ export default function EtudeEvolutions2026() {
   // ── CV MENSUEL (σ/μ des moyennes mensuelles) ── tous les 6 mois ───────────
   const cvMensuelCC = useMemo(() => {
     return MOIS.map(m => {
+      // Pour chaque conseillère : taux moyen du mois (toutes saisies confondues)
       const moyConv = conseilleres.map(c => {
-        const rows = ccData.filter(r => r.conseillere_id === c.id && (r.date_debut||r.date||'').startsWith(m.value) && r.type_saisie !== 'periode' && !joursExclus.includes(r.date_debut||r.date))
-        const vals = rows.map(r => pct(r.rdv||0, r.echanges||0)).filter(v => v !== null)
-        return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null
+        const rows = ccData.filter(r => r.conseillere_id === c.id && (r.date_debut||r.date||'').startsWith(m.value))
+        const ech = rows.reduce((s,r) => s+(r.echanges||0), 0)
+        const rdv = rows.reduce((s,r) => s+(r.rdv||0), 0)
+        return pct(rdv, ech)
       }).filter(v => v !== null)
       const moyPres = conseilleres.map(c => {
-        const rows = ccData.filter(r => r.conseillere_id === c.id && (r.date_debut||r.date||'').startsWith(m.value) && r.type_saisie !== 'periode' && !joursExclus.includes(r.date_debut||r.date))
-        const vals = rows.map(r => pct(r.visites||0, r.rdv||0)).filter(v => v !== null)
-        return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null
+        const rows = ccData.filter(r => r.conseillere_id === c.id && (r.date_debut||r.date||'').startsWith(m.value))
+        const vis = rows.reduce((s,r) => s+(r.visites||0), 0)
+        const rdv = rows.reduce((s,r) => s+(r.rdv||0), 0)
+        return pct(vis, rdv)
       }).filter(v => v !== null)
+      // CV = σ/μ des moyennes par conseillère
       return { mois: m.label, 'CV Conv. Tél.': calcCV(moyConv), 'CV Taux Présence': calcCV(moyPres) }
     })
-  }, [conseilleres, ccData, joursExclus])
+  }, [conseilleres, ccData])
 
   const cvMensuelVente = useMemo(() => {
     const build = (comms) => MOIS.map(m => {
+      // Pour chaque commercial : taux de vente agrégé du mois
       const moys = comms.map(c => {
-        const rows = fluxData.filter(r => r.commercial_id === c.id && (r.date_debut||'').startsWith(m.value) && r.type_saisie !== 'periode' && !joursExclus.includes(r.date_debut))
-        const vals = rows.filter(r => (r.visites||0)+(r.ventes||0) > 0).map(r => pct(r.ventes||0, (r.visites||0)+(r.ventes||0)))
-        return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null
+        const rows = fluxData.filter(r => r.commercial_id === c.id && (r.date_debut||'').startsWith(m.value))
+        const vis = rows.reduce((s,r) => s+(r.visites||0)+(r.ventes||0), 0)
+        const ven = rows.reduce((s,r) => s+(r.ventes||0), 0)
+        return pct(ven, vis)
       }).filter(v => v !== null)
+      // CV = σ/μ des taux par commercial
       return { mois: m.label, cv: calcCV(moys) }
     })
     const sale = commerciaux.filter(c => c.equipe === 'sale')
