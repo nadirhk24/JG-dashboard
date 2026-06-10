@@ -20,7 +20,7 @@ const MOIS_JOUR = ['2026-04', '2026-05', '2026-06']
 
 // ── Données ventes passagers (fichier Excel statique) ─────────────────────────
 const VENTES_PASSAGERS = {
-  "2026-01": { total: 39, parCommercial: { "NAOUFEL": 10, "SALIMA": 6, "HAJAR": 4, "ISMAIL": 3, "SAAD": 3, "YOUSSEF": 2, "NISSRINE": 2, "RIM": 2, "SOUAD": 2, "MERYEM": 2, "ASMAE": 1, "YASSMINE": 1, "OUMAIMA": 1 } },
+  "2026-01": { total: 46, parCommercial: { "KHALID": 7, "NAOUFEL": 10, "SALIMA": 6, "HAJAR": 4, "ISMAIL": 3, "SAAD": 3, "YOUSSEF": 2, "NISSRINE": 2, "RIM": 2, "SOUAD": 2, "MERYEM": 2, "ASMAE": 1, "YASSMINE": 1, "OUMAIMA": 1 } },
   "2026-02": { total: 21, parCommercial: { "ASMAE": 3, "SOUAD": 3, "ISMAIL": 2, "MERYEM": 2, "ALAA": 2, "NISSRINE": 2, "SAMIYA": 1, "HICHAM": 1, "MEROUANE": 1, "KHALID": 1, "NOUHAILA": 1, "YASSMINE": 1, "SAAD": 1 } },
   "2026-03": { total: 38, parCommercial: { "MEROUANE": 5, "KHALID": 5, "YASSMINE": 3, "ALAA": 3, "SAMIYA": 3, "NAJLAA": 3, "HAJAR": 2, "SAAD": 2, "RIM": 2, "ALAE": 2, "NAOUFEL": 2, "ISMAIL": 2, "SOUAD": 1, "YOUSSEF": 1, "ASMAE": 1, "NISSRINE": 1 } },
   "2026-04": { total: 64, parCommercial: { "KHALID": 11, "NISSRINE": 9, "SAAD": 8, "NOUHAILA": 8, "ABDELHAK": 6, "NAJLAA": 4, "ISMAIL": 2, "MERYEM": 2, "YASSMINE": 2, "RIM": 2, "SALIMA": 2, "SAMIYA": 2, "YOUSSEF": 2, "OUMAIMA": 1, "HAJAR": 1, "SOUAD": 1, "NAOUFEL": 1 } },
