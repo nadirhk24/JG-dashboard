@@ -279,6 +279,7 @@ export default function EtudeEvolutions2026() {
   const [segment, setSegment] = useState('marketing')
   const [cvSub, setCvSub] = useState('cc')
   const [venteSub, setVenteSub] = useState('global')
+  const [ventesDetailSub, setVentesDetailSub] = useState('global')
   const [loading, setLoading] = useState(true)
 
   const [mktData, setMktData] = useState([])
@@ -373,8 +374,21 @@ export default function EtudeEvolutions2026() {
       // Ventes CC depuis flux_rdv
       const ccRows = fluxData.filter(r => (r.date_debut||'').startsWith(mVal))
       const ventesCC = Math.round(ccRows.reduce((s,r) => s+(r.ventes||0), 0))
+      const ventesCCSale = Math.round(ccRows.filter(r => commerciaux.find(c=>c.id===r.commercial_id)?.equipe === 'sale' || (r.commercial_id && equipeCeMois(commerciaux.find(c=>c.id===r.commercial_id)?.nom||'', mVal, commerciaux.find(c=>c.id===r.commercial_id)?.equipe||'') === 'sale')).reduce((s,r)=>s+(r.ventes||0),0))
+      const ventesCCKenitra = Math.round(ccRows.filter(r => equipeCeMois(commerciaux.find(c=>c.id===r.commercial_id)?.nom||'', mVal, commerciaux.find(c=>c.id===r.commercial_id)?.equipe||'') === 'kenitra').reduce((s,r)=>s+(r.ventes||0),0))
       const totalExcel = VENTES_PASSAGERS[mVal]?.total || 0
+      // Total par équipe depuis Excel
+      const totalSaleExcel = Object.entries(VENTES_PASSAGERS[mVal]?.parCommercial || {}).filter(([n]) => {
+        const nom = NOM_MAP_COMPLET[n]||''
+        return equipeCeMois(nom, mVal, commerciaux.find(c=>c.nom===nom)?.equipe||'kenitra') === 'sale'
+      }).reduce((s,[,v])=>s+v,0)
+      const totalKenitraExcel = Object.entries(VENTES_PASSAGERS[mVal]?.parCommercial || {}).filter(([n]) => {
+        const nom = NOM_MAP_COMPLET[n]||''
+        return equipeCeMois(nom, mVal, commerciaux.find(c=>c.nom===nom)?.equipe||'kenitra') === 'kenitra'
+      }).reduce((s,[,v])=>s+v,0)
       const ventesPassagers = Math.max(0, totalExcel - ventesCC)
+      const ventesPassagersSale = Math.max(0, totalSaleExcel - ventesCCSale)
+      const ventesPassagersKenitra = Math.max(0, totalKenitraExcel - ventesCCKenitra)
 
       // Noms dans le fichier Excel ce mois → noms complets dans l'app
       const nomsFichierComplets = Object.keys(VENTES_PASSAGERS[mVal]?.parCommercial || {})
@@ -393,7 +407,7 @@ export default function EtudeEvolutions2026() {
       const zeroSale = commsSale.filter(c => !nomsFichierComplets.includes(c.nom))
       const zeroKenitra = commsKenitra.filter(c => !nomsFichierComplets.includes(c.nom))
 
-      return { moisVal: mVal, mois: m.label, totalExcel, ventesCC, ventesPassagers, zeroSale, zeroKenitra }
+      return { moisVal: mVal, mois: m.label, totalExcel, totalSaleExcel, totalKenitraExcel, ventesCC, ventesCCSale, ventesCCKenitra, ventesPassagers, ventesPassagersSale, ventesPassagersKenitra, zeroSale, zeroKenitra }
     })
   }, [fluxData, commerciaux])
 
@@ -654,19 +668,36 @@ export default function EtudeEvolutions2026() {
       )}
 
       {/* ── VENTES DETAIL ── */}
-      {segment === 'ventes_detail' && (
+      {segment === 'ventes_detail' && (() => {
+        const ccKey = ventesDetailSub === 'global' ? 'ventesCC' : ventesDetailSub === 'sale' ? 'ventesCCSale' : 'ventesCCKenitra'
+        const passKey = ventesDetailSub === 'global' ? 'ventesPassagers' : ventesDetailSub === 'sale' ? 'ventesPassagersSale' : 'ventesPassagersKenitra'
+        const totalKey = ventesDetailSub === 'global' ? 'totalExcel' : ventesDetailSub === 'sale' ? 'totalSaleExcel' : 'totalKenitraExcel'
+        const subLabel = ventesDetailSub === 'global' ? 'Global' : ventesDetailSub === 'sale' ? 'Salé' : 'Kénitra'
+        return (
         <div>
-          {/* Courbe totale */}
+          {/* Toggle Global/Salé/Kénitra */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+            {[{k:'global',l:'Global'},{k:'sale',l:'Salé'},{k:'kenitra',l:'Kénitra'}].map(s => (
+              <button key={s.k} onClick={() => setVentesDetailSub(s.k)} style={{
+                padding: '6px 16px', borderRadius: 16, cursor: 'pointer', fontSize: 12, fontWeight: 500,
+                border: `1px solid ${ventesDetailSub===s.k ? '#C9A84C' : '#E8E6DF'}`,
+                background: ventesDetailSub===s.k ? '#FBF5E6' : '#fff',
+                color: ventesDetailSub===s.k ? '#C9A84C' : '#5A5A5A',
+              }}>{s.l}</button>
+            ))}
+          </div>
+
+          {/* Barres empilées */}
           <div style={{ background: '#fff', border: '1px solid #E8E6DF', borderRadius: 14, padding: '24px 28px', marginBottom: 20 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: '#2C2C2C', marginBottom: 16 }}>Total ventes — Jan → Mai 2026</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: '#2C2C2C', marginBottom: 16 }}>Total ventes — {subLabel} — Jan → Mai 2026</div>
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={ventesDetailParMois} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F0EDE6" />
                 <XAxis dataKey="mois" tick={{ fontSize: 12, fill: '#8A8A7A' }} />
                 <YAxis tick={{ fontSize: 11, fill: '#8A8A7A' }} />
-                <Tooltip formatter={(value, name) => [value, name === 'ventesCC' ? 'Ventes CC' : name === 'ventesPassagers' ? 'Passagers' : name]} />
-                <Bar dataKey="ventesCC" name="Ventes CC" stackId="a" fill="#5B6FC4" radius={[0,0,0,0]} />
-                <Bar dataKey="ventesPassagers" name="Passagers" stackId="a" fill="#C9A84C" radius={[4,4,0,0]} />
+                <Tooltip formatter={(value, name) => [value, name === ccKey ? 'Ventes CC' : 'Passagers']} />
+                <Bar dataKey={ccKey} name="Ventes CC" stackId="a" fill="#5B6FC4" radius={[0,0,0,0]} />
+                <Bar dataKey={passKey} name="Passagers" stackId="a" fill="#C9A84C" radius={[4,4,0,0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -676,15 +707,18 @@ export default function EtudeEvolutions2026() {
             <div style={{ fontSize: 15, fontWeight: 600, color: '#2C2C2C', marginBottom: 20 }}>Répartition CC vs Passagers — par mois</div>
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'space-around' }}>
               {ventesDetailParMois.map(m => {
+                const ccVal = m[ccKey] || 0
+                const passVal = m[passKey] || 0
+                const totalVal = m[totalKey] || 0
                 const pieData = [
-                  { name: 'CC', value: m.ventesCC, color: '#5B6FC4' },
-                  { name: 'Passagers', value: m.ventesPassagers, color: '#C9A84C' },
+                  { name: 'CC', value: ccVal, color: '#5B6FC4' },
+                  { name: 'Passagers', value: passVal, color: '#C9A84C' },
                 ]
-                const pctCC = m.totalExcel > 0 ? Math.round((m.ventesCC / m.totalExcel) * 100) : 0
+                const pctCC = totalVal > 0 ? Math.round((ccVal / totalVal) * 100) : 0
                 return (
                   <div key={m.moisVal} style={{ textAlign: 'center', minWidth: 130 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: '#2C2C2C', marginBottom: 4 }}>{m.mois}</div>
-                    <div style={{ fontSize: 12, color: '#8A8A7A', marginBottom: 8 }}>{m.totalExcel} ventes</div>
+                    <div style={{ fontSize: 12, color: '#8A8A7A', marginBottom: 8 }}>{totalVal} ventes</div>
                     <PieChart width={130} height={130}>
                       <Pie data={pieData} cx={65} cy={55} innerRadius={35} outerRadius={55}
                         dataKey="value" startAngle={90} endAngle={-270}>
@@ -698,8 +732,8 @@ export default function EtudeEvolutions2026() {
                       <span style={{ color: '#C9A84C', fontWeight: 600 }}>{100-pctCC}% Pass.</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'center', gap: 8, fontSize: 11, marginTop: 4 }}>
-                      <span style={{ color: '#5B6FC4' }}>CC: {m.ventesCC}</span>
-                      <span style={{ color: '#C9A84C' }}>Pass: {m.ventesPassagers}</span>
+                      <span style={{ color: '#5B6FC4' }}>CC: {ccVal}</span>
+                      <span style={{ color: '#C9A84C' }}>Pass: {passVal}</span>
                     </div>
                   </div>
                 )
@@ -749,7 +783,8 @@ export default function EtudeEvolutions2026() {
             ))}
           </div>
         </div>
-      )}
+        )
+      })()}
 
       {/* ── CV MENSUEL ── */}
       {segment === 'cv_mensuel' && (
