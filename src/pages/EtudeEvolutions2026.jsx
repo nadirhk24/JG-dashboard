@@ -441,7 +441,12 @@ export default function EtudeEvolutions2026() {
         vis += v
         ven += parseFloat(r.ventes||0)
       }
-      return { txVente: pct(ven, vis), nbVentes: Math.round(ven), hasData: vis > 0 }
+      // CV jour/jour pour MOIS_JOUR uniquement
+      const dayRows = rows.filter(r => r.type_saisie !== 'periode' && r.type_saisie !== 'non_reconnue' && !joursExclus.includes(r.date_debut))
+      const cvJour = MOIS_JOUR.includes(m.value)
+        ? calcCV(dayRows.filter(r => (parseFloat(r.visites||0)+parseFloat(r.ventes||0)) > 0).map(r => pct(parseFloat(r.ventes||0), parseFloat(r.visites||0)+parseFloat(r.ventes||0))))
+        : null
+      return { txVente: pct(ven, vis), nbVentes: Math.round(ven), cvJour, hasData: vis > 0 }
     }
     // Même filtre que PerfCommercial : join commerciaux, exclure inactifs et Non reconnu
     const allRows = fluxData.filter(r =>
@@ -452,7 +457,7 @@ export default function EtudeEvolutions2026() {
     const saleRows = allRows.filter(r => r.commerciaux?.equipe === 'sale')
     const kenRows = allRows.filter(r => r.commerciaux?.equipe === 'kenitra')
     return { mois: m.label, moisVal: m.value, global: build(allRows), sale: build(saleRows), kenitra: build(kenRows) }
-  }), [fluxData])
+  }), [fluxData, joursExclus])
 
   const venteChartData = (sub) => venteParMois.filter(m => m[sub]?.hasData).map(m => ({
     mois: m.label,
