@@ -293,20 +293,31 @@ export default function EtudeEvolutions2026() {
 
   async function loadAll() {
     setLoading(true)
+    // Charger en parallèle sauf flux_rdv qui nécessite pagination
     const [
-      { data: mkt }, { data: cc }, { data: flux },
+      { data: mkt }, { data: cc },
       { data: cons }, { data: comms }, { data: cal }
     ] = await Promise.all([
       supabase.from('marketing_saisies').select('*').gte('date_debut', '2026-01-01').lte('date_debut', '2026-06-30'),
       supabase.from('saisies').select('*').gte('date_debut', '2026-01-01').lte('date_debut', '2026-06-30'),
-      supabase.from('flux_rdv').select('*, commerciaux(nom, equipe, actif)').gte('date_debut', '2026-01-01').lte('date_debut', '2026-06-30'),
       supabase.from('conseilleres').select('id, nom').order('nom'),
       supabase.from('commerciaux').select('id, nom, equipe').order('nom'),
       supabase.from('calendrier').select('date, type'),
     ])
+    // Pagination flux_rdv (comme PerfCommercial)
+    let allFlux = [], from = 0
+    while (true) {
+      const { data: page } = await supabase.from('flux_rdv')
+        .select('date_debut, date_fin, visites, ventes, type_saisie, commercial_id, commerciaux(nom, equipe, actif)')
+        .order('date_debut').range(from, from + 999)
+      if (!page || page.length === 0) break
+      allFlux = [...allFlux, ...page]
+      if (page.length < 1000) break
+      from += 1000
+    }
     setMktData(mkt || [])
     setCcData(cc || [])
-    setFluxData(flux || [])
+    setFluxData(allFlux)
     setConseilleres(cons || [])
     setCommerciaux(comms || [])
     setJoursExclus((cal || []).filter(c => c.type === 'ferie' || c.type === 'conge').map(c => c.date))
