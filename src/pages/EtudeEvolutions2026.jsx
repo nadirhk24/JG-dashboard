@@ -546,7 +546,6 @@ export default function EtudeEvolutions2026() {
   const SEGMENTS = [
     { key: 'marketing', label: 'Marketing' },
     { key: 'cc', label: "Centre d'Appel" },
-    { key: 'vente', label: 'Vente' },
     { key: 'ventes_detail', label: 'Ventes Détail' },
     { key: 'cv_mensuel', label: 'CV Mensuel' },
   ]
@@ -666,29 +665,6 @@ export default function EtudeEvolutions2026() {
             rows={[
               { label: 'CV Conv. Tél.', color: '#5B6FC4', vals: Object.fromEntries(ccParMois.map(m => [m.moisVal, m.cvConv])) },
               { label: 'CV Taux Présence', color: '#4CAF7D', vals: Object.fromEntries(ccParMois.map(m => [m.moisVal, m.cvPres])) },
-            ]}
-          />
-        </>
-      )}
-
-      {/* ── VENTE ── */}
-      {segment === 'vente' && (
-        <>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-            {VENTE_SUBS.map(s => <button key={s.key} style={subStyle(venteSub === s.key)} onClick={() => setVenteSub(s.key)}>{s.label}</button>)}
-          </div>
-          <TrendChart
-            data={venteChartData(venteSub)}
-            title={`Taux de vente — ${VENTE_SUBS.find(s => s.key === venteSub)?.label}`}
-            subtitle="Ventes / Visites (visites + ventes)"
-            cvBadges={[{ label: 'CV Global', cv: venteCVGlobal[venteSub] }]}
-            lines={[{ key: 'Taux de vente', name: 'Taux de vente', color: '#C9A84C' }]}
-            absLines={[{ key: 'Nb Ventes', name: 'Nb Ventes', color: '#E8D5A3' }]}
-          />
-          <CvMensuelTable
-            moisList={MOIS.filter(m => MOIS_JOUR.includes(m.value))}
-            rows={[
-              { label: 'CV Taux de vente', color: '#C9A84C', vals: Object.fromEntries(venteParMois.map(m => [m.moisVal, m[venteSub]?.cvJour])) },
             ]}
           />
         </>
