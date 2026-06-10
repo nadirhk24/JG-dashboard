@@ -27,22 +27,59 @@ const VENTES_PASSAGERS = {
   "2026-05": { total: 52, parCommercial: { "YOUSSEF": 11, "SAAD": 9, "NAOUFEL": 6, "KHALID": 5, "NOUHAILA": 4, "ISMAIL": 2, "NISSRINE": 2, "OUMAIMA": 2, "YASSMINE": 2, "MERYEM": 2, "MEROUANE": 1, "ABDELHAK": 1, "HICHAM": 1, "HAJAR": 1, "SOUAD": 1, "SALIMA": 1, "NAJLAA": 1 } },
 }
 
-// Mapping nom fichier → prénom du commercial dans l'app (insensible à la casse)
-const NOM_MAP = {
-  "NAOUFEL": "Naoufel", "NAWFEL": "Naoufel", "SALIMA": "Salima",
-  "HAJAR": "Hajar", "ISMAIL": "Ismail", "SAAD": "Saad",
-  "YOUSSEF": "Youssef", "NISSRINE": "Nissrine", "RIM": "Rim",
-  "SOUAD": "Yasmina", "MERYEM": "Meryem", "ASMAE": "Asmae",
-  "YASSMINE": "Yasmina", "SAMIYA": "Samia", "HICHAM": "Hicham",
-  "MEROUANE": "Marouane", "KHALID": "Khalid", "NOUHAILA": "Nouhaila",
-  "ALAA": "Alae", "ALAE": "Alae", "NAJLAA": "Najlaa",
-  "ABDELHAK": "Abdelhak", "OUMAIMA": "Oumaima",
+// Mapping nom fichier Excel → nom complet dans l'app
+const NOM_MAP_COMPLET = {
+  "NAOUFEL": "Nawfal Jdia",
+  "NAWFEL": "Nawfal Jdia",
+  "YOUSSEF": "Youssef Saadouni",
+  "NISSRINE": "Nissrine Irfden",
+  "OUMAIMA": "Oumaima Belbacha",
+  "YASSMINE": "Yasmina Souaq",
+  "SOUAD": "Souad Acoine",
+  "RIM": "Rim Snaiki",
+  "SALIMA": "Salima Fikri",
+  "ASMAE": "Asmaa Radouli",
+  "ISMAIL": "Ismail Hammouch",
+  "MERYEM": "Meryem Elbouchikhi",
+  "HAJAR": "Hajar Snaiki",
+  "SAMIYA": "Samia Ahalay",
+  "HICHAM": "Hicham Mechach",
+  "ALAA": "Alae Elmoussaid",
+  "ALAE": "Alae Elmoussaid",
+  "MEROUANE": "Marouane Cachchi",
+  "KHALID": "Khalid Amghoud",
+  "SAAD": "Saad Fellah",
+  "NOUHAILA": "Nouhaila Belhadj",
+  "ABDELHAK": "Abdelhak Lakouissmi",
+  "NAJLAA": "Najlaa Maarouf",
 }
 
-// Alaa quitte fin avril
-const ALAA_DEPART = "2026-05"
-// Saad et Yasmina/Souad = Kenitra en Janvier
-const KENITRA_JAN_EXTRA = ["SAAD", "YASSMINE", "SOUAD"]
+// Commerciaux avec date d'arrivée > Jan
+const ARRIVEE_MARS = ["Abdelhak Lakouissmi", "Najlaa Maarouf"]
+// Alae quitte fin avril
+const ALAE_DEPART = "2026-05"
+// Salima quitte fin mai
+const SALIMA_DEPART = "2026-06"
+// Hicham — inclure tous les mois (pas d'info départ)
+// Yasmina Souaq : Kénitra en Jan, Salé à partir Fév
+const YASMINA_SALE_FROM = "2026-02"
+// Saad Fellah : Kénitra en Jan, Salé à partir Fév
+const SAAD_SALE_FROM = "2026-02"
+
+// Commerciaux actifs par mois (selon dates arrivée/départ)
+function isActifCeMois(nomComplet, moisVal) {
+  if (ARRIVEE_MARS.includes(nomComplet) && moisVal < "2026-03") return false
+  if (nomComplet === "Alae Elmoussaid" && moisVal >= ALAE_DEPART) return false
+  if (nomComplet === "Salima Fikri" && moisVal >= SALIMA_DEPART) return false
+  return true
+}
+
+// Equipe du commercial pour un mois donné
+function equipeCeMois(nomComplet, moisVal, equipeDefaut) {
+  if (nomComplet === "Yasmina Souaq" && moisVal < YASMINA_SALE_FROM) return "kenitra"
+  if (nomComplet === "Saad Fellah" && moisVal < SAAD_SALE_FROM) return "kenitra"
+  return equipeDefaut
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function pct(a, b) {
@@ -333,24 +370,30 @@ export default function EtudeEvolutions2026() {
     const moisDetail = ['2026-01','2026-02','2026-03','2026-04','2026-05']
     return moisDetail.map(mVal => {
       const m = MOIS.find(x => x.value === mVal)
+      // Ventes CC depuis flux_rdv
       const ccRows = fluxData.filter(r => (r.date_debut||'').startsWith(mVal))
       const ventesCC = Math.round(ccRows.reduce((s,r) => s+(r.ventes||0), 0))
       const totalExcel = VENTES_PASSAGERS[mVal]?.total || 0
       const ventesPassagers = Math.max(0, totalExcel - ventesCC)
-      const nomsFichier = Object.keys(VENTES_PASSAGERS[mVal]?.parCommercial || {})
-      const commsActifs = commerciaux.filter(c => {
-        if (mVal >= ALAA_DEPART && (c.nom||'').toLowerCase().includes('alae')) return false
-        return true
+
+      // Noms dans le fichier Excel ce mois → noms complets dans l'app
+      const nomsFichierComplets = Object.keys(VENTES_PASSAGERS[mVal]?.parCommercial || {})
+        .map(n => NOM_MAP_COMPLET[n] || null).filter(Boolean)
+
+      // Tous les commerciaux actifs ce mois (hors Non reconnu)
+      const commsActifsCeMois = commerciaux.filter(c => {
+        if ((c.nom||'').toLowerCase().includes('non reconnu')) return false
+        return isActifCeMois(c.nom, mVal)
       })
-      const commsZero = commsActifs.filter(c => {
-        const prenomC = (c.nom||'').split(' ')[0].toUpperCase()
-        return !nomsFichier.some(n => {
-          const mappedN = NOM_MAP[n] || n
-          return mappedN.toUpperCase() === prenomC || 
-                 (c.nom||'').toUpperCase().includes(mappedN.toUpperCase())
-        })
-      })
-      return { moisVal: mVal, mois: m.label, totalExcel, ventesCC, ventesPassagers, commsZero }
+
+      // Séparation par équipe selon le mois
+      const commsSale = commsActifsCeMois.filter(c => equipeCeMois(c.nom, mVal, c.equipe) === 'sale')
+      const commsKenitra = commsActifsCeMois.filter(c => equipeCeMois(c.nom, mVal, c.equipe) === 'kenitra')
+
+      const zeroSale = commsSale.filter(c => !nomsFichierComplets.includes(c.nom))
+      const zeroKenitra = commsKenitra.filter(c => !nomsFichierComplets.includes(c.nom))
+
+      return { moisVal: mVal, mois: m.label, totalExcel, ventesCC, ventesPassagers, zeroSale, zeroKenitra }
     })
   }, [fluxData, commerciaux])
 
@@ -664,33 +707,46 @@ export default function EtudeEvolutions2026() {
             </div>
           </div>
 
-          {/* Commerciaux à 0 vente par mois */}
+          {/* Commerciaux à 0 vente par mois — séparé Sale / Kénitra */}
           <div style={{ background: '#fff', border: '1px solid #E8E6DF', borderRadius: 14, padding: '24px 28px', marginBottom: 20 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: '#2C2C2C', marginBottom: 16 }}>Commerciaux à 0 vente — par mois</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
-              {ventesDetailParMois.map(m => (
-                <div key={m.moisVal} style={{ background: '#F8F7F4', borderRadius: 10, padding: '14px 16px' }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#2C2C2C', marginBottom: 10 }}>
-                    {m.mois}
-                    <span style={{ fontSize: 11, color: '#8A8A7A', fontWeight: 400, marginLeft: 6 }}>
-                      ({m.commsZero.length} commercial{m.commsZero.length > 1 ? 'x' : ''})
-                    </span>
-                  </div>
-                  {m.commsZero.length === 0 ? (
-                    <div style={{ fontSize: 12, color: '#4CAF7D', fontWeight: 500 }}>✓ Tous ont vendu</div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      {m.commsZero.map((c, i) => (
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12 }}>
-                          <span style={{ color: '#2C2C2C' }}>{c.nom?.split(' ')[0]}</span>
-                          <span style={{ color: '#E05C5C', fontWeight: 600, background: '#FEF0F0', padding: '2px 8px', borderRadius: 10 }}>0 vente</span>
-                        </div>
-                      ))}
+            <div style={{ fontSize: 15, fontWeight: 600, color: '#2C2C2C', marginBottom: 20 }}>Commerciaux à 0 vente — par mois</div>
+            {ventesDetailParMois.map(m => (
+              <div key={m.moisVal} style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#2C2C2C', marginBottom: 10, borderBottom: '1px solid #F0EDE6', paddingBottom: 6 }}>{m.mois}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  {/* Salé */}
+                  <div style={{ background: '#F8F7F4', borderRadius: 10, padding: '12px 16px' }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#5B6FC4', marginBottom: 8 }}>
+                      Équipe Salé
+                      <span style={{ color: '#8A8A7A', fontWeight: 400, marginLeft: 6 }}>({m.zeroSale.length} à 0)</span>
                     </div>
-                  )}
+                    {m.zeroSale.length === 0 ? (
+                      <div style={{ fontSize: 12, color: '#4CAF7D' }}>✓ Tous ont vendu</div>
+                    ) : m.zeroSale.map((c, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3 }}>
+                        <span style={{ color: '#2C2C2C' }}>{c.nom?.split(' ')[0]}</span>
+                        <span style={{ color: '#E05C5C', fontWeight: 600, background: '#FEF0F0', padding: '1px 8px', borderRadius: 8 }}>0</span>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Kénitra */}
+                  <div style={{ background: '#F8F7F4', borderRadius: 10, padding: '12px 16px' }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#C9A84C', marginBottom: 8 }}>
+                      Équipe Kénitra
+                      <span style={{ color: '#8A8A7A', fontWeight: 400, marginLeft: 6 }}>({m.zeroKenitra.length} à 0)</span>
+                    </div>
+                    {m.zeroKenitra.length === 0 ? (
+                      <div style={{ fontSize: 12, color: '#4CAF7D' }}>✓ Tous ont vendu</div>
+                    ) : m.zeroKenitra.map((c, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3 }}>
+                        <span style={{ color: '#2C2C2C' }}>{c.nom?.split(' ')[0]}</span>
+                        <span style={{ color: '#E05C5C', fontWeight: 600, background: '#FEF0F0', padding: '1px 8px', borderRadius: 8 }}>0</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
