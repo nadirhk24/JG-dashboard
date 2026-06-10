@@ -521,7 +521,6 @@ export default function EtudeEvolutions2026() {
     { key: 'vente', label: 'Vente' },
     { key: 'ventes_detail', label: 'Ventes Détail' },
     { key: 'cv_mensuel', label: 'CV Mensuel' },
-    { key: 'cv_jour', label: 'CV Mensuel/Jour' },
   ]
   const CV_SUBS = [
     { key: 'cc', label: 'CC' },
@@ -828,47 +827,7 @@ export default function EtudeEvolutions2026() {
         </>
       )}
 
-      {/* ── CV JOUR/JOUR ── */}
-      {segment === 'cv_jour' && (
-        <>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-            {CV_SUBS.map(s => <button key={s.key} style={subStyle(cvSub === s.key)} onClick={() => setCvSub(s.key)}>{s.label}</button>)}
-          </div>
-          {cvSub === 'cc' && (
-            <TrendChart
-              data={cvJourCC}
-              title="CV Mensuel/Jour — Centre d'Appel (Avr → Juin)"
-              subtitle="CV = variabilité jour/jour au sein de chaque mois · 0 si aucune donnée"
-              cvBadges={[
-                { label: 'CV Conv.', cv: calcCV(cvJourCC.map(d => d['CV Conv. Tél.']).filter(v => v > 0)) },
-                { label: 'CV Présence', cv: calcCV(cvJourCC.map(d => d['CV Taux Présence']).filter(v => v > 0)) },
-              ]}
-              lines={[
-                { key: 'CV Conv. Tél.', name: 'CV Conv. Tél.', color: '#5B6FC4' },
-                { key: 'CV Taux Présence', name: 'CV Taux Présence', color: '#4CAF7D' },
-              ]}
-            />
-          )}
-          {cvSub === 'sale' && (
-            <TrendChart
-              data={venteCvJourData.sale}
-              title="CV Mensuel/Jour — Vente Salé (Avr → Juin)"
-              subtitle="CV = variabilité jour/jour au sein de chaque mois · 0 si aucune donnée"
-              cvBadges={[{ label: 'CV Global', cv: calcCV(venteCvJourData.sale.map(d => d['CV Vente Salé']).filter(v => v > 0)) }]}
-              lines={[{ key: 'CV Vente Salé', name: 'CV Vente Salé', color: '#C9A84C' }]}
-            />
-          )}
-          {cvSub === 'kenitra' && (
-            <TrendChart
-              data={venteCvJourData.kenitra}
-              title="CV Mensuel/Jour — Vente Kénitra (Avr → Juin)"
-              subtitle="CV = variabilité jour/jour au sein de chaque mois · 0 si aucune donnée"
-              cvBadges={[{ label: 'CV Global', cv: calcCV(venteCvJourData.kenitra.map(d => d['CV Vente Kénitra']).filter(v => v > 0)) }]}
-              lines={[{ key: 'CV Vente Kénitra', name: 'CV Vente Kénitra', color: '#9B59B6' }]}
-            />
-          )}
-        </>
-      )}
+
     </div>
   )
 }
