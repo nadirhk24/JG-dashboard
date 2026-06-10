@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import PageHeader from '../components/PageHeader'
 import {
-  ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, ReferenceLine
+  ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, ReferenceLine, PieChart, Pie, Cell, BarChart, Bar
 } from 'recharts'
 
 // ── Constantes ────────────────────────────────────────────────────────────────
@@ -17,6 +17,32 @@ const MOIS = [
   { label: 'Juin', value: '2026-06' },
 ]
 const MOIS_JOUR = ['2026-04', '2026-05', '2026-06']
+
+// ── Données ventes passagers (fichier Excel statique) ─────────────────────────
+const VENTES_PASSAGERS = {
+  "2026-01": { total: 39, parCommercial: { "NAOUFEL": 10, "SALIMA": 6, "HAJAR": 4, "ISMAIL": 3, "SAAD": 3, "YOUSSEF": 2, "NISSRINE": 2, "RIM": 2, "SOUAD": 2, "MERYEM": 2, "ASMAE": 1, "YASSMINE": 1, "OUMAIMA": 1 } },
+  "2026-02": { total: 21, parCommercial: { "ASMAE": 3, "SOUAD": 3, "ISMAIL": 2, "MERYEM": 2, "ALAA": 2, "NISSRINE": 2, "SAMIYA": 1, "HICHAM": 1, "MEROUANE": 1, "KHALID": 1, "NOUHAILA": 1, "YASSMINE": 1, "SAAD": 1 } },
+  "2026-03": { total: 38, parCommercial: { "MEROUANE": 5, "KHALID": 5, "YASSMINE": 3, "ALAA": 3, "SAMIYA": 3, "NAJLAA": 3, "HAJAR": 2, "SAAD": 2, "RIM": 2, "ALAE": 2, "NAOUFEL": 2, "ISMAIL": 2, "SOUAD": 1, "YOUSSEF": 1, "ASMAE": 1, "NISSRINE": 1 } },
+  "2026-04": { total: 64, parCommercial: { "KHALID": 11, "NISSRINE": 9, "SAAD": 8, "NOUHAILA": 8, "ABDELHAK": 6, "NAJLAA": 4, "ISMAIL": 2, "MERYEM": 2, "YASSMINE": 2, "RIM": 2, "SALIMA": 2, "SAMIYA": 2, "YOUSSEF": 2, "OUMAIMA": 1, "HAJAR": 1, "SOUAD": 1, "NAOUFEL": 1 } },
+  "2026-05": { total: 52, parCommercial: { "YOUSSEF": 11, "SAAD": 9, "NAOUFEL": 6, "KHALID": 5, "NOUHAILA": 4, "ISMAIL": 2, "NISSRINE": 2, "OUMAIMA": 2, "YASSMINE": 2, "MERYEM": 2, "MEROUANE": 1, "ABDELHAK": 1, "HICHAM": 1, "HAJAR": 1, "SOUAD": 1, "SALIMA": 1, "NAJLAA": 1 } },
+}
+
+// Mapping nom fichier → prénom du commercial dans l'app (insensible à la casse)
+const NOM_MAP = {
+  "NAOUFEL": "Naoufel", "NAWFEL": "Naoufel", "SALIMA": "Salima",
+  "HAJAR": "Hajar", "ISMAIL": "Ismail", "SAAD": "Saad",
+  "YOUSSEF": "Youssef", "NISSRINE": "Nissrine", "RIM": "Rim",
+  "SOUAD": "Yasmina", "MERYEM": "Meryem", "ASMAE": "Asmae",
+  "YASSMINE": "Yasmina", "SAMIYA": "Samia", "HICHAM": "Hicham",
+  "MEROUANE": "Marouane", "KHALID": "Khalid", "NOUHAILA": "Nouhaila",
+  "ALAA": "Alae", "ALAE": "Alae", "NAJLAA": "Najlaa",
+  "ABDELHAK": "Abdelhak", "OUMAIMA": "Oumaima",
+}
+
+// Alaa quitte fin avril
+const ALAA_DEPART = "2026-05"
+// Saad et Yasmina/Souad = Kenitra en Janvier
+const KENITRA_JAN_EXTRA = ["SAAD", "YASSMINE", "SOUAD"]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function pct(a, b) {
@@ -302,6 +328,32 @@ export default function EtudeEvolutions2026() {
     pres: calcCV(ccParMois.map(m => m.txPres).filter(v => v !== null)),
   }
 
+  // ── VENTES DETAIL : CC vs Passagers ─────────────────────────────────────────
+  const ventesDetailParMois = useMemo(() => {
+    const moisDetail = ['2026-01','2026-02','2026-03','2026-04','2026-05']
+    return moisDetail.map(mVal => {
+      const m = MOIS.find(x => x.value === mVal)
+      const ccRows = fluxData.filter(r => (r.date_debut||'').startsWith(mVal))
+      const ventesCC = Math.round(ccRows.reduce((s,r) => s+(r.ventes||0), 0))
+      const totalExcel = VENTES_PASSAGERS[mVal]?.total || 0
+      const ventesPassagers = Math.max(0, totalExcel - ventesCC)
+      const nomsFichier = Object.keys(VENTES_PASSAGERS[mVal]?.parCommercial || {})
+      const commsActifs = commerciaux.filter(c => {
+        if (mVal >= ALAA_DEPART && (c.nom||'').toLowerCase().includes('alae')) return false
+        return true
+      })
+      const commsZero = commsActifs.filter(c => {
+        const prenomC = (c.nom||'').split(' ')[0].toUpperCase()
+        return !nomsFichier.some(n => {
+          const mappedN = NOM_MAP[n] || n
+          return mappedN.toUpperCase() === prenomC || 
+                 (c.nom||'').toUpperCase().includes(mappedN.toUpperCase())
+        })
+      })
+      return { moisVal: mVal, mois: m.label, totalExcel, ventesCC, ventesPassagers, commsZero }
+    })
+  }, [fluxData, commerciaux])
+
   // ── VENTE ────────────────────────────────────────────────────────────────
   const venteParMois = useMemo(() => MOIS.map(m => {
     const allRows = fluxData.filter(r => (r.date_debut || '').startsWith(m.value))
@@ -410,6 +462,7 @@ export default function EtudeEvolutions2026() {
     { key: 'marketing', label: 'Marketing' },
     { key: 'cc', label: "Centre d'Appel" },
     { key: 'vente', label: 'Vente' },
+    { key: 'ventes_detail', label: 'Ventes Détail' },
     { key: 'cv_mensuel', label: 'CV Mensuel' },
     { key: 'cv_jour', label: 'CV Mensuel/Jour' },
   ]
@@ -555,6 +608,91 @@ export default function EtudeEvolutions2026() {
             ]}
           />
         </>
+      )}
+
+      {/* ── VENTES DETAIL ── */}
+      {segment === 'ventes_detail' && (
+        <div>
+          {/* Courbe totale */}
+          <div style={{ background: '#fff', border: '1px solid #E8E6DF', borderRadius: 14, padding: '24px 28px', marginBottom: 20 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: '#2C2C2C', marginBottom: 16 }}>Total ventes — Jan → Mai 2026</div>
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={ventesDetailParMois} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F0EDE6" />
+                <XAxis dataKey="mois" tick={{ fontSize: 12, fill: '#8A8A7A' }} />
+                <YAxis tick={{ fontSize: 11, fill: '#8A8A7A' }} />
+                <Tooltip formatter={(value, name) => [value, name === 'ventesCC' ? 'Ventes CC' : name === 'ventesPassagers' ? 'Passagers' : name]} />
+                <Bar dataKey="ventesCC" name="Ventes CC" stackId="a" fill="#5B6FC4" radius={[0,0,0,0]} />
+                <Bar dataKey="ventesPassagers" name="Passagers" stackId="a" fill="#C9A84C" radius={[4,4,0,0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Donuts CC vs Passagers par mois */}
+          <div style={{ background: '#fff', border: '1px solid #E8E6DF', borderRadius: 14, padding: '24px 28px', marginBottom: 20 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: '#2C2C2C', marginBottom: 20 }}>Répartition CC vs Passagers — par mois</div>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'space-around' }}>
+              {ventesDetailParMois.map(m => {
+                const pieData = [
+                  { name: 'CC', value: m.ventesCC, color: '#5B6FC4' },
+                  { name: 'Passagers', value: m.ventesPassagers, color: '#C9A84C' },
+                ]
+                const pctCC = m.totalExcel > 0 ? Math.round((m.ventesCC / m.totalExcel) * 100) : 0
+                return (
+                  <div key={m.moisVal} style={{ textAlign: 'center', minWidth: 130 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#2C2C2C', marginBottom: 4 }}>{m.mois}</div>
+                    <div style={{ fontSize: 12, color: '#8A8A7A', marginBottom: 8 }}>{m.totalExcel} ventes</div>
+                    <PieChart width={130} height={130}>
+                      <Pie data={pieData} cx={65} cy={55} innerRadius={35} outerRadius={55}
+                        dataKey="value" startAngle={90} endAngle={-270}>
+                        {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                      </Pie>
+                      <Tooltip formatter={(value, name) => [value, name]} />
+                    </PieChart>
+                    <div style={{ fontSize: 12, marginTop: 4 }}>
+                      <span style={{ color: '#5B6FC4', fontWeight: 600 }}>{pctCC}% CC</span>
+                      <span style={{ color: '#8A8A7A', margin: '0 4px' }}>·</span>
+                      <span style={{ color: '#C9A84C', fontWeight: 600 }}>{100-pctCC}% Pass.</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: 8, fontSize: 11, marginTop: 4 }}>
+                      <span style={{ color: '#5B6FC4' }}>CC: {m.ventesCC}</span>
+                      <span style={{ color: '#C9A84C' }}>Pass: {m.ventesPassagers}</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Commerciaux à 0 vente par mois */}
+          <div style={{ background: '#fff', border: '1px solid #E8E6DF', borderRadius: 14, padding: '24px 28px', marginBottom: 20 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: '#2C2C2C', marginBottom: 16 }}>Commerciaux à 0 vente — par mois</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+              {ventesDetailParMois.map(m => (
+                <div key={m.moisVal} style={{ background: '#F8F7F4', borderRadius: 10, padding: '14px 16px' }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#2C2C2C', marginBottom: 10 }}>
+                    {m.mois}
+                    <span style={{ fontSize: 11, color: '#8A8A7A', fontWeight: 400, marginLeft: 6 }}>
+                      ({m.commsZero.length} commercial{m.commsZero.length > 1 ? 'x' : ''})
+                    </span>
+                  </div>
+                  {m.commsZero.length === 0 ? (
+                    <div style={{ fontSize: 12, color: '#4CAF7D', fontWeight: 500 }}>✓ Tous ont vendu</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {m.commsZero.map((c, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12 }}>
+                          <span style={{ color: '#2C2C2C' }}>{c.nom?.split(' ')[0]}</span>
+                          <span style={{ color: '#E05C5C', fontWeight: 600, background: '#FEF0F0', padding: '2px 8px', borderRadius: 10 }}>0 vente</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── CV MENSUEL ── */}
