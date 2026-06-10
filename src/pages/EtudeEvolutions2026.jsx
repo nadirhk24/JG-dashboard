@@ -374,8 +374,14 @@ export default function EtudeEvolutions2026() {
       // Ventes CC depuis flux_rdv
       const ccRows = fluxData.filter(r => (r.date_debut||'').startsWith(mVal))
       const ventesCC = Math.round(ccRows.reduce((s,r) => s+(r.ventes||0), 0))
-      const ventesCCSale = Math.round(ccRows.filter(r => commerciaux.find(c=>c.id===r.commercial_id)?.equipe === 'sale' || (r.commercial_id && equipeCeMois(commerciaux.find(c=>c.id===r.commercial_id)?.nom||'', mVal, commerciaux.find(c=>c.id===r.commercial_id)?.equipe||'') === 'sale')).reduce((s,r)=>s+(r.ventes||0),0))
-      const ventesCCKenitra = Math.round(ccRows.filter(r => equipeCeMois(commerciaux.find(c=>c.id===r.commercial_id)?.nom||'', mVal, commerciaux.find(c=>c.id===r.commercial_id)?.equipe||'') === 'kenitra').reduce((s,r)=>s+(r.ventes||0),0))
+      const ventesCCSale = Math.round(ccRows.filter(r => {
+        const c = commerciaux.find(x=>x.id===r.commercial_id)
+        return c && equipeCeMois(c.nom||'', mVal, c.equipe||'') === 'sale'
+      }).reduce((s,r)=>s+(r.ventes||0),0))
+      const ventesCCKenitra = Math.round(ccRows.filter(r => {
+        const c = commerciaux.find(x=>x.id===r.commercial_id)
+        return c && equipeCeMois(c.nom||'', mVal, c.equipe||'') === 'kenitra'
+      }).reduce((s,r)=>s+(r.ventes||0),0))
       const totalExcel = VENTES_PASSAGERS[mVal]?.total || 0
       // Total par équipe depuis Excel
       const totalSaleExcel = Object.entries(VENTES_PASSAGERS[mVal]?.parCommercial || {}).filter(([n]) => {
