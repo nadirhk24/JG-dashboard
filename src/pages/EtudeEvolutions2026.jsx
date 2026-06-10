@@ -299,7 +299,7 @@ export default function EtudeEvolutions2026() {
     ] = await Promise.all([
       supabase.from('marketing_saisies').select('*').gte('date_debut', '2026-01-01').lte('date_debut', '2026-06-30'),
       supabase.from('saisies').select('*').gte('date_debut', '2026-01-01').lte('date_debut', '2026-06-30'),
-      supabase.from('flux_rdv').select('*').gte('date_debut', '2026-01-01').lte('date_debut', '2026-06-30'),
+      supabase.from('flux_rdv').select('*, commerciaux(nom, equipe, actif)').gte('date_debut', '2026-01-01').lte('date_debut', '2026-06-30'),
       supabase.from('conseilleres').select('id, nom').order('nom'),
       supabase.from('commerciaux').select('id, nom, equipe').order('nom'),
       supabase.from('calendrier').select('date, type'),
@@ -403,6 +403,7 @@ export default function EtudeEvolutions2026() {
       // Tous les commerciaux actifs ce mois (hors Non reconnu)
       const EXCLUS_ZERO = ['Hicham Mechach', 'Asmaa Radouli']
       const commsActifsCeMois = commerciaux.filter(c => {
+        if (!c.actif) return false
         if ((c.nom||'').toLowerCase().includes('non reconnu')) return false
         if (EXCLUS_ZERO.includes(c.nom)) return false
         return isActifCeMois(c.nom, mVal)
@@ -419,25 +420,28 @@ export default function EtudeEvolutions2026() {
     })
   }, [fluxData, commerciaux])
 
-  // ── VENTE ────────────────────────────────────────────────────────────────
+  // ── VENTE (même logique que PerfCommercial) ──────────────────────────────
   const venteParMois = useMemo(() => MOIS.map(m => {
-    const allRows = fluxData.filter(r => (r.date_debut || '').startsWith(m.value))
-    const saleRows = allRows.filter(r => commerciaux.find(c => c.id === r.commercial_id)?.equipe === 'sale')
-    const kenRows = allRows.filter(r => commerciaux.find(c => c.id === r.commercial_id)?.equipe === 'kenitra')
-
     const build = (rows) => {
-      const vis = rows.reduce((s, r) => s + (r.visites||0) + (r.ventes||0), 0)
-      const ven = rows.reduce((s, r) => s + (r.ventes||0), 0)
-      const dayRows = rows.filter(r => r.type_saisie !== 'periode' && !joursExclus.includes(r.date_debut))
-      // CV jour/jour uniquement pour MOIS_JOUR
-      const cvJour = MOIS_JOUR.includes(m.value)
-        ? calcCV(dayRows.filter(r => (r.visites||0)+(r.ventes||0) > 0).map(r => pct(r.ventes||0, (r.visites||0)+(r.ventes||0))))
-        : null
-      return { txVente: pct(ven, vis), cvJour, hasData: vis > 0 }
+      let vis = 0, ven = 0
+      for (const r of rows) {
+        const isPeriode = r.type_saisie === 'periode' || r.type_saisie === 'non_reconnue'
+        const v = isPeriode ? parseFloat(r.visites||0) : parseFloat(r.visites||0) + parseFloat(r.ventes||0)
+        vis += v
+        ven += parseFloat(r.ventes||0)
+      }
+      return { txVente: pct(ven, vis), nbVentes: Math.round(ven), hasData: vis > 0 }
     }
-
+    // Même filtre que PerfCommercial : join commerciaux, exclure inactifs et Non reconnu
+    const allRows = fluxData.filter(r =>
+      (r.date_debut||'').startsWith(m.value) &&
+      r.commerciaux && r.commerciaux.actif !== false &&
+      !((r.commerciaux.nom||'').toLowerCase().includes('non reconnu'))
+    )
+    const saleRows = allRows.filter(r => r.commerciaux?.equipe === 'sale')
+    const kenRows = allRows.filter(r => r.commerciaux?.equipe === 'kenitra')
     return { mois: m.label, moisVal: m.value, global: build(allRows), sale: build(saleRows), kenitra: build(kenRows) }
-  }), [fluxData, commerciaux, joursExclus])
+  }), [fluxData])
 
   const venteChartData = (sub) => venteParMois.filter(m => m[sub]?.hasData).map(m => ({
     mois: m.label,
