@@ -82,7 +82,7 @@ const ALL_RANK_COLS = [
   { key: 'ventes', label: 'Ventes', color: '#1a6b3c', selfOnly: true },
 ]
 
-export default function DashboardCallCenter({ conseilleres, saisies: props_saisies, reload }) {
+export default function DashboardCallCenter({ conseilleres, conseilleresActives, saisies: props_saisies, reload }) {
   const { profil } = useAuth()
   const { joursFeries, absences } = useJoursExclus()
   // Normaliser : dimanches/fériés → jour ouvré d'avant
@@ -96,10 +96,13 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
   const myConseillereId = profil?.conseillere_id || null
   // Conseillères visibles selon permissions
   const conseillerePerms = profil?.permissions?.centre_appel_conseilleres || {}
+  // conseilleresActives = sans les masquées (pour l'affichage)
+  // conseilleres = toutes (pour les calculs globaux)
+  const baseConseilleres = conseilleresActives || conseilleres
   const conseilleresFiltrees = useMemo(() => {
-    if (isSuperAdmin || !isConseillere) return conseilleres
-    return conseilleres.filter(c => c.id === myConseillereId)
-  }, [conseilleres, isSuperAdmin, isConseillere, myConseillereId])
+    if (isSuperAdmin || !isConseillere) return baseConseilleres
+    return baseConseilleres.filter(c => c.id === myConseillereId)
+  }, [baseConseilleres, isSuperAdmin, isConseillere, myConseillereId])
 
   const [selected, setSelected] = useState(() => {
     const now = new Date()
@@ -779,7 +782,7 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, marginTop: 8 }}>
         <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C' }}>
-          Ranking Conseillères <span style={{ fontSize: 11, color: '#5A5A5A', fontWeight: 400, fontFamily: 'DM Sans' }}>(Prod. 30% · Conv. 30% · Présence 30% · Eff. comm. 10%)</span>
+          Ranking Conseillères <span style={{ fontSize: 11, color: '#5A5A5A', fontWeight: 400, fontFamily: 'DM Sans' }}>(Prod. 40% · Conv. 30% · Présence 30%)</span>
         </div>
         <div style={{ position: 'relative' }}>
           <button onClick={() => setShowRankCols(p=>!p)} style={{ padding: '6px 16px', borderRadius: 16, border: '1.5px solid rgba(201,168,76,0.3)', background: '#fff', color: '#C9A84C', fontSize: 12, cursor: 'pointer', fontWeight: 500 }}>Colonnes ▾</button>
@@ -814,7 +817,7 @@ export default function DashboardCallCenter({ conseilleres, saisies: props_saisi
               {rankingSorted.map((c,i) => {
                 const rankColor = getRankColor(i, rankingSorted.length)
                 const stars = getStars(i, rankingSorted.length)
-                const score = parseFloat((Math.min(c.productivite,100)*0.3+c.conversion_tel*0.3+c.taux_presence*0.3+c.efficacite_comm*0.1).toFixed(1))
+                const score = parseFloat((Math.min(c.productivite,100)*0.4+c.conversion_tel*0.3+c.taux_presence*0.3).toFixed(1))
                 const colValues = {
                   leads_bruts: { val: c.leads_bruts,  style: {...tdStyle, color:'#C9A84C', fontWeight:700, fontSize:13} },
                   indispos:    { val: c.indispos,     style: {...tdStyle, color:'#E05C5C', fontWeight:700, fontSize:13} },

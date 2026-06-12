@@ -1,159 +1,190 @@
-import React, { useState, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import Sidebar from './components/Sidebar'
-import DashboardCentreAppel from './pages/DashboardCentreAppel'
-import DashboardMarketing from './pages/DashboardMarketing'
-import Conseilleres from './pages/Conseilleres'
-import Objectifs from './pages/Objectifs'
-import Calendrier from './pages/Calendrier'
-import Responsables from './pages/Responsables'
-import Commerciaux from './pages/Commerciaux'
-import FluxRDV from './pages/FluxRDV'
-import PerfCommercial from './pages/PerfCommercial'
-import AnalyseCV from './pages/AnalyseCV'
-import GestionUsers from './pages/GestionUsers'
-import Etudes from './pages/Etudes'
-import EtudeCommerciale2026 from './pages/EtudeCommerciale2026'
-import EtudeEvolutions2026 from './pages/EtudeEvolutions2026'
-import ImportAgent from './pages/ImportAgent'
-import Login from './pages/Login'
-import { supabase } from './lib/supabase'
-import BulleNotes from './components/BulleNotes'
-import TopBar from './components/TopBar'
-import Stock from './pages/Stock'
-import Primes from './pages/Primes'
-import Passagers from './pages/Passagers'
-import { AuthProvider, useAuth } from './context/AuthContext'
+import React, { useState } from 'react'
+import { supabase } from '../lib/supabase'
+import PageHeader from '../components/PageHeader'
+import SectionTitle from '../components/SectionTitle'
 
+export default function Conseilleres({ conseilleres, reload }) {
+  const [form, setForm] = useState({ nom: '', email: '', telephone: '' })
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState(null)
+  const [editId, setEditId] = useState(null)
 
-// Composant qui bloque l'accès si permission manquante
-function ProtectedRoute({ permKey, children }) {
-  const { profil } = useAuth()
-  const isSuperAdmin = profil?.role === 'super_admin'
-  if (isSuperAdmin) return children
-  if (!permKey) return children
-  if (profil?.permissions?.[permKey] === true) return children
-  return <Navigate to="/centre-appel" replace />
-}
-
-function Spinner() {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#F8F7F4' }}>
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ width: 48, height: 48, border: '3px solid #E8D5A3', borderTopColor: '#C9A84C', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }}></div>
-        <p style={{ color: '#5A5A5A', fontSize: 13 }}>Chargement...</p>
-      </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
-  )
-}
-
-function AppContent() {
-  const { user, loading: authLoading } = useAuth()
-  const [conseilleres, setConseilleres] = useState([])
-  const [saisies, setSaisies] = useState([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    if (user) loadData()
-  }, [user])
-
-  async function loadData() {
-    setLoading(true)
-    try {
-      // Charger conseillères
-      const { data: cons } = await supabase.from('conseilleres').select('*').order('nom')
-
-      // Charger saisies — filtre année en cours uniquement, max 5000 lignes
-      const currentYear = new Date().getFullYear()
-      const dateFrom = `${currentYear}-01-01`
-      const dateTo   = `${currentYear}-12-31`
-
-      // Charger saisies journalières (champ date) + saisies période (champ date_debut)
-      const [{ data: saisiesJour }, { data: saisiesPeriode }] = await Promise.all([
-        supabase.from('saisies').select('*')
-          .gte('date', dateFrom).lte('date', dateTo)
-          .order('date', { ascending: false }).limit(5000),
-        supabase.from('saisies').select('*')
-          .gte('date_debut', dateFrom).lte('date_debut', dateTo)
-          .order('date_debut', { ascending: false }).limit(1000),
-      ])
-      // Fusionner et dédupliquer par id
-      const seen = new Set()
-      let allSaisies = []
-      for (const s of [...(saisiesJour || []), ...(saisiesPeriode || [])]) {
-        if (!seen.has(s.id)) { seen.add(s.id); allSaisies.push(s) }
-      }
-
-      setConseilleres(cons || [])
-      setSaisies(allSaisies)
-    } catch (err) { console.error(err) }
-    setLoading(false)
+  const inputStyle = {
+    width: '100%', padding: '10px 14px',
+    border: '1.5px solid rgba(201,168,76,0.25)', borderRadius: 8,
+    fontSize: 14, color: '#2C2C2C', background: '#F8F7F4', outline: 'none'
+  }
+  const labelStyle = {
+    fontSize: 11, color: '#5A5A5A', textTransform: 'uppercase',
+    letterSpacing: '0.5px', fontWeight: 500, marginBottom: 6, display: 'block'
   }
 
-  // 1. Auth en cours de vérification
-  if (authLoading) return <Spinner />
-
-  // 2. Non connecté → Login
-  if (!user) {
-    return (
-      <BrowserRouter>
-        <Login />
-      </BrowserRouter>
-    )
+  function initials(nom) {
+    return nom.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)
   }
 
-  // 3. Connecté → app normale
-  const sharedProps = { conseilleres, saisies, reload: loadData }
+  function avatarColor(nom) {
+    const colors = ['#C9A84C', '#4CAF7D', '#378ADD', '#D85A30', '#D4537E', '#7F77DD']
+    const idx = nom.charCodeAt(0) % colors.length
+    return colors[idx]
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!form.nom.trim()) { setMsg({ type: 'error', text: 'Le nom est obligatoire' }); return }
+    setSaving(true)
+    let error
+    if (editId) {
+      ({ error } = await supabase.from('conseilleres').update({ nom: form.nom, email: form.email, telephone: form.telephone }).eq('id', editId))
+    } else {
+      ({ error } = await supabase.from('conseilleres').insert({ nom: form.nom, email: form.email, telephone: form.telephone }))
+    }
+    setSaving(false)
+    if (error) {
+      setMsg({ type: 'error', text: 'Erreur: ' + error.message })
+    } else {
+      setMsg({ type: 'success', text: editId ? 'Conseillère modifiée !' : 'Conseillère ajoutée !' })
+      setForm({ nom: '', email: '', telephone: '' })
+      setEditId(null)
+      reload()
+      setTimeout(() => setMsg(null), 3000)
+    }
+  }
+
+  async function handleDelete(id, nom) {
+    if (!window.confirm(`Supprimer ${nom} ? Toutes ses saisies seront conservées.`)) return
+    await supabase.from('conseilleres').delete().eq('id', id)
+    reload()
+  }
+
+  async function toggleActif(c) {
+    const newActif = !c.actif
+    const { error } = await supabase.from('conseilleres').update({ actif: newActif }).eq('id', c.id)
+    if (!error) {
+      setMsg({ type: 'success', text: `${c.nom} ${newActif ? 'affichée' : 'masquée'} avec succès` })
+      reload()
+      setTimeout(() => setMsg(null), 3000)
+    }
+  }
+
+  function startEdit(c) {
+    setEditId(c.id)
+    setForm({ nom: c.nom, email: c.email || '', telephone: c.telephone || '' })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   return (
-    <BrowserRouter>
-      <TopBar />
-      <div style={{ display: 'flex', minHeight: '100vh', paddingTop: 52 }}>
-        <Sidebar />
-        <main style={{ marginLeft: 'var(--sidebar-width)', flex: 1, padding: '32px', minWidth: 0 }}>
-          {loading ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ width: 48, height: 48, border: '3px solid #E8D5A3', borderTopColor: '#C9A84C', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }}></div>
-                <p style={{ color: '#5A5A5A', fontSize: 13 }}>Chargement...</p>
-              </div>
-              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    <div>
+      <PageHeader
+        title="Conseillères"
+        subtitle={`${conseilleres.length} conseillère${conseilleres.length > 1 ? 's' : ''} dans l'équipe`}
+      />
+
+      {msg && (
+        <div style={{
+          padding: '12px 16px', borderRadius: 10, marginBottom: 20, fontSize: 13, fontWeight: 500,
+          background: msg.type === 'success' ? 'rgba(76,175,125,0.1)' : 'rgba(224,92,92,0.1)',
+          color: msg.type === 'success' ? '#2d7a54' : '#a03030',
+          border: `1px solid ${msg.type === 'success' ? 'rgba(76,175,125,0.3)' : 'rgba(224,92,92,0.3)'}`
+        }}>
+          {msg.text}
+        </div>
+      )}
+
+      <div style={{ background: '#fff', borderRadius: 14, padding: 28, border: '1px solid rgba(201,168,76,0.15)', marginBottom: 28 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 500, marginBottom: 20, color: '#2C2C2C' }}>
+          {editId ? 'Modifier la conseillère' : 'Ajouter une conseillère'}
+        </h2>
+        <form onSubmit={handleSubmit}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 20 }}>
+            <div>
+              <label style={labelStyle}>Nom complet *</label>
+              <input
+                type="text" value={form.nom}
+                onChange={e => setForm(p => ({ ...p, nom: e.target.value }))}
+                placeholder="ex: Sara Benali" style={inputStyle}
+              />
             </div>
-          ) : (
-            <Routes>
-              <Route path="/" element={<Navigate to="/centre-appel" />} />
-              <Route path="/centre-appel" element={<ProtectedRoute permKey="centre_appel"><DashboardCentreAppel {...sharedProps} /></ProtectedRoute>} />
-              <Route path="/marketing" element={<ProtectedRoute permKey="marketing"><DashboardMarketing /></ProtectedRoute>} />
-              <Route path="/objectifs" element={<ProtectedRoute permKey="objectifs"><Objectifs conseilleres={conseilleres} /></ProtectedRoute>} />
-              <Route path="/conseilleres" element={<ProtectedRoute permKey="conseilleres"><Conseilleres {...sharedProps} /></ProtectedRoute>} />
-              <Route path="/calendrier" element={<ProtectedRoute permKey="calendrier"><Calendrier /></ProtectedRoute>} />
-              <Route path="/responsables" element={<ProtectedRoute permKey="conseilleres"><Responsables /></ProtectedRoute>} />
-              <Route path="/commerciaux" element={<ProtectedRoute permKey="commerciaux"><Commerciaux /></ProtectedRoute>} />
-              <Route path="/stock" element={<ProtectedRoute permKey="stock"><Stock /></ProtectedRoute>} />
-              <Route path="/primes" element={<ProtectedRoute permKey="primes"><Primes /></ProtectedRoute>} />
-              <Route path="/passagers" element={<ProtectedRoute permKey="passagers"><Passagers /></ProtectedRoute>} />
-              <Route path="/perf-commercial" element={<ProtectedRoute permKey="perf_commercial"><PerfCommercial /></ProtectedRoute>} />
-              <Route path="/flux-rdv" element={<ProtectedRoute permKey="flux_rdv"><FluxRDV conseilleres={conseilleres} /></ProtectedRoute>} />
-              <Route path="/analyse-cv" element={<ProtectedRoute permKey="analyse_cv"><AnalyseCV {...sharedProps} /></ProtectedRoute>} />
-              <Route path="/gestion-users" element={<ProtectedRoute permKey="gestion_users"><GestionUsers /></ProtectedRoute>} />
-              <Route path="/import" element={<ImportAgent />} />
-              <Route path="/etudes" element={<ProtectedRoute permKey={null}><Etudes /></ProtectedRoute>} />
-              <Route path="/etudes/commerciale-2026" element={<ProtectedRoute permKey={null}><EtudeCommerciale2026 /></ProtectedRoute>} />
-              <Route path="/etudes/evolutions-2026" element={<ProtectedRoute permKey={null}><EtudeEvolutions2026 /></ProtectedRoute>} />
-            </Routes>
-          )}
-        </main>
+            <div>
+              <label style={labelStyle}>Email</label>
+              <input
+                type="email" value={form.email}
+                onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
+                placeholder="ex: sara@jg.ma" style={inputStyle}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Téléphone</label>
+              <input
+                type="text" value={form.telephone}
+                onChange={e => setForm(p => ({ ...p, telephone: e.target.value }))}
+                placeholder="ex: 06 12 34 56 78" style={inputStyle}
+              />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button type="submit" disabled={saving} style={{
+              background: saving ? '#E8D5A3' : '#C9A84C', color: '#fff',
+              border: 'none', padding: '11px 28px', borderRadius: 8,
+              fontSize: 13, fontWeight: 500, cursor: saving ? 'wait' : 'pointer'
+            }}>
+              {saving ? 'Enregistrement...' : editId ? 'Modifier' : 'Ajouter'}
+            </button>
+            {editId && (
+              <button type="button" onClick={() => { setEditId(null); setForm({ nom: '', email: '', telephone: '' }) }}
+                style={{ background: 'transparent', color: '#5A5A5A', border: '1.5px solid rgba(201,168,76,0.2)', padding: '11px 20px', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>
+                Annuler
+              </button>
+            )}
+          </div>
+        </form>
       </div>
-      <BulleNotes />
-    </BrowserRouter>
-  )
-}
 
-export default function App() {
-  return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+      <SectionTitle>Équipe ({conseilleres.filter(c => c.actif !== false).length} actives · {conseilleres.filter(c => c.actif === false).length} masquées)</SectionTitle>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+        {conseilleres.map(c => (
+          <div key={c.id} style={{
+            background: c.actif === false ? '#F8F7F4' : '#fff', borderRadius: 14, padding: 20,
+            border: `1px solid ${c.actif === false ? 'rgba(90,90,90,0.1)' : 'rgba(201,168,76,0.15)'}`,
+            display: 'flex', alignItems: 'center', gap: 14, opacity: c.actif === false ? 0.6 : 1
+          }}>
+            <div style={{
+              width: 48, height: 48, borderRadius: '50%',
+              background: avatarColor(c.nom), display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+              fontSize: 14, fontWeight: 500, color: '#fff', flexShrink: 0
+            }}>
+              {initials(c.nom)}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 500, fontSize: 14, color: '#2C2C2C', marginBottom: 2 }}>{c.nom}</div>
+              {c.email && <div style={{ fontSize: 12, color: '#5A5A5A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.email}</div>}
+              {c.telephone && <div style={{ fontSize: 12, color: '#5A5A5A' }}>{c.telephone}</div>}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <button onClick={() => startEdit(c)} style={{
+                padding: '5px 12px', borderRadius: 6, border: '1px solid rgba(201,168,76,0.3)',
+                color: '#C9A84C', background: 'transparent', fontSize: 11, cursor: 'pointer'
+              }}>Modifier</button>
+              <button onClick={() => toggleActif(c)} style={{
+                padding: '5px 12px', borderRadius: 6,
+                border: `1px solid ${c.actif === false ? 'rgba(76,175,125,0.3)' : 'rgba(90,90,90,0.3)'}`,
+                color: c.actif === false ? '#4CAF7D' : '#5A5A5A',
+                background: 'transparent', fontSize: 11, cursor: 'pointer'
+              }}>{c.actif === false ? 'Afficher' : 'Masquer'}</button>
+              <button onClick={() => handleDelete(c.id, c.nom)} style={{
+                padding: '5px 12px', borderRadius: 6, border: '1px solid rgba(224,92,92,0.3)',
+                color: '#E05C5C', background: 'transparent', fontSize: 11, cursor: 'pointer'
+              }}>Supprimer</button>
+            </div>
+          </div>
+        ))}
+        {conseilleres.length === 0 && (
+          <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px 0', color: '#5A5A5A', fontSize: 13 }}>
+            Aucune conseillère. Ajoutez-en une ci-dessus.
+          </div>
+        )}
+      </div>
+    </div>
   )
 }

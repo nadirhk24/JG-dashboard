@@ -57,6 +57,16 @@ export default function Conseilleres({ conseilleres, reload }) {
     reload()
   }
 
+  async function toggleActif(c) {
+    const newActif = !c.actif
+    const { error } = await supabase.from('conseilleres').update({ actif: newActif }).eq('id', c.id)
+    if (!error) {
+      setMsg({ type: 'success', text: `${c.nom} ${newActif ? 'affichée' : 'masquée'} avec succès` })
+      reload()
+      setTimeout(() => setMsg(null), 3000)
+    }
+  }
+
   function startEdit(c) {
     setEditId(c.id)
     setForm({ nom: c.nom, email: c.email || '', telephone: c.telephone || '' })
@@ -130,13 +140,13 @@ export default function Conseilleres({ conseilleres, reload }) {
         </form>
       </div>
 
-      <SectionTitle>Équipe ({conseilleres.length})</SectionTitle>
+      <SectionTitle>Équipe ({conseilleres.filter(c => c.actif !== false).length} actives · {conseilleres.filter(c => c.actif === false).length} masquées)</SectionTitle>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
         {conseilleres.map(c => (
           <div key={c.id} style={{
-            background: '#fff', borderRadius: 14, padding: 20,
-            border: '1px solid rgba(201,168,76,0.15)',
-            display: 'flex', alignItems: 'center', gap: 14
+            background: c.actif === false ? '#F8F7F4' : '#fff', borderRadius: 14, padding: 20,
+            border: `1px solid ${c.actif === false ? 'rgba(90,90,90,0.1)' : 'rgba(201,168,76,0.15)'}`,
+            display: 'flex', alignItems: 'center', gap: 14, opacity: c.actif === false ? 0.6 : 1
           }}>
             <div style={{
               width: 48, height: 48, borderRadius: '50%',
@@ -156,6 +166,12 @@ export default function Conseilleres({ conseilleres, reload }) {
                 padding: '5px 12px', borderRadius: 6, border: '1px solid rgba(201,168,76,0.3)',
                 color: '#C9A84C', background: 'transparent', fontSize: 11, cursor: 'pointer'
               }}>Modifier</button>
+              <button onClick={() => toggleActif(c)} style={{
+                padding: '5px 12px', borderRadius: 6,
+                border: `1px solid ${c.actif === false ? 'rgba(76,175,125,0.3)' : 'rgba(90,90,90,0.3)'}`,
+                color: c.actif === false ? '#4CAF7D' : '#5A5A5A',
+                background: 'transparent', fontSize: 11, cursor: 'pointer'
+              }}>{c.actif === false ? 'Afficher' : 'Masquer'}</button>
               <button onClick={() => handleDelete(c.id, c.nom)} style={{
                 padding: '5px 12px', borderRadius: 6, border: '1px solid rgba(224,92,92,0.3)',
                 color: '#E05C5C', background: 'transparent', fontSize: 11, cursor: 'pointer'
