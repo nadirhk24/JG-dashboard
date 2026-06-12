@@ -286,7 +286,7 @@ export default function DashboardCallCenter({ conseilleres, conseilleresActives,
   }, [conseilleres, selected, objParConseillere])
 
   // Ranking : utilise saisiesParPeriode (toutes les conseillères, filtrées par période seulement)
-  const kpisParConseillere = useMemo(() => conseilleres.map(c => ({ ...c, ...agregerParPeriode(
+  const kpisParConseillere = useMemo(() => conseilleresFiltrees.map(c => ({ ...c, ...agregerParPeriode(
     saisiesParPeriode,
     c.id,
     { objEchangesNb: objectifsParConseillere[c.id] || objParConseillere.obj_echanges_nb }
