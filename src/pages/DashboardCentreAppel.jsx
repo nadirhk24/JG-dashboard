@@ -67,19 +67,19 @@ function getMoisCourant() {
 const MOIS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
 
 const ALL_RANK_COLS = [
-  { key: 'leads_bruts', label: 'Injections',         hideForConseillere: true,  color: '#C9A84C' },
-  { key: 'indispos',    label: 'Indispos',            hideForConseillere: true,  color: '#E05C5C' },
-  { key: 'leads_nets',  label: 'Leads Exploitables',  hideForConseillere: false, color: '#2E9455' },
-  { key: 'echanges',         label: 'Échanges' },
-  { key: 'echanges_nettes',  label: 'Éch. Nettes',   color: '#534AB7' },
-  { key: 'productivite',     label: 'Productivité',   color: '#378ADD' },
-  { key: 'joignabilite',     label: 'Joignabilité',   color: '#2E9455' },
-  { key: 'rdv',              label: 'RDV',            color: '#534AB7' },
-  { key: 'conv_tel',         label: 'Conv. Tél.',     color: '#C9A84C' },
-  { key: 'visites',          label: 'Visites',        color: '#4CAF7D' },
-  { key: 'presence',         label: 'Tx Présence',    color: '#4CAF7D' },
-  { key: 'ventes',           label: 'Ventes',         color: '#1a6b3c' },
-  { key: 'efficacite_comm',  label: 'Eff. Comm.',     color: '#534AB7' },
+  { key: 'leads_bruts',     label: 'Injections',      hideForConseillere: true,  color: '#C9A84C' },
+  { key: 'indispos',        label: 'Indispos',         hideForConseillere: true,  color: '#E05C5C' },
+  { key: 'leads_nets',      label: 'L.exploitables',   hideForConseillere: false, color: '#2E9455' },
+  { key: 'echanges',        label: 'Échanges' },
+  { key: 'echanges_nettes', label: 'Éch. Nettes',      hideForConseillere: true,  color: '#534AB7' },
+  { key: 'productivite',    label: 'Productivité',     color: '#378ADD' },
+  { key: 'joignabilite',    label: 'Joignabilité',     color: '#2E9455' },
+  { key: 'rdv',             label: 'RDV',              color: '#534AB7' },
+  { key: 'conv_tel',        label: 'Conv. Tél.',       color: '#C9A84C' },
+  { key: 'visites',         label: 'Visites',          color: '#4CAF7D' },
+  { key: 'presence',        label: 'Tx Présence',      color: '#4CAF7D' },
+  { key: 'ventes',          label: 'Ventes',           color: '#1a6b3c' },
+  { key: 'efficacite_comm', label: 'Eff. Comm.',       color: '#534AB7' },
 ]
 
 export default function DashboardCallCenter({ conseilleres, conseilleresActives, saisies: props_saisies, reload }) {
@@ -321,8 +321,8 @@ export default function DashboardCallCenter({ conseilleres, conseilleresActives,
     loadAllObjIndiv()
   }, [conseilleres, selected, objParConseillere])
 
-  // Ranking : utilise saisiesParPeriode (toutes les conseillères, filtrées par période seulement)
-  const kpisParConseillere = useMemo(() => conseilleresFiltrees.map(c => ({ ...c, ...agregerParPeriode(
+  // Ranking : toujours toutes les conseillères (même pour une conseillère connectée)
+  const kpisParConseillere = useMemo(() => conseilleres.map(c => ({ ...c, ...agregerParPeriode(
     saisiesParPeriode,
     c.id,
     { objEchangesNb: applyProrata(objectifsParConseillere[c.id] || objParConseillere.obj_echanges_nb) }
@@ -842,7 +842,6 @@ export default function DashboardCallCenter({ conseilleres, conseilleresActives,
             <thead>
               <tr>
                 <th style={thStyle}>#</th>
-                <th style={thStyle}>Étoiles</th>
                 <th style={thStyle}>Conseillère</th>
                 {ALL_RANK_COLS.filter(col => !hiddenRankCols[col.key] && (!isConseillere || !col.hideForConseillere)).map(c => <th key={c.key} style={{...thStyle,color:c.color||'#5A5A5A'}}>{c.label}</th>)}
                 <th style={thStyle}>Score</th>
@@ -872,7 +871,6 @@ export default function DashboardCallCenter({ conseilleres, conseilleresActives,
                 return (
                   <tr key={c.id} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                     <td style={{...tdStyle,fontSize:16,fontWeight:700,color:rankColor}}>{i+1}</td>
-                    <td style={{...tdStyle,color:'#C9A84C',letterSpacing:2,fontSize:16}}>{stars}</td>
                     <td style={{...tdStyle,fontWeight:500,color:rankColor,fontSize:12}}>{c.nom}</td>
                     {ALL_RANK_COLS.filter(col => !hiddenRankCols[col.key] && (!isConseillere || !col.hideForConseillere)).map(col => {
                       const cv = colValues[col.key]
