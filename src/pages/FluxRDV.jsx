@@ -283,10 +283,13 @@ export default function FluxRDV({ conseilleres }) {
       const vis = parseFloat(f.visites || 0)
       const ven = parseFloat(f.ventes || 0)
       const rdv_f = parseFloat(f.rdv || 0)
-      // visites = vis + ven, rdv = rdv + vis + ven (toujours, période ou jour)
-      agg[f.commercial_id].visites += vis + ven
-      agg[f.commercial_id].ventes += ven
-      agg[f.commercial_id].rdv += rdv_f + vis + ven
+      const isPeriode = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
+      // Période : visites incluent déjà les ventes → vis_CC = vis, rdv_CC = rdv + vis
+      // Jour    : visites n'incluent PAS les ventes → vis_CC = vis + ven, rdv_CC = rdv + vis + ven
+      const visCC = isPeriode ? vis : vis + ven
+      agg[f.commercial_id].visites += visCC
+      agg[f.commercial_id].ventes  += ven
+      agg[f.commercial_id].rdv     += rdv_f + visCC
     })
     return agg
   }, [fluxFiltres])
@@ -305,9 +308,11 @@ export default function FluxRDV({ conseilleres }) {
       fluxFiltres.filter(f => !f.commercial_id).forEach(f => {
         const visNR = parseFloat(f.visites || 0)
         const venNR = parseFloat(f.ventes || 0)
-        tot.visites += visNR + venNR
-        tot.ventes += venNR
-        tot.rdv += parseFloat(f.rdv || 0) + visNR + venNR
+        const isPeriodeNR = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
+        const visCC_NR = isPeriodeNR ? visNR : visNR + venNR
+        tot.visites += visCC_NR
+        tot.ventes  += venNR
+        tot.rdv     += parseFloat(f.rdv || 0) + visCC_NR
       })
       const cv = calcCV(comms.map(c => (fluxParCommercial[c.id] || {}).rdv || 0))
       res[eq] = { ...tot, cv,
@@ -428,7 +433,7 @@ export default function FluxRDV({ conseilleres }) {
         }
         visTotal = Math.round(visTotal)
         venTotal = Math.round(venTotal)
-        const rdvTotal = Math.round(rdvBrutsTotal)  // RDV = RDV fixés uniquement
+        const rdvTotal = Math.round(rdvBrutsTotal + visTotal)  // RDV = RDV fixés + visites (1 visite = 1 rdv)
         // Chercher toutes les lignes CC de la periode
         const { data: lignesCC } = await supabase.from('saisies')
           .select('id, date_debut, rdv')
