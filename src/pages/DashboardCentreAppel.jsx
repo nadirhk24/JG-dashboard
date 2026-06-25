@@ -321,12 +321,13 @@ export default function DashboardCallCenter({ conseilleres, conseilleresActives,
     loadAllObjIndiv()
   }, [conseilleres, selected, objParConseillere])
 
-  // Ranking : toujours toutes les conseillères (même pour une conseillère connectée)
-  const kpisParConseillere = useMemo(() => conseilleres.map(c => ({ ...c, ...agregerParPeriode(
+  // Ranking : uniquement les conseillères actives (masquées = exclues du ranking)
+  // Mais saisiesParPeriode inclut tout le monde → KPIs globaux corrects
+  const kpisParConseillere = useMemo(() => (conseilleresActives || conseilleres).map(c => ({ ...c, ...agregerParPeriode(
     saisiesParPeriode,
     c.id,
     { objEchangesNb: applyProrata(objectifsParConseillere[c.id] || objParConseillere.obj_echanges_nb) }
-  ) })), [conseilleres, saisiesParPeriode, objParConseillere, objectifsParConseillere, prorataFactor])
+  ) })), [conseilleres, conseilleresActives, saisiesParPeriode, objParConseillere, objectifsParConseillere, prorataFactor])
   const cvConvTel = useMemo(() => calcCV(kpisParConseillere.map(c => c.conversion_tel)), [kpisParConseillere])
   const cvPresence = useMemo(() => calcCV(kpisParConseillere.map(c => c.taux_presence)), [kpisParConseillere])
   const cvEfficacite = useMemo(() => calcCV(kpisParConseillere.map(c => c.efficacite_comm)), [kpisParConseillere])
