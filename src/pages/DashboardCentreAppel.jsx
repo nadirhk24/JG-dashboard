@@ -259,16 +259,52 @@ export default function DashboardCallCenter({ conseilleres, conseilleresActives,
     obj_ventes_nb:   objectifs.obj_ventes_nb   ? Math.round(objectifs.obj_ventes_nb   / nbConseilleres) : 0,
   }), [objectifs, nbConseilleres])
 
+  // ── Prorata jours ouvrés pour le mois en cours ──────────────────────────────
+  // Si on est en train de regarder le mois en cours → objectif proratisé
+  // selon les jours ouvrés écoulés vs total jours ouvrés du mois
+  const prorataFactor = useMemo(() => {
+    const now = new Date()
+    const moisCourant = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
+    if (selected?.type !== 'month' || selected?.value !== moisCourant) return 1
+
+    const year = now.getFullYear()
+    const month = now.getMonth() // 0-indexed
+    const today = now.getDate()
+    const lastDay = new Date(year, month + 1, 0).getDate()
+
+    // Jours ouvrés = tous les jours sauf dimanches (et fériés qu'on ignore ici pour la simplicité)
+    function countJoursOuvres(from, to) {
+      let count = 0
+      for (let d = from; d <= to; d++) {
+        const dow = new Date(year, month, d).getDay()
+        if (dow !== 0) count++ // exclure dimanches
+      }
+      return count
+    }
+
+    const joursEcoules = countJoursOuvres(1, today)
+    const joursTotaux  = countJoursOuvres(1, lastDay)
+
+    if (joursTotaux === 0) return 1
+    return joursEcoules / joursTotaux
+  }, [selected])
+
+  // Appliquer le prorata à l'objectif
+  function applyProrata(objNb) {
+    if (!objNb || prorataFactor === 1) return objNb
+    return Math.round(objNb * prorataFactor)
+  }
+
   const kpisGlobal = useMemo(() => {
-    // Vue conseillère → utiliser son objectif individuel si disponible, sinon objectif équipe ÷ 6
     const objEchIndiv = objectifsIndiv?.obj_echanges_nb || 0
     const objEchEquipe = objParConseillere.obj_echanges_nb
-    const objEch = (isConseillere || filtreConseillere !== 'all')
+    const objEchBase = (isConseillere || filtreConseillere !== 'all')
       ? (objEchIndiv > 0 ? objEchIndiv : objEchEquipe)
       : objectifs.obj_echanges_nb
+    const objEch = applyProrata(objEchBase)
     if (isConseillere && myConseillereId) return agregerParPeriode(saisiesFiltrees, myConseillereId, { objEchangesNb: objEch })
     return agregerParPeriode(saisiesFiltrees, null, { objEchangesNb: objEch })
-  }, [saisiesFiltrees, isConseillere, myConseillereId, filtreConseillere, objParConseillere, objectifs, objectifsIndiv])
+  }, [saisiesFiltrees, isConseillere, myConseillereId, filtreConseillere, objParConseillere, objectifs, objectifsIndiv, prorataFactor])
   const [objectifsParConseillere, setObjectifsParConseillere] = useState({}) // { conseillere_id: obj_echanges_nb }
 
   // Charger les objectifs individuels pour toutes les conseillères (pour le ranking)
@@ -289,8 +325,8 @@ export default function DashboardCallCenter({ conseilleres, conseilleresActives,
   const kpisParConseillere = useMemo(() => conseilleresFiltrees.map(c => ({ ...c, ...agregerParPeriode(
     saisiesParPeriode,
     c.id,
-    { objEchangesNb: objectifsParConseillere[c.id] || objParConseillere.obj_echanges_nb }
-  ) })), [conseilleres, saisiesParPeriode, objParConseillere, objectifsParConseillere])
+    { objEchangesNb: applyProrata(objectifsParConseillere[c.id] || objParConseillere.obj_echanges_nb) }
+  ) })), [conseilleres, saisiesParPeriode, objParConseillere, objectifsParConseillere, prorataFactor])
   const cvConvTel = useMemo(() => calcCV(kpisParConseillere.map(c => c.conversion_tel)), [kpisParConseillere])
   const cvPresence = useMemo(() => calcCV(kpisParConseillere.map(c => c.taux_presence)), [kpisParConseillere])
   const cvEfficacite = useMemo(() => calcCV(kpisParConseillere.map(c => c.efficacite_comm)), [kpisParConseillere])
@@ -317,7 +353,7 @@ export default function DashboardCallCenter({ conseilleres, conseilleresActives,
   }, [saisiesFiltrees, groupFn, conseilleres, periodeForLabel])
 
   const chartData = useMemo(() => [...tableData].reverse().map(r => ({ label: r.label, conv: r.conversion_tel, presence: r.taux_presence, efficacite: r.efficacite_comm })), [tableData])
-  const rankingSorted = useMemo(() => [...kpisParConseillere].sort((a,b) => (Math.min(b.productivite,100)*0.4+b.conversion_tel*0.3+b.taux_presence*0.3) - (Math.min(a.productivite,100)*0.4+a.conversion_tel*0.3+a.taux_presence*0.3)), [kpisParConseillere])
+  const rankingSorted = useMemo(() => [...kpisParConseillere].sort((a,b) => (Math.min(b.productivite,100)*0.3+b.conversion_tel*0.3+b.taux_presence*0.3+b.efficacite_comm*0.1) - (Math.min(a.productivite,100)*0.3+a.conversion_tel*0.3+a.taux_presence*0.3+a.efficacite_comm*0.1)), [kpisParConseillere])
 
   const leadsNetsForm = Math.max(0, (parseFloat(form.leads_bruts)||0) - (parseFloat(form.indispos)||0))
   const echangesNetsForm = Math.max(0, (parseFloat(form.echanges)||0) - (parseFloat(form.non_exploitables)||0))
@@ -508,7 +544,7 @@ export default function DashboardCallCenter({ conseilleres, conseilleresActives,
       'Visites':           c.visites ?? '',
       'Eff. Comm. %':      c.efficacite_comm ?? '',
       'Ventes':            c.ventes ?? '',
-      'Score':             parseFloat(((Math.min(c.productivite||0,100)*0.4)+(c.conversion_tel||0)*0.3+(c.taux_presence||0)*0.3).toFixed(1)),
+      'Score':             parseFloat(((Math.min(c.productivite||0,100)*0.3)+(c.conversion_tel||0)*0.3+(c.taux_presence||0)*0.3+(c.efficacite_comm||0)*0.1).toFixed(1)),
     }))
 
     // Onglet 3 : détail par date × conseillère
@@ -782,7 +818,7 @@ export default function DashboardCallCenter({ conseilleres, conseilleresActives,
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, marginTop: 8 }}>
         <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: 18, fontWeight: 600, color: '#2C2C2C' }}>
-          Ranking Conseillères <span style={{ fontSize: 11, color: '#5A5A5A', fontWeight: 400, fontFamily: 'DM Sans' }}>(Prod. 40% · Conv. 30% · Présence 30%)</span>
+          Ranking Conseillères <span style={{ fontSize: 11, color: '#5A5A5A', fontWeight: 400, fontFamily: 'DM Sans' }}>(Prod. 30% · Conv. 30% · Présence 30% · Eff. 10%)</span>
         </div>
         <div style={{ position: 'relative' }}>
           <button onClick={() => setShowRankCols(p=>!p)} style={{ padding: '6px 16px', borderRadius: 16, border: '1.5px solid rgba(201,168,76,0.3)', background: '#fff', color: '#C9A84C', fontSize: 12, cursor: 'pointer', fontWeight: 500 }}>Colonnes ▾</button>
@@ -817,7 +853,7 @@ export default function DashboardCallCenter({ conseilleres, conseilleresActives,
               {rankingSorted.map((c,i) => {
                 const rankColor = getRankColor(i, rankingSorted.length)
                 const stars = getStars(i, rankingSorted.length)
-                const score = parseFloat((Math.min(c.productivite,100)*0.4+c.conversion_tel*0.3+c.taux_presence*0.3).toFixed(1))
+                const score = parseFloat((Math.min(c.productivite,100)*0.3+c.conversion_tel*0.3+c.taux_presence*0.3+c.efficacite_comm*0.1).toFixed(1))
                 const colValues = {
                   leads_bruts: { val: c.leads_bruts,  style: {...tdStyle, color:'#C9A84C', fontWeight:700, fontSize:13} },
                   indispos:    { val: c.indispos,     style: {...tdStyle, color:'#E05C5C', fontWeight:700, fontSize:13} },
