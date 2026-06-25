@@ -134,6 +134,7 @@ export default function DashboardCallCenter({ conseilleres, conseilleresActives,
   const [ccView, setCcView] = useState('global') // 'global' | 'details'
   const [fluxDetails, setFluxDetails] = useState([])
   const [commerciaux, setCommerciaux] = useState([])
+  const [fluxRdvCC, setFluxRdvCC] = useState([]) // flux_rdv pour enrichir les saisies CC
   const [loadingDetails, setLoadingDetails] = useState(false)
   const [seuilVisites, setSeuilVisites] = useState({ sale: 0, kenitra: 0 })
   const [savingSeuilEq, setSavingSeuilEq] = useState(null) // 'sale' | 'kenitra' | null
@@ -169,7 +170,27 @@ export default function DashboardCallCenter({ conseilleres, conseilleresActives,
     localStorage.setItem('jg_selected_cc', JSON.stringify(selected))
   }, [selected])
 
-  // Charger flux_rdv + commerciaux pour la vue details
+  // Charger flux_rdv pour enrichir les saisies CC (source de vérité pour rdv/visites/ventes)
+  useEffect(() => {
+    async function loadFluxRdvCC() {
+      const currentYear = new Date().getFullYear()
+      let all = [], from = 0
+      while (true) {
+        const { data: page } = await supabase.from('flux_rdv')
+          .select('conseillere_id, date_debut, rdv, visites, ventes, type_saisie')
+          .gte('date_debut', `${currentYear}-01-01`)
+          .lte('date_debut', `${currentYear}-12-31`)
+          .order('date_debut')
+          .range(from, from + 999)
+        if (!page || page.length === 0) break
+        all = [...all, ...page]
+        if (page.length < 1000) break
+        from += 1000
+      }
+      setFluxRdvCC(all)
+    }
+    loadFluxRdvCC()
+  }, [])
   useEffect(() => {
     if (ccView !== 'details') return
     async function loadDetails() {
@@ -240,15 +261,47 @@ export default function DashboardCallCenter({ conseilleres, conseilleresActives,
     }
   }
 
+  // ── Agréger flux_rdv par (conseillere_id, date) ──────────────────────────────
+  // Source de vérité pour rdv/visites/ventes → remplace les valeurs dans saisies
+  const fluxParConseillereDate = useMemo(() => {
+    const map = {}
+    fluxRdvCC.forEach(f => {
+      const key = `${f.conseillere_id}_${f.date_debut}`
+      if (!map[key]) map[key] = { rdv: 0, visites: 0, ventes: 0 }
+      const vis = parseFloat(f.visites || 0)
+      const ven = parseFloat(f.ventes || 0)
+      const rdv = parseFloat(f.rdv || 0)
+      map[key].visites += vis + ven
+      map[key].ventes  += ven
+      map[key].rdv     += rdv + vis + ven
+    })
+    return map
+  }, [fluxRdvCC])
+
+  // Saisies enrichies : leads/échanges depuis saisies CC, rdv/visites/ventes depuis flux_rdv
+  const saisiesEnrichies = useMemo(() => {
+    return saisies.map(s => {
+      const date = s.date_debut || s.date
+      const key  = `${s.conseillere_id}_${date}`
+      const flux = fluxParConseillereDate[key]
+      if (!flux) return s
+      return {
+        ...s,
+        rdv:     Math.round(flux.rdv),
+        visites: Math.round(flux.visites),
+        ventes:  Math.round(flux.ventes),
+      }
+    })
+  }, [saisies, fluxParConseillereDate])
+
   const saisiesFiltrees = useMemo(() => {
-    let data = filtrerParSelection(saisies, selected)
+    let data = filtrerParSelection(saisiesEnrichies, selected)
     if (filtreConseillere !== 'all') data = data.filter(s => s.conseillere_id === filtreConseillere)
     return data
-  }, [saisies, selected, filtreConseillere])
+  }, [saisiesEnrichies, selected, filtreConseillere])
 
   // Saisies filtrées par période uniquement (sans filtre par conseillère)
-  // Utilisé pour le ranking afin que toutes les conseillères aient leurs données visibles
-  const saisiesParPeriode = useMemo(() => filtrerParSelection(saisies, selected), [saisies, selected])
+  const saisiesParPeriode = useMemo(() => filtrerParSelection(saisiesEnrichies, selected), [saisiesEnrichies, selected])
 
   // Toujours diviser par l'équipe complète (pas par la vue filtrée) pour avoir les bons objectifs individuels
   const nbConseilleres = conseilleres.length || 6
