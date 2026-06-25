@@ -67,19 +67,19 @@ function getMoisCourant() {
 const MOIS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
 
 const ALL_RANK_COLS = [
-  { key: 'leads_bruts', label: 'Injections', hideForConseillere: true, color: '#C9A84C' },
-  { key: 'indispos',    label: 'Indispos',   hideForConseillere: true, color: '#E05C5C' },
-  { key: 'leads_nets',  label: 'Leads Nets', hideForConseillere: true, color: '#2E9455' },
-  { key: 'echanges', label: 'Échanges' },
-  { key: 'echanges_nettes', label: 'Éch. Nettes', color: '#534AB7' },
-  { key: 'productivite', label: 'Productivité', color: '#378ADD' },
-  { key: 'joignabilite', label: 'Joignabilité', color: '#2E9455' },
-  { key: 'conv_tel', label: 'Conv. Tél.', color: '#C9A84C' },
-  { key: 'rdv', label: 'RDV', color: '#534AB7' },
-  { key: 'presence', label: 'Présence', color: '#4CAF7D' },
-  { key: 'visites', label: 'Visites', color: '#4CAF7D', selfOnly: true },
-  { key: 'efficacite_comm', label: 'Eff. Comm.', color: '#534AB7' },
-  { key: 'ventes', label: 'Ventes', color: '#1a6b3c', selfOnly: true },
+  { key: 'leads_bruts', label: 'Injections',         hideForConseillere: true,  color: '#C9A84C' },
+  { key: 'indispos',    label: 'Indispos',            hideForConseillere: true,  color: '#E05C5C' },
+  { key: 'leads_nets',  label: 'Leads Exploitables',  hideForConseillere: false, color: '#2E9455' },
+  { key: 'echanges',         label: 'Échanges' },
+  { key: 'echanges_nettes',  label: 'Éch. Nettes',   color: '#534AB7' },
+  { key: 'productivite',     label: 'Productivité',   color: '#378ADD' },
+  { key: 'joignabilite',     label: 'Joignabilité',   color: '#2E9455' },
+  { key: 'rdv',              label: 'RDV',            color: '#534AB7' },
+  { key: 'conv_tel',         label: 'Conv. Tél.',     color: '#C9A84C' },
+  { key: 'visites',          label: 'Visites',        color: '#4CAF7D' },
+  { key: 'presence',         label: 'Tx Présence',    color: '#4CAF7D' },
+  { key: 'ventes',           label: 'Ventes',         color: '#1a6b3c' },
+  { key: 'efficacite_comm',  label: 'Eff. Comm.',     color: '#534AB7' },
 ]
 
 export default function DashboardCallCenter({ conseilleres, conseilleresActives, saisies: props_saisies, reload }) {
@@ -513,7 +513,7 @@ export default function DashboardCallCenter({ conseilleres, conseilleresActives,
     const sheet1 = tableData.map(r => ({
       'Période':           r.label,
       'Leads Bruts':       r.leads_bruts ?? '',
-      'Leads Nets':        r.leads_nets ?? '',
+      'Leads Exploitables':        r.leads_nets ?? '',
       'Échanges':          r.echanges ?? '',
       'Non Explo. CC':     r.non_exploitables_cc ?? '',
       'Productivité %':    r.productivite ?? '',
@@ -534,7 +534,7 @@ export default function DashboardCallCenter({ conseilleres, conseilleresActives,
       '#':                 i + 1,
       'Conseillère':       c.nom,
       'Leads Bruts':       c.leads_bruts ?? '',
-      'Leads Nets':        c.leads_nets ?? '',
+      'Leads Exploitables':        c.leads_nets ?? '',
       'Échanges':          c.echanges ?? '',
       'Productivité %':    c.productivite ?? '',
       'Joignabilité %':    c.joignabilite ?? '',
@@ -559,7 +559,7 @@ export default function DashboardCallCenter({ conseilleres, conseilleresActives,
           'Date':            date,
           'Conseillere':     c.nom,
           'Leads Bruts':     agg.leads_bruts ?? '',
-          'Leads Nets':      agg.leads_nets ?? '',
+          'Leads Exploitables':      agg.leads_nets ?? '',
           'Echanges':        agg.echanges ?? '',
           'Non Explo. CC':   agg.non_exploitables_cc ?? '',
           'Productivite %':  agg.productivite ?? '',
@@ -727,7 +727,7 @@ export default function DashboardCallCenter({ conseilleres, conseilleresActives,
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 14 }}>
               <div><label style={labelStyle}>Leads Bruts</label><input type="number" min="0" value={form.leads_bruts} onChange={e=>setForm(p=>({...p,leads_bruts:e.target.value}))} placeholder="ex: 120" style={inputStyle}/></div>
               <div><label style={labelStyle}>Indispos</label><input type="number" min="0" value={form.indispos} onChange={e=>setForm(p=>({...p,indispos:e.target.value}))} placeholder="ex: 20" style={inputStyle}/></div>
-              <div><label style={labelStyle}>Leads Nets (auto)</label><input type="number" value={saisieMode==='jour'?leadsNetsForm:'—'} readOnly style={{ ...inputStyle, background: '#F7F0DC', borderColor: '#C9A84C', color: '#8a6a1a', fontWeight: 500 }}/></div>
+              <div><label style={labelStyle}>Leads Exploitables (auto)</label><input type="number" value={saisieMode==='jour'?leadsNetsForm:'—'} readOnly style={{ ...inputStyle, background: '#F7F0DC', borderColor: '#C9A84C', color: '#8a6a1a', fontWeight: 500 }}/></div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 14 }}>
               <div><label style={labelStyle}>Échanges Bruts</label><input type="number" min="0" step="0.5" value={form.echanges} onChange={e=>setForm(p=>({...p,echanges:e.target.value}))} placeholder="0" style={inputStyle}/></div>
@@ -844,9 +844,9 @@ export default function DashboardCallCenter({ conseilleres, conseilleresActives,
                 <th style={thStyle}>#</th>
                 <th style={thStyle}>Étoiles</th>
                 <th style={thStyle}>Conseillère</th>
-                {ALL_RANK_COLS.filter(c => !hiddenRankCols[c.key] && (!isConseillere || !c.hideForConseillere)).map(c => <th key={c.key} style={{...thStyle,color:c.color||'#5A5A5A'}}>{c.label}</th>)}
+                {ALL_RANK_COLS.filter(col => !hiddenRankCols[col.key] && (!isConseillere || !col.hideForConseillere)).map(c => <th key={c.key} style={{...thStyle,color:c.color||'#5A5A5A'}}>{c.label}</th>)}
                 <th style={thStyle}>Score</th>
-                <th style={thStyle}>Détail</th>
+                {!isConseillere && <th style={thStyle}>Détail</th>}
               </tr>
             </thead>
             <tbody>
@@ -875,8 +875,6 @@ export default function DashboardCallCenter({ conseilleres, conseilleresActives,
                     <td style={{...tdStyle,color:'#C9A84C',letterSpacing:2,fontSize:16}}>{stars}</td>
                     <td style={{...tdStyle,fontWeight:500,color:rankColor,fontSize:12}}>{c.nom}</td>
                     {ALL_RANK_COLS.filter(col => !hiddenRankCols[col.key] && (!isConseillere || !col.hideForConseillere)).map(col => {
-                      // Pour selfOnly (visites/ventes) : masquer valeur si pas ma ligne
-                      const isMine = c.id === myConseillereId || !isConseillere
                       const cv = colValues[col.key]
                       if (!cv) return <td key={col.key} style={tdStyle}>—</td>
                       if (cv.isBar) return (
@@ -889,15 +887,14 @@ export default function DashboardCallCenter({ conseilleres, conseilleresActives,
                           </div>
                         </td>
                       )
-                      const displayVal = col.selfOnly && !isMine ? '—' : cv.val
-                      return <td key={col.key} style={cv.style}>{displayVal}</td>
+                      return <td key={col.key} style={cv.style}>{cv.val}</td>
                     })}
                     <td style={{...tdStyle,fontWeight:600,color:rankColor,fontSize:13}}>{score}%</td>
-                    <td style={tdStyle}>
+                    {!isConseillere && <td style={tdStyle}>
                       <button onClick={()=>setDrillConseillere(drillConseillere===c.id?null:c.id)} style={{padding:'4px 10px',borderRadius:8,border:'1px solid rgba(201,168,76,0.3)',background:drillConseillere===c.id?'#C9A84C':'transparent',color:drillConseillere===c.id?'#fff':'#C9A84C',fontSize:11,cursor:'pointer'}}>
                         {drillConseillere===c.id?'Fermer':'Détail ↗'}
                       </button>
-                    </td>
+                    </td>}
                   </tr>
                 )
               })}
@@ -926,7 +923,7 @@ export default function DashboardCallCenter({ conseilleres, conseilleresActives,
               </div>
               <div style={{overflowX:'auto'}}>
                 <table style={{width:'100%',borderCollapse:'collapse'}}>
-                  <thead><tr>{['Période','Leads Bruts','Leads Nets','Échanges','RDV','Visites','Ventes','Productivité','Conv. Tél.','Présence','Eff. Comm.'].map(h=><th key={h} style={thStyle}>{h}</th>)}</tr></thead>
+                  <thead><tr>{['Période','Leads Bruts','Leads Exploitables','Échanges','RDV','Visites','Ventes','Productivité','Conv. Tél.','Présence','Eff. Comm.'].map(h=><th key={h} style={thStyle}>{h}</th>)}</tr></thead>
                   <tbody>
                     {items.map((row,i) => (
                       <tr key={i} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
@@ -965,7 +962,7 @@ export default function DashboardCallCenter({ conseilleres, conseilleresActives,
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
             <thead>
-              <tr>{['Période','Leads Bruts','Leads Nets','Indispos','Échanges','RDV','Visites','Ventes','Productivité','Conv. Tél.','CV Conv.','Présence','CV Prés.','Eff. Comm.','CV Eff.'].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr>
+              <tr>{['Période','Leads Bruts','Leads Exploitables','Indispos','Échanges','RDV','Visites','Ventes','Productivité','Conv. Tél.','CV Conv.','Présence','CV Prés.','Eff. Comm.','CV Eff.'].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr>
             </thead>
             <tbody>
               {(isConseillere ? tableData.filter((_, i) => {
@@ -1034,7 +1031,7 @@ export default function DashboardCallCenter({ conseilleres, conseilleresActives,
                     onChange={e => setSelectedRows(e.target.checked ? new Set(saisies.slice(0,30).map(s=>s.id)) : new Set())}
                     style={{ accentColor: '#C9A84C' }}/>
                 </th>
-                {['Période','Conseillère','Leads Bruts','Indispos','Leads Nets','Échanges','RDV','Visites','Ventes','Actions'].map(h => (
+                {['Période','Conseillère','Leads Bruts','Indispos','Leads Exploitables','Échanges','RDV','Visites','Ventes','Actions'].map(h => (
                   <th key={h} style={thStyle}>{h}</th>
                 ))}
               </tr>
