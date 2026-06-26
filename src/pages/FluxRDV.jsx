@@ -1127,7 +1127,9 @@ export default function FluxRDV({ conseilleres }) {
               {/* Lignes Non Reconnus en rouge gras EN HAUT */}
               {commerciaux.filter(c => c.nom.includes('Non reconnu')).map(c => {
                 const val = Math.round(getKpiVal(fluxParCommercial[c.id] || {rdv:0,visites:0,ventes:0}, kpi))
-                if (val === 0) return null
+                const d = fluxParCommercial[c.id] || {rdv:0,visites:0,ventes:0}
+                const hasAny = d.rdv > 0 || d.visites > 0 || d.ventes > 0
+                if (!hasAny) return null
                 return (
                   <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 18px', borderBottom: '1px solid rgba(224,92,92,0.1)', background: 'rgba(224,92,92,0.04)' }}>
                     <span style={{ fontSize: 16, flexShrink: 0 }}>❗</span>
@@ -1220,8 +1222,9 @@ export default function FluxRDV({ conseilleres }) {
                 {/* Ligne Non Reconnu en rouge gras EN BAS */}
                 {(() => {
                   const commNR = commerciaux.find(c => c.equipe === eq && c.nom.includes('Non reconnu'))
-                  const val = commNR ? Math.round(getKpiVal(fluxParCommercial[commNR.id] || {rdv:0,visites:0,ventes:0}, kpi)) : 0
-                  if (!commNR || val === 0) return null
+                  const dNR = commNR ? (fluxParCommercial[commNR.id] || {rdv:0,visites:0,ventes:0}) : null
+                  const val = dNR ? Math.round(getKpiVal(dNR, kpi)) : 0
+                  if (!commNR || !dNR || (dNR.rdv === 0 && dNR.visites === 0 && dNR.ventes === 0)) return null
                   return (
                     <div style={{ display: 'flex', alignItems: 'center', gap: singleEquipe ? 16 : 10, padding: singleEquipe ? '12px 24px' : '9px 18px', borderTop: '1.5px dashed rgba(224,92,92,0.25)', background: 'rgba(224,92,92,0.04)' }}>
                       <span style={{ fontSize: 14, flexShrink: 0 }}>❗</span>
