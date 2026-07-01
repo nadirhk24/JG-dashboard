@@ -543,17 +543,23 @@ export default function PilotageCC({ saisies }) {
               const srcsP   = ldsP.flatMap(l => leadsSources.filter(s => s.pilotage_lead_id === l.id))
               const srcMeta  = srcsP.filter(s=>s.source==='Meta Ads').reduce((s,x)=>s+(x.nombre||0),0)
               const srcAppel = srcsP.filter(s=>s.source==='Appels entrants').reduce((s,x)=>s+(x.nombre||0),0)
-              // Commerciaux liés à ces projets
-              const commIds = projetsCommerciaux.filter(pc => projetsIds.includes(pc.projet_id)).map(pc => pc.commercial_id)
-              // Visites & Ventes depuis flux_rdv
-              const fluxFiltre = fluxVentes.filter(f => commIds.includes(f.commercial_id) && filtreDate(f))
-              let visR   = Math.round(fluxFiltre.reduce((s,f) => s+parseFloat(f.visites||0)+parseFloat(f.ventes||0), 0))
+              // Commerciaux liés à ces projets via projets_commerciaux
+              const commIds = [...new Set(
+                projetsCommerciaux
+                  .filter(pc => projetsIds.includes(pc.projet_id))
+                  .map(pc => pc.commercial_id)
+              )]
+              // Visites & Ventes depuis flux_rdv filtrés par commercial + date
+              const fluxFiltre = fluxVentes.filter(f =>
+                commIds.includes(f.commercial_id) && filtreDate(f)
+              )
+              let visR    = Math.round(fluxFiltre.reduce((s,f) => s+parseFloat(f.visites||0)+parseFloat(f.ventes||0), 0))
               let ventesR = Math.round(fluxFiltre.reduce((s,f) => s+parseFloat(f.ventes||0), 0))
               // Répartir NR en égalité par projet dans la région
               const nbProjK = projetsIds.filter(id => projetsKenitra.includes(id)).length
               const nbProjS = projetsIds.filter(id => projetsSale.includes(id)).length
-              if (nbProjK > 0) { visR += Math.round(nrKenVis * nbProjK / projetsKenitra.length); ventesR += Math.round(nrKenVen * nbProjK / projetsKenitra.length) }
-              if (nbProjS > 0) { visR += Math.round(nrSalVis * nbProjS / projetsSale.length);   ventesR += Math.round(nrSalVen * nbProjS / projetsSale.length) }
+              if (nbProjK > 0 && projetsKenitra.length > 0) { visR += Math.round(nrKenVis * nbProjK / projetsKenitra.length); ventesR += Math.round(nrKenVen * nbProjK / projetsKenitra.length) }
+              if (nbProjS > 0 && projetsSale.length > 0)   { visR += Math.round(nrSalVis * nbProjS / projetsSale.length);   ventesR += Math.round(nrSalVen * nbProjS / projetsSale.length) }
               // Objectifs CC
               const objTot = projetsIds.reduce((acc, pid) => {
                 const o = objCC.find(o => o.projet_id === pid && o.mois === moisSel)
