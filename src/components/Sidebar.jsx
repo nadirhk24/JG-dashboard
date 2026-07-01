@@ -27,6 +27,7 @@ const NAV_STRUCTURE = [
       { path: '/flux-rdv',     label: 'Flux RDV',               permKey: 'flux_rdv' },
       { path: '/passagers',    label: 'Passagers',               permKey: 'passagers' },
       { path: '/centre-appel', label: 'Call Center',             permKey: 'centre_appel' },
+      { path: '/pilotage-cc',  label: '📡 Pilotage CC',          permKey: 'pilotage_cc'  },
       { path: '/marketing',    label: 'Performance Marketing',   permKey: 'marketing' },
       { path: '/analyse-cv',   label: 'Analyse Capabilité',      permKey: 'analyse_cv' },
     ]
