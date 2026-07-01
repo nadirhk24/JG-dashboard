@@ -556,12 +556,11 @@ export default function PilotageCC({ saisies }) {
               const srcsP   = ldsP.flatMap(l => leadsSources.filter(s => s.pilotage_lead_id === l.id))
               const srcMeta  = srcsP.filter(s=>s.source==='Meta Ads').reduce((s,x)=>s+(x.nombre||0),0)
               const srcAppel = srcsP.filter(s=>s.source==='Appels entrants').reduce((s,x)=>s+(x.nombre||0),0)
-              // Visites depuis pilotage_visites (saisie manuelle par projet)
-              // Filtrer par mois selon la sélection - si global/T2/2026 → tous les mois disponibles
+              // Visites & Ventes depuis pilotage_visites (source unique, saisie manuelle)
               const visRows = visites.filter(v => {
                 if (!projetsIds.includes(v.projet_id)) return false
-                if (selected?.type === 'month') return v.mois === selected.value
-                if (selected?.type === 'global' || selected?.type === 'year') return true
+                if (selected?.type === 'month')   return v.mois === selected.value
+                if (selected?.type === 'year')    return v.mois.startsWith(String(selected.value))
                 if (selected?.type === 'quarter') {
                   const [y,q] = selected.value.split('-Q')
                   const sm = (parseInt(q)-1)*3+1, em = sm+2
@@ -570,28 +569,8 @@ export default function PilotageCC({ saisies }) {
                 }
                 return true
               })
-              let visR = visRows.reduce((s,v) => s+(v.visites_m_en_cours||0)+(v.visites_m1||0)+(v.visites_recuperees||0), 0)
-              // Ventes depuis flux_rdv par commerciaux liés (dédupliqués)
-              const commIds = [...new Set(projetsCommerciaux.filter(pc => projetsIds.includes(pc.projet_id)).map(pc => pc.commercial_id))]
-              let ventesR = 0
-              commIds.forEach(commId => {
-                const nbProjComm = projetsCommerciaux.filter(pc => pc.commercial_id === commId).length || 1
-                const nbProjDansCeGroupe = projetsCommerciaux.filter(pc => pc.commercial_id === commId && projetsIds.includes(pc.projet_id)).length
-                const ratio = nbProjDansCeGroupe / nbProjComm
-                const ven = fluxVentes.filter(f => f.commercial_id === commId && filtreDate(f)).reduce((s,f) => s+parseFloat(f.ventes||0), 0)
-                ventesR += ven * ratio
-              })
-              ventesR = Math.round(ventesR)
-              // NR ventes réparties
-              const nbProjK = projetsIds.filter(id => projetsKenitra.includes(id)).length
-              const nbProjS = projetsIds.filter(id => projetsSale.includes(id)).length
-              if (nbProjK > 0 && projetsKenitra.length > 0) ventesR += Math.round(nrKenVen * nbProjK / projetsKenitra.length)
-              if (nbProjS > 0 && projetsSale.length > 0)   ventesR += Math.round(nrSalVen * nbProjS / projetsSale.length)
-              // Répartir NR en égalité par projet dans la région
-              const nbProjK = projetsIds.filter(id => projetsKenitra.includes(id)).length
-              const nbProjS = projetsIds.filter(id => projetsSale.includes(id)).length
-              if (nbProjK > 0 && projetsKenitra.length > 0) { visR += Math.round(nrKenVis * nbProjK / projetsKenitra.length); ventesR += Math.round(nrKenVen * nbProjK / projetsKenitra.length) }
-              if (nbProjS > 0 && projetsSale.length > 0)   { visR += Math.round(nrSalVis * nbProjS / projetsSale.length);   ventesR += Math.round(nrSalVen * nbProjS / projetsSale.length) }
+              const visR    = visRows.reduce((s,v) => s+(v.visites_m_en_cours||0)+(v.visites_m1||0)+(v.visites_recuperees||0), 0)
+              const ventesR = visRows.reduce((s,v) => s+(v.ventes||0), 0)
               // Objectifs CC
               const objTot = projetsIds.reduce((acc, pid) => {
                 const o = objCC.find(o => o.projet_id === pid && o.mois === moisSel)
