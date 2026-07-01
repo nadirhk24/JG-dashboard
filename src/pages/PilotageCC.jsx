@@ -485,86 +485,105 @@ export default function PilotageCC({ saisies }) {
                 <thead>
                   <tr>
                     <th style={th}>Projet</th>
-                    <th style={{...th,color:'#C9A84C'}}>Leads réel</th>
-                    <th style={{...th,color:'#C9A84C'}}>Leads obj.</th>
-                    <th style={{...th,color:'#C9A84C'}}>Tx leads</th>
-                    <th style={{...th,color:'#534AB7'}}>RDV réel</th>
-                    <th style={{...th,color:'#534AB7'}}>RDV obj.</th>
-                    <th style={{...th,color:'#534AB7'}}>Tx RDV</th>
-                    <th style={{...th,color:'#4CAF7D'}}>Visites réel</th>
-                    <th style={{...th,color:'#4CAF7D'}}>Visites obj.</th>
-                    <th style={{...th,color:'#4CAF7D'}}>Tx visites</th>
-                    <th style={{...th,color:'#1a6b3c'}}>Ventes réel</th>
-                    <th style={{...th,color:'#1a6b3c'}}>Ventes obj.</th>
-                    <th style={{...th,color:'#1a6b3c'}}>Tx ventes</th>
+                    {/* LEADS */}
+                    <th style={{...th,color:'#C9A84C',borderLeft:'2px solid rgba(201,168,76,0.15)'}}>Leads</th>
+                    <th style={{...th,color:'#C9A84C'}}>Obj.</th>
+                    <th style={{...th,color:'#C9A84C'}}>Tx</th>
+                    {/* RDV */}
+                    <th style={{...th,color:'#534AB7',borderLeft:'2px solid rgba(83,74,183,0.15)'}}>RDV mois</th>
+                    <th style={{...th,color:'#534AB7'}}>RDV total</th>
+                    <th style={{...th,color:'#534AB7'}}>RDV cumulé</th>
+                    <th style={{...th,color:'#534AB7'}}>Obj.</th>
+                    <th style={{...th,color:'#534AB7'}}>Tx</th>
+                    {/* VISITES */}
+                    <th style={{...th,color:'#4CAF7D',borderLeft:'2px solid rgba(76,175,125,0.15)'}}>Visites</th>
+                    <th style={{...th,color:'#4CAF7D'}}>Obj.</th>
+                    <th style={{...th,color:'#4CAF7D'}}>Tx</th>
+                    {/* VENTES */}
+                    <th style={{...th,color:'#1a6b3c',borderLeft:'2px solid rgba(26,107,60,0.15)'}}>Ventes</th>
+                    <th style={{...th,color:'#1a6b3c'}}>Obj.</th>
+                    <th style={{...th,color:'#1a6b3c'}}>Tx</th>
                   </tr>
                 </thead>
                 <tbody>
                   {projets.map(p => {
                     const moisSel = selected?.type === 'month' ? selected.value : moisCourant
-                    // Leads & RDV réels
                     const ldsProjet = leads.filter(l => l.projet_id === p.id && (selected?.type !== 'month' || l.date.startsWith(selected.value)))
-                    const leadsR = ldsProjet.reduce((s,l) => s+(l.leads_declares||0), 0)
-                    const rdvR   = ldsProjet.reduce((s,l) => s+(l.rdv_declares||0), 0)
-                    // Visites réelles
+                    const leadsR  = ldsProjet.reduce((s,l) => s+(l.leads_declares||0), 0)
+                    const rdvMois = ldsProjet.reduce((s,l) => s+(l.rdv_declares||0), 0)
+                    const rdvTot  = ldsProjet.reduce((s,l) => s+(l.rdv_total||0), 0)
+                    const rdvCum  = rdvTot - rdvMois
+                    // Sources
+                    const srcsProjet = ldsProjet.flatMap(l => leadsSources.filter(s => s.pilotage_lead_id === l.id))
+                    const srcMeta    = srcsProjet.filter(s => s.source === 'Meta Ads').reduce((s,x) => s+(x.nombre||0), 0)
+                    const srcAppel   = srcsProjet.filter(s => s.source === 'Appels entrants').reduce((s,x) => s+(x.nombre||0), 0)
+                    const srcAvito   = srcsProjet.filter(s => s.source === 'Avito').reduce((s,x) => s+(x.nombre||0), 0)
+                    const hasSrc     = srcMeta > 0 || srcAppel > 0
+                    // Visites
                     const visRows = visites.filter(v => v.projet_id === p.id && v.mois === moisSel)
                     const visR = visRows.reduce((s,v) => s+(v.visites_m_en_cours||0)+(v.visites_m1||0)+(v.visites_recuperees||0), 0)
                     // Ventes flux
-                    const ventesR = Math.round(fluxVentes.filter(f => {
-                      const comm = commerciaux.find(c => c.id === f.commercial_id)
-                      return comm && (selected?.type !== 'month' || f.date_debut.startsWith(selected.value))
-                    }).reduce((s,f) => s+parseFloat(f.ventes||0), 0))
-                    // Objectifs CC
-                    const obj = objCC.find(o => o.projet_id === p.id && o.mois === moisSel)
-                    const objL = (obj?.obj_leads||0) * prorata
-                    const objR = (obj?.obj_rdv||0) * prorata
+                    const ventesR = Math.round(fluxVentes.filter(f => selected?.type !== 'month' || f.date_debut.startsWith(selected.value)).reduce((s,f) => s+parseFloat(f.ventes||0), 0))
+                    // Objectifs
+                    const obj  = objCC.find(o => o.projet_id === p.id && o.mois === moisSel)
+                    const objL = (obj?.obj_leads||0)   * prorata
+                    const objR = (obj?.obj_rdv||0)     * prorata
                     const objV = (obj?.obj_visites||0) * prorata
-                    const objVt= (obj?.obj_ventes||0) * prorata
+                    const objVt= (obj?.obj_ventes||0)  * prorata
                     // Taux
-                    const tL = objL > 0 ? Math.round((leadsR/objL)*100) : null
-                    const tR = objR > 0 ? Math.round((rdvR/objR)*100)   : null
-                    const tV = objV > 0 ? Math.round((visR/objV)*100)   : null
-                    const tVt= objVt> 0 ? Math.round((ventesR/objVt)*100): null
-
-                    const hasData = leadsR > 0 || rdvR > 0 || visR > 0 || ventesR > 0 || obj
+                    const tL  = objL  > 0 ? Math.round((leadsR /objL) *100) : null
+                    const tR  = objR  > 0 ? Math.round((rdvMois/objR) *100) : null
+                    const tV  = objV  > 0 ? Math.round((visR   /objV) *100) : null
+                    const tVt = objVt > 0 ? Math.round((ventesR/objVt)*100) : null
 
                     return (
                       <tr key={p.id}
                         onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'}
                         onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                        <td style={{...td, fontWeight:500, color:'#2C2C2C', maxWidth:180, overflow:'hidden', textOverflow:'ellipsis'}}>{p.nom}</td>
-                        <td style={{...td, fontWeight:700, color:'#C9A84C'}}>{leadsR||'—'}</td>
+                        <td style={{...td, fontWeight:500, color:'#2C2C2C', maxWidth:160, overflow:'hidden', textOverflow:'ellipsis'}}>{p.nom}</td>
+                        {/* LEADS + sources */}
+                        <td style={{...td, fontWeight:700, color:'#C9A84C', borderLeft:'2px solid rgba(201,168,76,0.08)', verticalAlign:'top'}}>
+                          <div>{leadsR||'—'}</div>
+                          {hasSrc && <div style={{ marginTop:4, display:'flex', flexDirection:'column', gap:2 }}>
+                            {srcMeta   > 0 && <span style={{ fontSize:9, color:'#8A8A7A' }}>📱 {srcMeta}</span>}
+                            {srcAppel  > 0 && <span style={{ fontSize:9, color:'#8A8A7A' }}>📞 {srcAppel}</span>}
+                            <span style={{ fontSize:9, color:'#C8C8C0' }}>🏠 {srcAvito}</span>
+                          </div>}
+                        </td>
                         <td style={{...td, color:'#8A8A7A', fontSize:11}}>{obj ? Math.round(objL) : '—'}</td>
                         <td style={{...td, fontWeight:600, color:tL!==null?colorTA(tL):'#8A8A7A'}}>{tL!==null?tL+'%':'—'}</td>
-                        <td style={{...td, color:'#534AB7', fontWeight:700}}>{rdvR||'—'}</td>
+                        {/* RDV */}
+                        <td style={{...td, color:'#534AB7', fontWeight:700, borderLeft:'2px solid rgba(83,74,183,0.08)'}}>{rdvMois||'—'}</td>
+                        <td style={{...td, color:'#534AB7', fontWeight:500}}>{rdvTot||'—'}</td>
+                        <td style={{...td, color:rdvCum>0?'#2E9455':rdvCum<0?'#E05C5C':'#8A8A7A', fontWeight:600}}>
+                          {rdvTot > 0 ? (rdvCum > 0 ? '+'+rdvCum : rdvCum) : '—'}
+                        </td>
                         <td style={{...td, color:'#8A8A7A', fontSize:11}}>{obj ? Math.round(objR) : '—'}</td>
                         <td style={{...td, fontWeight:600, color:tR!==null?colorTA(tR):'#8A8A7A'}}>{tR!==null?tR+'%':'—'}</td>
-                        <td style={{...td, color:'#4CAF7D', fontWeight:700}}>{visR||'—'}</td>
+                        {/* VISITES */}
+                        <td style={{...td, color:'#4CAF7D', fontWeight:700, borderLeft:'2px solid rgba(76,175,125,0.08)'}}>{visR||'—'}</td>
                         <td style={{...td, color:'#8A8A7A', fontSize:11}}>{obj ? Math.round(objV) : '—'}</td>
                         <td style={{...td, fontWeight:600, color:tV!==null?colorTA(tV):'#8A8A7A'}}>{tV!==null?tV+'%':'—'}</td>
-                        <td style={{...td, color:'#1a6b3c', fontWeight:700}}>{ventesR||'—'}</td>
+                        {/* VENTES */}
+                        <td style={{...td, color:'#1a6b3c', fontWeight:700, borderLeft:'2px solid rgba(26,107,60,0.08)'}}>{ventesR||'—'}</td>
                         <td style={{...td, color:'#8A8A7A', fontSize:11}}>{obj ? Math.round(objVt) : '—'}</td>
                         <td style={{...td, fontWeight:600, color:tVt!==null?colorTA(tVt):'#8A8A7A'}}>{tVt!==null?tVt+'%':'—'}</td>
                       </tr>
                     )
                   })}
                 </tbody>
-                {/* Ligne total */}
                 <tfoot>
                   <tr style={{ borderTop:'2px solid rgba(201,168,76,0.2)', background:'rgba(201,168,76,0.04)' }}>
                     <td style={{...td, fontWeight:700, color:'#C9A84C'}}>TOTAL</td>
-                    <td style={{...td, fontWeight:700, color:'#C9A84C'}}>{totLeads||'—'}</td>
-                    <td style={td}></td>
-                    <td style={td}></td>
-                    <td style={{...td, fontWeight:700, color:'#534AB7'}}>{totRdvCC||'—'}</td>
-                    <td style={td}></td>
-                    <td style={td}></td>
-                    <td style={{...td, fontWeight:700, color:'#4CAF7D'}}>{visitesTotaux.tot||'—'}</td>
-                    <td style={td}></td>
-                    <td style={td}></td>
-                    <td style={{...td, fontWeight:700, color:'#1a6b3c'}}>{Math.round(ventesFlux)||'—'}</td>
-                    <td style={td}></td>
-                    <td style={td}></td>
+                    <td style={{...td, fontWeight:700, color:'#C9A84C', borderLeft:'2px solid rgba(201,168,76,0.08)'}}>{totLeads||'—'}</td>
+                    <td style={td}></td><td style={td}></td>
+                    <td style={{...td, fontWeight:700, color:'#534AB7', borderLeft:'2px solid rgba(83,74,183,0.08)'}}>{totRdvCC||'—'}</td>
+                    <td style={{...td, fontWeight:700, color:'#534AB7'}}>{leads.filter(l=>selected?.type!=='month'||l.date.startsWith(selected?.value)).reduce((s,l)=>s+(l.rdv_total||0),0)||'—'}</td>
+                    <td style={td}></td><td style={td}></td><td style={td}></td>
+                    <td style={{...td, fontWeight:700, color:'#4CAF7D', borderLeft:'2px solid rgba(76,175,125,0.08)'}}>{visitesTotaux.tot||'—'}</td>
+                    <td style={td}></td><td style={td}></td>
+                    <td style={{...td, fontWeight:700, color:'#1a6b3c', borderLeft:'2px solid rgba(26,107,60,0.08)'}}>{Math.round(ventesFlux)||'—'}</td>
+                    <td style={td}></td><td style={td}></td>
                   </tr>
                 </tfoot>
               </table>
