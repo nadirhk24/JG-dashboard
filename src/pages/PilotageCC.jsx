@@ -437,19 +437,107 @@ export default function PilotageCC({ saisies }) {
       ══════════════════════════════════════════════════════════════════════════ */}
       {activeTab === 'tableau-bord' && (
         <div>
-          {/* KPIs taux d'atteinte */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:16, marginBottom:24 }}>
-            <KpiTA label="Leads déclarés"  realise={totLeads}          objectif={objCCMois?.obj_leads||0}   taux={tauxAtteinte?.leads}   color="#C9A84C"/>
-            <KpiTA label="RDV CC"          realise={totRdvCC}          objectif={objCCMois?.obj_rdv||0}     taux={tauxAtteinte?.rdv}     color="#534AB7"/>
-            <KpiTA label="Visites CC"      realise={visitesTotaux.tot} objectif={objCCMois?.obj_visites||0} taux={tauxAtteinte?.visites} color="#4CAF7D"/>
-            <KpiTA label="Ventes (flux)"   realise={Math.round(ventesFlux)} objectif={objCCMois?.obj_ventes||0} taux={tauxAtteinte?.ventes} color="#1a6b3c"/>
+          <div style={card}>
+            <div style={{ fontFamily:'Cormorant Garamond,serif', fontSize:17, fontWeight:600, color:'#2C2C2C', marginBottom:16 }}>
+              Vue par projet — {moisLabel}
+              {prorata < 1 && <span style={{ fontSize:11, color:'#8A8A7A', fontFamily:'DM Sans', fontWeight:400, marginLeft:12 }}>Prorata {Math.round(prorata*100)}% des jours ouvrés écoulés</span>}
+            </div>
+            <div style={{ overflowX:'auto' }}>
+              <table style={{ width:'100%', borderCollapse:'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={th}>Projet</th>
+                    <th style={{...th,color:'#C9A84C'}}>Leads réel</th>
+                    <th style={{...th,color:'#C9A84C'}}>Leads obj.</th>
+                    <th style={{...th,color:'#C9A84C'}}>Tx leads</th>
+                    <th style={{...th,color:'#534AB7'}}>RDV réel</th>
+                    <th style={{...th,color:'#534AB7'}}>RDV obj.</th>
+                    <th style={{...th,color:'#534AB7'}}>Tx RDV</th>
+                    <th style={{...th,color:'#4CAF7D'}}>Visites réel</th>
+                    <th style={{...th,color:'#4CAF7D'}}>Visites obj.</th>
+                    <th style={{...th,color:'#4CAF7D'}}>Tx visites</th>
+                    <th style={{...th,color:'#1a6b3c'}}>Ventes réel</th>
+                    <th style={{...th,color:'#1a6b3c'}}>Ventes obj.</th>
+                    <th style={{...th,color:'#1a6b3c'}}>Tx ventes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {projets.map(p => {
+                    const moisSel = selected?.type === 'month' ? selected.value : moisCourant
+                    // Leads & RDV réels
+                    const ldsProjet = leads.filter(l => l.projet_id === p.id && (selected?.type !== 'month' || l.date.startsWith(selected.value)))
+                    const leadsR = ldsProjet.reduce((s,l) => s+(l.leads_declares||0), 0)
+                    const rdvR   = ldsProjet.reduce((s,l) => s+(l.rdv_declares||0), 0)
+                    // Visites réelles
+                    const visRows = visites.filter(v => v.projet_id === p.id && v.mois === moisSel)
+                    const visR = visRows.reduce((s,v) => s+(v.visites_m_en_cours||0)+(v.visites_m1||0)+(v.visites_recuperees||0), 0)
+                    // Ventes flux
+                    const ventesR = Math.round(fluxVentes.filter(f => {
+                      const comm = commerciaux.find(c => c.id === f.commercial_id)
+                      return comm && (selected?.type !== 'month' || f.date_debut.startsWith(selected.value))
+                    }).reduce((s,f) => s+parseFloat(f.ventes||0), 0))
+                    // Objectifs CC
+                    const obj = objCC.find(o => o.projet_id === p.id && o.mois === moisSel)
+                    const objL = (obj?.obj_leads||0) * prorata
+                    const objR = (obj?.obj_rdv||0) * prorata
+                    const objV = (obj?.obj_visites||0) * prorata
+                    const objVt= (obj?.obj_ventes||0) * prorata
+                    // Taux
+                    const tL = objL > 0 ? Math.round((leadsR/objL)*100) : null
+                    const tR = objR > 0 ? Math.round((rdvR/objR)*100)   : null
+                    const tV = objV > 0 ? Math.round((visR/objV)*100)   : null
+                    const tVt= objVt> 0 ? Math.round((ventesR/objVt)*100): null
+
+                    const hasData = leadsR > 0 || rdvR > 0 || visR > 0 || ventesR > 0 || obj
+
+                    return (
+                      <tr key={p.id}
+                        onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'}
+                        onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                        <td style={{...td, fontWeight:500, color:'#2C2C2C', maxWidth:180, overflow:'hidden', textOverflow:'ellipsis'}}>{p.nom}</td>
+                        <td style={{...td, fontWeight:700, color:'#C9A84C'}}>{leadsR||'—'}</td>
+                        <td style={{...td, color:'#8A8A7A', fontSize:11}}>{obj ? Math.round(objL) : '—'}</td>
+                        <td style={{...td, fontWeight:600, color:tL!==null?colorTA(tL):'#8A8A7A'}}>{tL!==null?tL+'%':'—'}</td>
+                        <td style={{...td, color:'#534AB7', fontWeight:700}}>{rdvR||'—'}</td>
+                        <td style={{...td, color:'#8A8A7A', fontSize:11}}>{obj ? Math.round(objR) : '—'}</td>
+                        <td style={{...td, fontWeight:600, color:tR!==null?colorTA(tR):'#8A8A7A'}}>{tR!==null?tR+'%':'—'}</td>
+                        <td style={{...td, color:'#4CAF7D', fontWeight:700}}>{visR||'—'}</td>
+                        <td style={{...td, color:'#8A8A7A', fontSize:11}}>{obj ? Math.round(objV) : '—'}</td>
+                        <td style={{...td, fontWeight:600, color:tV!==null?colorTA(tV):'#8A8A7A'}}>{tV!==null?tV+'%':'—'}</td>
+                        <td style={{...td, color:'#1a6b3c', fontWeight:700}}>{ventesR||'—'}</td>
+                        <td style={{...td, color:'#8A8A7A', fontSize:11}}>{obj ? Math.round(objVt) : '—'}</td>
+                        <td style={{...td, fontWeight:600, color:tVt!==null?colorTA(tVt):'#8A8A7A'}}>{tVt!==null?tVt+'%':'—'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+                {/* Ligne total */}
+                <tfoot>
+                  <tr style={{ borderTop:'2px solid rgba(201,168,76,0.2)', background:'rgba(201,168,76,0.04)' }}>
+                    <td style={{...td, fontWeight:700, color:'#C9A84C'}}>TOTAL</td>
+                    <td style={{...td, fontWeight:700, color:'#C9A84C'}}>{totLeads||'—'}</td>
+                    <td style={td}></td>
+                    <td style={td}></td>
+                    <td style={{...td, fontWeight:700, color:'#534AB7'}}>{totRdvCC||'—'}</td>
+                    <td style={td}></td>
+                    <td style={td}></td>
+                    <td style={{...td, fontWeight:700, color:'#4CAF7D'}}>{visitesTotaux.tot||'—'}</td>
+                    <td style={td}></td>
+                    <td style={td}></td>
+                    <td style={{...td, fontWeight:700, color:'#1a6b3c'}}>{Math.round(ventesFlux)||'—'}</td>
+                    <td style={td}></td>
+                    <td style={td}></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           </div>
 
-          {/* Taux récupération */}
+          {/* Taux récupération si données */}
           {visitesTotaux.tot > 0 && (
             <div style={{...card, display:'flex', gap:32, alignItems:'center'}}>
               <div>
-                <div style={{ fontSize:11, color:'#8A8A7A', textTransform:'uppercase', letterSpacing:1, marginBottom:4 }}>Taux de récupération</div>
+                <div style={{ fontSize:11, color:'#8A8A7A', textTransform:'uppercase', letterSpacing:1, marginBottom:4 }}>Taux de récupération global</div>
                 <div style={{ fontSize:28, fontWeight:700, color:'#534AB7' }}>{visitesTotaux.tauxRec}%</div>
                 <div style={{ fontSize:11, color:'#8A8A7A', marginTop:2 }}>Visites hors mois en cours / total visites</div>
               </div>
@@ -461,13 +549,6 @@ export default function PilotageCC({ saisies }) {
                   </div>
                 ))}
               </div>
-            </div>
-          )}
-
-          {/* Pas d'objectifs configurés */}
-          {!objCCMois && (
-            <div style={{ background:'rgba(201,168,76,0.06)', borderRadius:12, padding:'16px 20px', border:'1px dashed rgba(201,168,76,0.3)', textAlign:'center', color:'#8A8A7A', fontSize:13 }}>
-              💡 Aucun objectif CC configuré pour cette période — <button onClick={()=>setActiveTab('objectifs')} style={{ color:'#C9A84C', background:'none', border:'none', cursor:'pointer', fontWeight:600 }}>Configurer les objectifs</button>
             </div>
           )}
         </div>
