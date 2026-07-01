@@ -557,8 +557,20 @@ export default function PilotageCC({ saisies }) {
               const srcMeta  = srcsP.filter(s=>s.source==='Meta Ads').reduce((s,x)=>s+(x.nombre||0),0)
               const srcAppel = srcsP.filter(s=>s.source==='Appels entrants').reduce((s,x)=>s+(x.nombre||0),0)
               // Visites depuis pilotage_visites (saisie manuelle par projet)
-              const visRows = visites.filter(v => projetsIds.includes(v.projet_id) && v.mois === moisSel)
-              let visR    = visRows.reduce((s,v) => s+(v.visites_m_en_cours||0)+(v.visites_m1||0)+(v.visites_recuperees||0), 0)
+              // Filtrer par mois selon la sélection - si global/T2/2026 → tous les mois disponibles
+              const visRows = visites.filter(v => {
+                if (!projetsIds.includes(v.projet_id)) return false
+                if (selected?.type === 'month') return v.mois === selected.value
+                if (selected?.type === 'global' || selected?.type === 'year') return true
+                if (selected?.type === 'quarter') {
+                  const [y,q] = selected.value.split('-Q')
+                  const sm = (parseInt(q)-1)*3+1, em = sm+2
+                  const m = parseInt(v.mois.split('-')[1])
+                  return v.mois.startsWith(y) && m >= sm && m <= em
+                }
+                return true
+              })
+              let visR = visRows.reduce((s,v) => s+(v.visites_m_en_cours||0)+(v.visites_m1||0)+(v.visites_recuperees||0), 0)
               // Ventes depuis flux_rdv par commerciaux liés (dédupliqués)
               const commIds = [...new Set(projetsCommerciaux.filter(pc => projetsIds.includes(pc.projet_id)).map(pc => pc.commercial_id))]
               let ventesR = 0
