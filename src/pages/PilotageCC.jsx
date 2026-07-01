@@ -96,11 +96,11 @@ export default function PilotageCC({ saisies }) {
       supabase.from('pilotage_visites').select('*'),
       supabase.from('pilotage_objectifs_cc').select('*'),
       supabase.from('flux_rdv').select('commercial_id,date_debut,rdv,visites,ventes,type_saisie').gte('date_debut','2026-01-01'),
-      supabase.from('objectifs_vente_projets').select('nom_projet,delai_mois,tx_vente,tx_presence,tx_conv_tel,tx_joignabilite'),
-      supabase.from('stock').select('projet_id,unites_dispo'),
+      supabase.from('objectifs_vente_projets').select('id,nom_projet,delai_mois,tx_vente,tx_presence,tx_conv_tel,tx_joignabilite'),
+      supabase.from('objectifs_vente_biens').select('projet_id,stock'),
     ])
     const stockMap = {}
-    ;(stk || []).forEach(s => { stockMap[s.projet_id] = (stockMap[s.projet_id]||0) + (s.unites_dispo||0) })
+    ;(stk || []).forEach(s => { stockMap[s.projet_id] = (stockMap[s.projet_id]||0) + (s.stock||0) })
     setProjets(proj || [])
     setCommerciaux(comm || [])
     setSourcesRef(src || [])
@@ -190,7 +190,7 @@ export default function PilotageCC({ saisies }) {
     const tp = parseFloat(ov.tx_presence)     / 100
     const tc = parseFloat(ov.tx_conv_tel)     / 100
     const tj = parseFloat(ov.tx_joignabilite) / 100
-    const stock = stockParProjet[projetId] || 0
+    const stock = stockParProjet[ov.id] || 0
     const d     = parseInt(ov.delai_mois) || 1
     if (!stock || !tv || !tp || !tc || !tj) return { obj_leads: 0, obj_rdv: 0, obj_visites: 0, obj_ventes: 0 }
     const obj_mois = Math.round(stock / d)
