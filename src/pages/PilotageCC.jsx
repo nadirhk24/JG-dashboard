@@ -45,6 +45,7 @@ export default function PilotageCC({ saisies }) {
   const [visites,    setVisites]    = useState([])
   const [objCC,      setObjCC]      = useState([])
   const [fluxVentes, setFluxVentes] = useState([])
+  const [objVentesProjets, setObjVentesProjets] = useState([]) // depuis objectifs_vente_projets
 
   const [selected,   setSelected]   = useState(() => {
     const n = new Date()
@@ -83,6 +84,7 @@ export default function PilotageCC({ saisies }) {
       { data: vis  },
       { data: obj  },
       { data: flux },
+      { data: ovp  },
     ] = await Promise.all([
       supabase.from('projets').select('id,nom,objectif_nombre,delai_livraison').eq('statut','actif').order('nom'),
       supabase.from('commerciaux').select('id,nom,equipe').eq('actif',true).order('nom'),
@@ -92,6 +94,7 @@ export default function PilotageCC({ saisies }) {
       supabase.from('pilotage_visites').select('*'),
       supabase.from('pilotage_objectifs_cc').select('*'),
       supabase.from('flux_rdv').select('commercial_id,date_debut,rdv,visites,ventes,type_saisie').gte('date_debut','2026-01-01'),
+      supabase.from('objectifs_vente_projets').select('nom_projet,delai_mois,tx_vente,tx_presence,tx_conv_tel'),
     ])
     setProjets(proj || [])
     setCommerciaux(comm || [])
@@ -101,6 +104,7 @@ export default function PilotageCC({ saisies }) {
     setVisites(vis || [])
     setObjCC(obj || [])
     setFluxVentes(flux || [])
+    setObjVentesProjets(ovp || [])
     setLoading(false)
   }, [])
 
@@ -168,7 +172,24 @@ export default function PilotageCC({ saisies }) {
     }
   }, [objCCMois, prorata, totLeads, totRdvCC, visitesTotaux, ventesFlux])
 
-  // ── Save functions ────────────────────────────────────────────────────────────
+  // Calcul auto objectifs CC depuis objectifs_vente_projets
+  function getObjCCAuto(projetId, pctCC = 25) {
+    const proj = projets.find(p => p.id === projetId)
+    if (!proj) return { obj_leads: 0, obj_rdv: 0, obj_visites: 0, obj_ventes: 0 }
+    const ov = objVentesProjets.find(o => o.nom_projet === proj.nom)
+    if (!ov || !ov.delai_mois || !ov.tx_vente) return { obj_leads: 0, obj_rdv: 0, obj_visites: 0, obj_ventes: 0 }
+    const ventesParMois  = (proj.objectif_nombre || 0) / ov.delai_mois
+    const visitesParMois = ov.tx_vente   > 0 ? ventesParMois  / (ov.tx_vente   / 100) : 0
+    const rdvParMois     = ov.tx_presence> 0 ? visitesParMois / (ov.tx_presence/ 100) : 0
+    const leadsParMois   = ov.tx_conv_tel> 0 ? rdvParMois     / (ov.tx_conv_tel/ 100) : 0
+    const pct = pctCC / 100
+    return {
+      obj_leads:   Math.round(leadsParMois   * pct),
+      obj_rdv:     Math.round(rdvParMois     * pct),
+      obj_visites: Math.round(visitesParMois * pct),
+      obj_ventes:  Math.round(ventesParMois  * pct),
+    }
+  }
 
   async function saveLead(e) {
     e.preventDefault()
@@ -713,20 +734,34 @@ export default function PilotageCC({ saisies }) {
                   {projets.map(p => {
                     const moisSel = selected?.type === 'month' ? selected.value : moisCourant
                     const obj = objCC.find(o => o.projet_id === p.id && o.mois === moisSel)
+                    const auto = getObjCCAuto(p.id, obj?.pct_cc || 25)
+                    const isAuto = !obj
+                    const pctCC = obj?.pct_cc || 25
+                    const oL  = obj?.obj_leads   || auto.obj_leads
+                    const oR  = obj?.obj_rdv     || auto.obj_rdv
+                    const oV  = obj?.obj_visites || auto.obj_visites
+                    const oVt = obj?.obj_ventes  || auto.obj_ventes
                     return (
                       <tr key={p.id} onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                         <td style={{...td,fontWeight:500}}>{p.nom}</td>
-                        <td style={{...td,color:'#C9A84C',fontWeight:600}}>{obj?.pct_cc||25}%</td>
-                        <td style={td}>{obj?.obj_leads||'—'}</td>
-                        <td style={{...td,color:'#534AB7'}}>{obj?.obj_rdv||'—'}</td>
-                        <td style={{...td,color:'#4CAF7D'}}>{obj?.obj_visites||'—'}</td>
-                        <td style={{...td,color:'#1a6b3c',fontWeight:600}}>{obj?.obj_ventes||'—'}</td>
-                        {isSuperAdmin && <td style={td}>
+                        <td style={{...td,color:'#C9A84C',fontWeight:600}}>{pctCC}%</td>
+                        <td style={{...td,color:isAuto?'#8A8A7A':'#C9A84C',fontStyle:isAuto?'italic':'normal'}}>{oL||'—'}{isAuto&&oL>0&&<span style={{fontSize:9,marginLeft:3,color:'#8A8A7A'}}>auto</span>}</td>
+                        <td style={{...td,color:isAuto?'#8A8A7A':'#534AB7',fontStyle:isAuto?'italic':'normal'}}>{oR||'—'}{isAuto&&oR>0&&<span style={{fontSize:9,marginLeft:3,color:'#8A8A7A'}}>auto</span>}</td>
+                        <td style={{...td,color:isAuto?'#8A8A7A':'#4CAF7D',fontStyle:isAuto?'italic':'normal'}}>{oV||'—'}{isAuto&&oV>0&&<span style={{fontSize:9,marginLeft:3,color:'#8A8A7A'}}>auto</span>}</td>
+                        <td style={{...td,color:isAuto?'#8A8A7A':'#1a6b3c',fontStyle:isAuto?'italic':'normal',fontWeight:600}}>{oVt||'—'}{isAuto&&oVt>0&&<span style={{fontSize:9,marginLeft:3,color:'#8A8A7A'}}>auto</span>}</td>
+                    {isSuperAdmin && <td style={td}>
                           <button onClick={()=>{
-                            setPopupObjCC({projetId:p.id,mois:moisSel})
-                            setFormObjCC({pct_cc:obj?.pct_cc||25,obj_leads:obj?.obj_leads||'',obj_rdv:obj?.obj_rdv||'',obj_visites:obj?.obj_visites||'',obj_ventes:obj?.obj_ventes||''})
+                            const moisSel2 = selected?.type === 'month' ? selected.value : moisCourant
+                            setPopupObjCC({projetId:p.id,mois:moisSel2})
+                            setFormObjCC({
+                              pct_cc:     obj?.pct_cc     || 25,
+                              obj_leads:  obj?.obj_leads  !== undefined ? obj.obj_leads  : (auto.obj_leads  || ''),
+                              obj_rdv:    obj?.obj_rdv    !== undefined ? obj.obj_rdv    : (auto.obj_rdv    || ''),
+                              obj_visites:obj?.obj_visites!== undefined ? obj.obj_visites: (auto.obj_visites|| ''),
+                              obj_ventes: obj?.obj_ventes !== undefined ? obj.obj_ventes : (auto.obj_ventes || ''),
+                            })
                           }} style={{...btn(),fontSize:11,padding:'4px 10px'}}>
-                            {obj ? 'Modifier' : 'Configurer'}
+                            {obj ? 'Modifier' : 'Valider auto'}
                           </button>
                         </td>}
                       </tr>
