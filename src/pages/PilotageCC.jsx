@@ -526,7 +526,20 @@ export default function PilotageCC({ saisies }) {
             const projetsKenitra = ['b1000000-0000-0000-0000-000000000005','b1000000-0000-0000-0000-000000000006','b1000000-0000-0000-0000-000000000011','b1000000-0000-0000-0000-000000000009','b1000000-0000-0000-0000-000000000008','b1000000-0000-0000-0000-000000000001','b1000000-0000-0000-0000-000000000002','b1000000-0000-0000-0000-000000000007','b1000000-0000-0000-0000-000000000010','b1000000-0000-0000-0000-000000000012','b1000000-0000-0000-0000-000000000013','b1000000-0000-0000-0000-000000000004','b1000000-0000-0000-0000-000000000003']
             const projetsSale   = ['b2000000-0000-0000-0000-000000000001','65e17a5b-5657-4ffe-86dd-58ae3214d40b']
             // Visites/ventes NR par région
-            const filtreDate = f => selected?.type !== 'month' || f.date_debut.startsWith(selected.value)
+            const filtreDate = f => {
+              if (!selected || selected.type === 'global') return true
+              if (selected.type === 'month')   return f.date_debut.startsWith(selected.value)
+              if (selected.type === 'year')    return f.date_debut.startsWith(String(selected.value))
+              if (selected.type === 'quarter') {
+                const [y,q] = selected.value.split('-Q')
+                const sm = (parseInt(q)-1)*3+1
+                const em = sm+2
+                const m = parseInt(f.date_debut.substring(5,7))
+                return f.date_debut.startsWith(y) && m >= sm && m <= em
+              }
+              if (selected.type === 'custom') return f.date_debut >= selected.from && f.date_debut <= selected.to
+              return true
+            }
             const nrKenVis = Math.round(fluxVentes.filter(f => f.commercial_id === NR_KENITRA_ID && filtreDate(f)).reduce((s,f)=>s+parseFloat(f.visites||0)+parseFloat(f.ventes||0),0))
             const nrKenVen = Math.round(fluxVentes.filter(f => f.commercial_id === NR_KENITRA_ID && filtreDate(f)).reduce((s,f)=>s+parseFloat(f.ventes||0),0))
             const nrSalVis = Math.round(fluxVentes.filter(f => f.commercial_id === NR_SALE_ID    && filtreDate(f)).reduce((s,f)=>s+parseFloat(f.visites||0)+parseFloat(f.ventes||0),0))
@@ -543,18 +556,28 @@ export default function PilotageCC({ saisies }) {
               const srcsP   = ldsP.flatMap(l => leadsSources.filter(s => s.pilotage_lead_id === l.id))
               const srcMeta  = srcsP.filter(s=>s.source==='Meta Ads').reduce((s,x)=>s+(x.nombre||0),0)
               const srcAppel = srcsP.filter(s=>s.source==='Appels entrants').reduce((s,x)=>s+(x.nombre||0),0)
-              // Commerciaux liés à ces projets via projets_commerciaux
+              // Commerciaux liés à ces projets (uniques)
               const commIds = [...new Set(
                 projetsCommerciaux
                   .filter(pc => projetsIds.includes(pc.projet_id))
                   .map(pc => pc.commercial_id)
               )]
-              // Visites & Ventes depuis flux_rdv filtrés par commercial + date
-              const fluxFiltre = fluxVentes.filter(f =>
-                commIds.includes(f.commercial_id) && filtreDate(f)
-              )
-              let visR    = Math.round(fluxFiltre.reduce((s,f) => s+parseFloat(f.visites||0)+parseFloat(f.ventes||0), 0))
-              let ventesR = Math.round(fluxFiltre.reduce((s,f) => s+parseFloat(f.ventes||0), 0))
+              // Visites & Ventes : pour chaque commercial, diviser par le nb de projets
+              // auxquels il est rattaché pour éviter les doublons
+              let visR = 0, ventesR = 0
+              commIds.forEach(commId => {
+                const nbProjComm = projetsCommerciaux.filter(pc => pc.commercial_id === commId).length || 1
+                const fluxComm = fluxVentes.filter(f => f.commercial_id === commId && filtreDate(f))
+                const vis = fluxComm.reduce((s,f) => s+parseFloat(f.visites||0)+parseFloat(f.ventes||0), 0)
+                const ven = fluxComm.reduce((s,f) => s+parseFloat(f.ventes||0), 0)
+                // Pondérer par la proportion de projets dans ce groupe
+                const nbProjDansCeGroupe = projetsCommerciaux.filter(pc => pc.commercial_id === commId && projetsIds.includes(pc.projet_id)).length
+                const ratio = nbProjDansCeGroupe / nbProjComm
+                visR    += vis * ratio
+                ventesR += ven * ratio
+              })
+              visR    = Math.round(visR)
+              ventesR = Math.round(ventesR)
               // Répartir NR en égalité par projet dans la région
               const nbProjK = projetsIds.filter(id => projetsKenitra.includes(id)).length
               const nbProjS = projetsIds.filter(id => projetsSale.includes(id)).length
