@@ -268,31 +268,45 @@ export default function DashboardCallCenter({ conseilleres, conseilleresActives,
     fluxRdvCC.forEach(f => {
       const key = `${f.conseillere_id}_${f.date_debut}`
       if (!map[key]) map[key] = { rdv: 0, visites: 0, ventes: 0 }
-      const vis = parseFloat(f.visites || 0)
-      const ven = parseFloat(f.ventes || 0)
-      const rdv = parseFloat(f.rdv || 0)
-      map[key].visites += vis + ven
-      map[key].ventes  += ven
-      map[key].rdv     += rdv + vis + ven
+      map[key].rdv     += parseFloat(f.rdv || 0)
+      map[key].visites += parseFloat(f.visites || 0) + parseFloat(f.ventes || 0)
+      map[key].ventes  += parseFloat(f.ventes || 0)
     })
     return map
   }, [fluxRdvCC])
 
-  // Saisies enrichies : leads/échanges depuis saisies CC, rdv/visites/ventes depuis flux_rdv
+  // Agréger flux par (conseillere_id, mois) pour les saisies de type periode
+  const fluxParConseillereМois = useMemo(() => {
+    const map = {}
+    fluxRdvCC.forEach(f => {
+      const mois = f.date_debut.substring(0, 7) // 'YYYY-MM'
+      const key = `${f.conseillere_id}_${mois}`
+      if (!map[key]) map[key] = { rdv: 0, visites: 0, ventes: 0 }
+      map[key].rdv     += parseFloat(f.rdv || 0)
+      map[key].visites += parseFloat(f.visites || 0) + parseFloat(f.ventes || 0)
+      map[key].ventes  += parseFloat(f.ventes || 0)
+    })
+    return map
+  }, [fluxRdvCC])
+
   const saisiesEnrichies = useMemo(() => {
     return saisies.map(s => {
-      const date = s.date_debut || s.date
-      const key  = `${s.conseillere_id}_${date}`
-      const flux = fluxParConseillereDate[key]
-      if (!flux) return s
+      let flux
+      if (s.type_saisie === 'periode') {
+        // Pour les saisies periode → agréger sur le mois entier
+        const mois = s.date_debut.substring(0, 7)
+        flux = fluxParConseillereМois[`${s.conseillere_id}_${mois}`]
+      } else {
+        flux = fluxParConseillereDate[`${s.conseillere_id}_${s.date_debut}`]
+      }
       return {
         ...s,
-        rdv:     Math.round(flux.rdv),
-        visites: Math.round(flux.visites),
-        ventes:  Math.round(flux.ventes),
+        rdv:     flux ? Math.round(flux.rdv)     : 0,
+        visites: flux ? Math.round(flux.visites) : 0,
+        ventes:  flux ? Math.round(flux.ventes)  : 0,
       }
     })
-  }, [saisies, fluxParConseillereDate])
+  }, [saisies, fluxParConseillereDate, fluxParConseillereМois])
 
   const saisiesFiltrees = useMemo(() => {
     let data = filtrerParSelection(saisiesEnrichies, selected)
