@@ -95,7 +95,7 @@ export default function PilotageCC({ saisies }) {
       supabase.from('pilotage_sources_ref').select('*').eq('actif',true).order('ordre'),
       supabase.from('pilotage_leads').select('*').order('date',{ascending:false}),
       supabase.from('pilotage_leads_sources').select('*'),
-      supabase.from('pilotage_visites').select('id,mois,commercial_id,projet_id,visites_m_en_cours,visites_m1,visites_recuperees'),
+      supabase.from('pilotage_visites').select('id,mois,commercial_id,projet_id,visites_m_en_cours,visites_m1,visites_recuperees,ventes'),
       supabase.from('pilotage_objectifs_cc').select('*'),
       supabase.from('flux_rdv').select('commercial_id,date_debut,rdv,visites,ventes,type_saisie').gte('date_debut','2026-01-01'),
       supabase.from('objectifs_vente_projets').select('id,nom_projet,delai_mois,tx_vente,tx_presence,tx_conv_tel,tx_joignabilite'),
