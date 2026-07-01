@@ -178,31 +178,33 @@ export default function PilotageCC({ saisies }) {
     }
   }, [objCCMois, prorata, totLeads, totRdvCC, visitesTotaux, ventesFlux])
 
-  // Calcul auto objectifs CC depuis objectifs_vente_projets (même formule que module Objectifs)
+  // Objectifs CC = KPIs du module Objectifs ÷ 4 (25%)
   function getObjCCAuto(projetId, pctCC = 25) {
     const proj = projets.find(p => p.id === projetId)
     if (!proj) return { obj_leads: 0, obj_rdv: 0, obj_visites: 0, obj_ventes: 0 }
     const ov = objVentesProjets.find(o => o.nom_projet === proj.nom)
-    if (!ov || !ov.delai_mois || !ov.tx_vente || !ov.tx_presence || !ov.tx_conv_tel || !ov.tx_joignabilite) 
+    if (!ov || !ov.delai_mois || !ov.tx_vente || !ov.tx_presence || !ov.tx_conv_tel || !ov.tx_joignabilite)
       return { obj_leads: 0, obj_rdv: 0, obj_visites: 0, obj_ventes: 0 }
-    // Même formule que Objectifs.jsx calcFunnel
-    const tv = parseFloat(ov.tx_vente)       / 100
-    const tp = parseFloat(ov.tx_presence)    / 100
-    const tc = parseFloat(ov.tx_conv_tel)    / 100
-    const tj = parseFloat(ov.tx_joignabilite)/ 100
-    const stock = stockParProjet[projetId] || proj.objectif_nombre || 0
-    const d = parseInt(ov.delai_mois) || 1
+    // Même calcul que Objectifs.jsx calcFunnel
+    const tv = parseFloat(ov.tx_vente)        / 100
+    const tp = parseFloat(ov.tx_presence)     / 100
+    const tc = parseFloat(ov.tx_conv_tel)     / 100
+    const tj = parseFloat(ov.tx_joignabilite) / 100
+    const stock = stockParProjet[projetId] || 0
+    const d     = parseInt(ov.delai_mois) || 1
+    if (!stock || !tv || !tp || !tc || !tj) return { obj_leads: 0, obj_rdv: 0, obj_visites: 0, obj_ventes: 0 }
     const obj_mois = Math.round(stock / d)
-    const visites  = tv > 0 ? Math.ceil(obj_mois / tv) : 0
-    const rdv      = tp > 0 ? Math.ceil(visites  / tp) : 0
-    const echanges = tc > 0 ? Math.ceil(rdv      / tc) : 0
-    const leads    = tj > 0 ? Math.ceil(echanges / tj) : 0
-    const pct = pctCC / 100
+    const visites  = Math.ceil(obj_mois / tv)
+    const rdv      = Math.ceil(visites  / tp)
+    const echanges = Math.ceil(rdv      / tc)
+    const leads    = Math.ceil(echanges / tj)
+    // Diviser chaque KPI isolément par 4 (25%)
+    const div = pctCC / 100
     return {
-      obj_leads:   Math.round(leads    * pct),
-      obj_rdv:     Math.round(rdv      * pct),
-      obj_visites: Math.round(visites  * pct),
-      obj_ventes:  Math.round(obj_mois * pct),
+      obj_ventes:  Math.round(obj_mois * div),
+      obj_visites: Math.round(visites  * div),
+      obj_rdv:     Math.round(rdv      * div),
+      obj_leads:   Math.round(leads    * div),
     }
   }
 
