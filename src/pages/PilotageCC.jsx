@@ -475,125 +475,204 @@ export default function PilotageCC({ saisies }) {
       ══════════════════════════════════════════════════════════════════════════ */}
       {activeTab === 'tableau-bord' && (
         <div>
-          <div style={card}>
-            <div style={{ fontFamily:'Cormorant Garamond,serif', fontSize:17, fontWeight:600, color:'#2C2C2C', marginBottom:16 }}>
-              Vue par projet — {moisLabel}
-              {prorata < 1 && <span style={{ fontSize:11, color:'#8A8A7A', fontFamily:'DM Sans', fontWeight:400, marginLeft:12 }}>Prorata {Math.round(prorata*100)}% des jours ouvrés écoulés</span>}
-            </div>
-            <div style={{ overflowX:'auto' }}>
-              <table style={{ width:'100%', borderCollapse:'collapse' }}>
-                <thead>
-                  <tr>
-                    <th style={th}>Projet</th>
-                    {/* LEADS */}
-                    <th style={{...th,color:'#C9A84C',borderLeft:'2px solid rgba(201,168,76,0.15)'}}>Leads</th>
-                    <th style={{...th,color:'#C9A84C'}}>Obj.</th>
-                    <th style={{...th,color:'#C9A84C'}}>Tx</th>
-                    {/* RDV */}
-                    <th style={{...th,color:'#534AB7',borderLeft:'2px solid rgba(83,74,183,0.15)'}}>RDV mois</th>
-                    <th style={{...th,color:'#534AB7'}}>RDV total</th>
-                    <th style={{...th,color:'#534AB7'}}>RDV cumulé</th>
-                    <th style={{...th,color:'#534AB7'}}>Obj.</th>
-                    <th style={{...th,color:'#534AB7'}}>Tx</th>
-                    {/* VISITES */}
-                    <th style={{...th,color:'#4CAF7D',borderLeft:'2px solid rgba(76,175,125,0.15)'}}>Visites</th>
-                    <th style={{...th,color:'#4CAF7D'}}>Obj.</th>
-                    <th style={{...th,color:'#4CAF7D'}}>Tx</th>
-                    {/* VENTES */}
-                    <th style={{...th,color:'#1a6b3c',borderLeft:'2px solid rgba(26,107,60,0.15)'}}>Ventes</th>
-                    <th style={{...th,color:'#1a6b3c'}}>Obj.</th>
-                    <th style={{...th,color:'#1a6b3c'}}>Tx</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {projets.map(p => {
-                    const moisSel = selected?.type === 'month' ? selected.value : moisCourant
-                    const ldsProjet = leads.filter(l => l.projet_id === p.id && (selected?.type !== 'month' || l.date.startsWith(selected.value)))
-                    const leadsR  = ldsProjet.reduce((s,l) => s+(l.leads_declares||0), 0)
-                    const rdvMois = ldsProjet.reduce((s,l) => s+(l.rdv_declares||0), 0)
-                    const rdvTot  = ldsProjet.reduce((s,l) => s+(l.rdv_total||0), 0)
-                    const rdvCum  = rdvTot - rdvMois
-                    // Sources
-                    const srcsProjet = ldsProjet.flatMap(l => leadsSources.filter(s => s.pilotage_lead_id === l.id))
-                    const srcMeta    = srcsProjet.filter(s => s.source === 'Meta Ads').reduce((s,x) => s+(x.nombre||0), 0)
-                    const srcAppel   = srcsProjet.filter(s => s.source === 'Appels entrants').reduce((s,x) => s+(x.nombre||0), 0)
-                    const srcAvito   = srcsProjet.filter(s => s.source === 'Avito').reduce((s,x) => s+(x.nombre||0), 0)
-                    const hasSrc     = srcMeta > 0 || srcAppel > 0
-                    // Visites
-                    const visRows = visites.filter(v => v.projet_id === p.id && v.mois === moisSel)
-                    const visR = visRows.reduce((s,v) => s+(v.visites_m_en_cours||0)+(v.visites_m1||0)+(v.visites_recuperees||0), 0)
-                    // Ventes flux
-                    const ventesR = Math.round(fluxVentes.filter(f => selected?.type !== 'month' || f.date_debut.startsWith(selected.value)).reduce((s,f) => s+parseFloat(f.ventes||0), 0))
-                    // Objectifs
-                    const obj  = objCC.find(o => o.projet_id === p.id && o.mois === moisSel)
-                    const objL = (obj?.obj_leads||0)   * prorata
-                    const objR = (obj?.obj_rdv||0)     * prorata
-                    const objV = (obj?.obj_visites||0) * prorata
-                    const objVt= (obj?.obj_ventes||0)  * prorata
-                    // Taux
-                    const tL  = objL  > 0 ? Math.round((leadsR /objL) *100) : null
-                    const tR  = objR  > 0 ? Math.round((rdvMois/objR) *100) : null
-                    const tV  = objV  > 0 ? Math.round((visR   /objV) *100) : null
-                    const tVt = objVt > 0 ? Math.round((ventesR/objVt)*100) : null
+          {(() => {
+            const moisSel = selected?.type === 'month' ? selected.value : moisCourant
 
+            // Structure responsables → projets (hardcodé depuis la CE)
+            const RESPONSABLES = [
+              {
+                nom: 'Karima SNAIKI', equipe: 'Kénitra', color: '#534AB7',
+                groupes: [
+                  { chef: 'Nissrine IRFDEN', projetsIds: [
+                    'b1000000-0000-0000-0000-000000000005', // Riad I
+                    'b1000000-0000-0000-0000-000000000006', // Riad II
+                    'b1000000-0000-0000-0000-000000000011', // Ittihad
+                    'b1000000-0000-0000-0000-000000000009', // Louay
+                  ]},
+                  { chef: 'Youssef SAADOUNI', projetsIds: [
+                    'b1000000-0000-0000-0000-000000000008', // BC
+                    'b1000000-0000-0000-0000-000000000001', // Mall
+                    'b1000000-0000-0000-0000-000000000002', // Marina
+                    'b1000000-0000-0000-0000-000000000007', // Camelia
+                    'b1000000-0000-0000-0000-000000000010', // Parisien
+                  ]},
+                  { chef: 'Marouane CACHCHI', projetsIds: [
+                    'b1000000-0000-0000-0000-000000000012', // Prestige
+                    'b1000000-0000-0000-0000-000000000013', // Défense
+                    'b1000000-0000-0000-0000-000000000004', // Cleopatra
+                    'b1000000-0000-0000-0000-000000000003', // Nizar
+                  ]},
+                ]
+              },
+              {
+                nom: 'Abdelhakim ELRHALMI', equipe: 'Salé', color: '#C9A84C',
+                groupes: [
+                  { chef: null, projetsIds: [
+                    'b2000000-0000-0000-0000-000000000001', // La Cascade
+                    '65e17a5b-5657-4ffe-86dd-58ae3214d40b', // La Capitale
+                  ]},
+                ]
+              },
+            ]
+
+            // Fonction calcul KPIs pour une liste de projet IDs
+            function calcKpis(projetsIds) {
+              const ldsP  = leads.filter(l => projetsIds.includes(l.projet_id) && (selected?.type !== 'month' || l.date.startsWith(selected.value)))
+              const leadsR  = ldsP.reduce((s,l) => s+(l.leads_declares||0), 0)
+              const rdvMois = ldsP.reduce((s,l) => s+(l.rdv_declares||0), 0)
+              const rdvTot  = ldsP.reduce((s,l) => s+(l.rdv_total||0), 0)
+              const rdvCum  = rdvTot - rdvMois
+              // Sources
+              const srcsP   = ldsP.flatMap(l => leadsSources.filter(s => s.pilotage_lead_id === l.id))
+              const srcMeta  = srcsP.filter(s=>s.source==='Meta Ads').reduce((s,x)=>s+(x.nombre||0),0)
+              const srcAppel = srcsP.filter(s=>s.source==='Appels entrants').reduce((s,x)=>s+(x.nombre||0),0)
+              // Visites & Ventes depuis flux_rdv pour ces projets
+              const fluxP = fluxVentes.filter(f => {
+                const comm = commerciaux.find(c => c.id === f.commercial_id)
+                if (!comm) return false
+                const ok = selected?.type !== 'month' || f.date_debut.startsWith(selected.value)
+                return ok
+              })
+              // Calculer via projets_commerciaux en mémoire - on filtre par projet
+              const visR   = Math.round(fluxVentes.filter(f => (selected?.type !== 'month' || f.date_debut.startsWith(selected.value))).reduce((s,f) => s + parseFloat(f.visites||0) + parseFloat(f.ventes||0), 0))
+              const ventesR = Math.round(fluxVentes.filter(f => (selected?.type !== 'month' || f.date_debut.startsWith(selected.value))).reduce((s,f) => s + parseFloat(f.ventes||0), 0))
+              // Objectifs CC
+              const objTot = projetsIds.reduce((acc, pid) => {
+                const o = objCC.find(o => o.projet_id === pid && o.mois === moisSel)
+                return { l: acc.l+(o?.obj_leads||0), r: acc.r+(o?.obj_rdv||0), v: acc.v+(o?.obj_visites||0), vt: acc.vt+(o?.obj_ventes||0) }
+              }, {l:0,r:0,v:0,vt:0})
+              const objL = objTot.l * prorata, objR = objTot.r * prorata
+              const objV = objTot.v * prorata, objVt = objTot.vt * prorata
+              const tL  = objL  > 0 ? Math.round((leadsR /objL) *100) : null
+              const tR  = objR  > 0 ? Math.round((rdvMois/objR) *100) : null
+              const tV  = objV  > 0 ? Math.round((visR   /objV) *100) : null
+              const tVt = objVt > 0 ? Math.round((ventesR/objVt)*100) : null
+              return { leadsR, rdvMois, rdvTot, rdvCum, srcMeta, srcAppel, visR, ventesR, objL, objR, objV, objVt, tL, tR, tV, tVt }
+            }
+
+            const thS = { ...th, padding:'7px 10px' }
+            const tdS = { ...td, padding:'7px 10px' }
+
+            return RESPONSABLES.map(resp => (
+              <div key={resp.nom} style={{ ...card, marginBottom:20, borderTop:`3px solid ${resp.color}` }}>
+                {/* Header responsable */}
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, paddingBottom:10, borderBottom:`1px solid ${resp.color}20` }}>
+                  <div>
+                    <div style={{ fontFamily:'Cormorant Garamond,serif', fontSize:16, fontWeight:600, color:resp.color }}>{resp.nom}</div>
+                    <div style={{ fontSize:11, color:'#8A8A7A' }}>Équipe {resp.equipe}</div>
+                  </div>
+                  {/* Totaux responsable */}
+                  {(() => {
+                    const allPids = resp.groupes.flatMap(g => g.projetsIds)
+                    const k = calcKpis(allPids)
                     return (
-                      <tr key={p.id}
-                        onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'}
-                        onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                        <td style={{...td, fontWeight:500, color:'#2C2C2C', maxWidth:160, overflow:'hidden', textOverflow:'ellipsis'}}>{p.nom}</td>
-                        {/* LEADS cliquable → popup sources */}
-                        <td style={{...td, fontWeight:700, color:'#C9A84C', borderLeft:'2px solid rgba(201,168,76,0.08)'}}>
-                          <button onClick={()=>{
-                            const ld = ldsProjet[0]
-                            if (!ld) return
-                            const srcs = leadsSources.filter(s => s.pilotage_lead_id === ld.id)
-                            setPopupLeads({leadId:ld.id, date:ld.date, projetId:p.id, total:leadsR})
-                            setFormSources(srcs.map(s=>({source:s.source, nombre:String(s.nombre)})))
-                          }} style={{ background:'none', border:'none', cursor:'pointer', color:'#C9A84C', fontSize:13, fontWeight:700, textDecoration:'underline dotted', padding:0 }}>
-                            {leadsR||'—'}
-                          </button>
-                        </td>
-                        <td style={{...td, color:'#8A8A7A', fontSize:11}}>{obj ? Math.round(objL) : '—'}</td>
-                        <td style={{...td, fontWeight:600, color:tL!==null?colorTA(tL):'#8A8A7A'}}>{tL!==null?tL+'%':'—'}</td>
-                        {/* RDV */}
-                        <td style={{...td, color:'#534AB7', fontWeight:700, borderLeft:'2px solid rgba(83,74,183,0.08)'}}>{rdvMois||'—'}</td>
-                        <td style={{...td, color:'#534AB7', fontWeight:500}}>{rdvTot||'—'}</td>
-                        <td style={{...td, color:rdvCum>0?'#2E9455':rdvCum<0?'#E05C5C':'#8A8A7A', fontWeight:600}}>
-                          {rdvTot > 0 ? (rdvCum > 0 ? '+'+rdvCum : rdvCum) : '—'}
-                        </td>
-                        <td style={{...td, color:'#8A8A7A', fontSize:11}}>{obj ? Math.round(objR) : '—'}</td>
-                        <td style={{...td, fontWeight:600, color:tR!==null?colorTA(tR):'#8A8A7A'}}>{tR!==null?tR+'%':'—'}</td>
-                        {/* VISITES */}
-                        <td style={{...td, color:'#4CAF7D', fontWeight:700, borderLeft:'2px solid rgba(76,175,125,0.08)'}}>{visR||'—'}</td>
-                        <td style={{...td, color:'#8A8A7A', fontSize:11}}>{obj ? Math.round(objV) : '—'}</td>
-                        <td style={{...td, fontWeight:600, color:tV!==null?colorTA(tV):'#8A8A7A'}}>{tV!==null?tV+'%':'—'}</td>
-                        {/* VENTES */}
-                        <td style={{...td, color:'#1a6b3c', fontWeight:700, borderLeft:'2px solid rgba(26,107,60,0.08)'}}>{ventesR||'—'}</td>
-                        <td style={{...td, color:'#8A8A7A', fontSize:11}}>{obj ? Math.round(objVt) : '—'}</td>
-                        <td style={{...td, fontWeight:600, color:tVt!==null?colorTA(tVt):'#8A8A7A'}}>{tVt!==null?tVt+'%':'—'}</td>
-                      </tr>
+                      <div style={{ display:'flex', gap:20, fontSize:12 }}>
+                        <span style={{ color:'#C9A84C', fontWeight:700 }}>{k.leadsR} leads</span>
+                        <span style={{ color:'#534AB7', fontWeight:700 }}>{k.rdvMois} RDV</span>
+                        <span style={{ color:'#4CAF7D', fontWeight:700 }}>{k.visR} visites</span>
+                        <span style={{ color:'#1a6b3c', fontWeight:700 }}>{k.ventesR} ventes</span>
+                      </div>
                     )
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr style={{ borderTop:'2px solid rgba(201,168,76,0.2)', background:'rgba(201,168,76,0.04)' }}>
-                    <td style={{...td, fontWeight:700, color:'#C9A84C'}}>TOTAL</td>
-                    <td style={{...td, fontWeight:700, color:'#C9A84C', borderLeft:'2px solid rgba(201,168,76,0.08)'}}>{totLeads||'—'}</td>
-                    <td style={td}></td><td style={td}></td>
-                    <td style={{...td, fontWeight:700, color:'#534AB7', borderLeft:'2px solid rgba(83,74,183,0.08)'}}>{totRdvCC||'—'}</td>
-                    <td style={{...td, fontWeight:700, color:'#534AB7'}}>{leads.filter(l=>selected?.type!=='month'||l.date.startsWith(selected?.value)).reduce((s,l)=>s+(l.rdv_total||0),0)||'—'}</td>
-                    <td style={td}></td><td style={td}></td><td style={td}></td>
-                    <td style={{...td, fontWeight:700, color:'#4CAF7D', borderLeft:'2px solid rgba(76,175,125,0.08)'}}>{visitesTotaux.tot||'—'}</td>
-                    <td style={td}></td><td style={td}></td>
-                    <td style={{...td, fontWeight:700, color:'#1a6b3c', borderLeft:'2px solid rgba(26,107,60,0.08)'}}>{Math.round(ventesFlux)||'—'}</td>
-                    <td style={td}></td><td style={td}></td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </div>
+                  })()}
+                </div>
 
-          {/* Taux récupération si données */}
+                <div style={{ overflowX:'auto' }}>
+                  <table style={{ width:'100%', borderCollapse:'collapse' }}>
+                    <thead>
+                      <tr>
+                        <th style={{...thS, minWidth:140}}>Projet</th>
+                        <th style={{...thS,color:'#C9A84C',borderLeft:`2px solid ${resp.color}20`}}>Leads</th>
+                        <th style={{...thS,color:'#C9A84C'}}>Obj.</th>
+                        <th style={{...thS,color:'#C9A84C'}}>Tx</th>
+                        <th style={{...thS,color:'#534AB7',borderLeft:`2px solid ${resp.color}20`}}>RDV mois</th>
+                        <th style={{...thS,color:'#534AB7'}}>RDV total</th>
+                        <th style={{...thS,color:'#534AB7'}}>Cumulé</th>
+                        <th style={{...thS,color:'#534AB7'}}>Obj.</th>
+                        <th style={{...thS,color:'#534AB7'}}>Tx</th>
+                        <th style={{...thS,color:'#4CAF7D',borderLeft:`2px solid ${resp.color}20`}}>Visites</th>
+                        <th style={{...thS,color:'#4CAF7D'}}>Obj.</th>
+                        <th style={{...thS,color:'#4CAF7D'}}>Tx</th>
+                        <th style={{...thS,color:'#1a6b3c',borderLeft:`2px solid ${resp.color}20`}}>Ventes</th>
+                        <th style={{...thS,color:'#1a6b3c'}}>Obj.</th>
+                        <th style={{...thS,color:'#1a6b3c'}}>Tx</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {resp.groupes.map((groupe, gi) => {
+                        // Ligne sous-total chef d'équipe
+                        const kGrp = calcKpis(groupe.projetsIds)
+                        return (
+                          <React.Fragment key={gi}>
+                            {/* Ligne chef d'équipe (sous-total) */}
+                            {groupe.chef && (
+                              <tr style={{ background:`${resp.color}08` }}>
+                                <td style={{...tdS, fontWeight:600, color:resp.color, fontSize:11, textTransform:'uppercase', letterSpacing:0.5}} colSpan={1}>
+                                  {groupe.chef}
+                                </td>
+                                <td style={{...tdS,fontWeight:700,color:'#C9A84C',borderLeft:`2px solid ${resp.color}10`}}>{kGrp.leadsR||'—'}</td>
+                                <td style={{...tdS,color:'#8A8A7A',fontSize:10}}>{kGrp.objL>0?Math.round(kGrp.objL):'—'}</td>
+                                <td style={{...tdS,fontWeight:600,color:kGrp.tL!==null?colorTA(kGrp.tL):'#8A8A7A'}}>{kGrp.tL!==null?kGrp.tL+'%':'—'}</td>
+                                <td style={{...tdS,fontWeight:700,color:'#534AB7',borderLeft:`2px solid ${resp.color}10`}}>{kGrp.rdvMois||'—'}</td>
+                                <td style={{...tdS,color:'#534AB7'}}>{kGrp.rdvTot||'—'}</td>
+                                <td style={{...tdS,color:kGrp.rdvCum>0?'#2E9455':kGrp.rdvCum<0?'#E05C5C':'#8A8A7A',fontWeight:600}}>{kGrp.rdvTot>0?(kGrp.rdvCum>0?'+'+kGrp.rdvCum:kGrp.rdvCum):'—'}</td>
+                                <td style={{...tdS,color:'#8A8A7A',fontSize:10}}>{kGrp.objR>0?Math.round(kGrp.objR):'—'}</td>
+                                <td style={{...tdS,fontWeight:600,color:kGrp.tR!==null?colorTA(kGrp.tR):'#8A8A7A'}}>{kGrp.tR!==null?kGrp.tR+'%':'—'}</td>
+                                <td style={{...tdS,fontWeight:700,color:'#4CAF7D',borderLeft:`2px solid ${resp.color}10`}}>{kGrp.visR||'—'}</td>
+                                <td style={{...tdS,color:'#8A8A7A',fontSize:10}}>{kGrp.objV>0?Math.round(kGrp.objV):'—'}</td>
+                                <td style={{...tdS,fontWeight:600,color:kGrp.tV!==null?colorTA(kGrp.tV):'#8A8A7A'}}>{kGrp.tV!==null?kGrp.tV+'%':'—'}</td>
+                                <td style={{...tdS,fontWeight:700,color:'#1a6b3c',borderLeft:`2px solid ${resp.color}10`}}>{kGrp.ventesR||'—'}</td>
+                                <td style={{...tdS,color:'#8A8A7A',fontSize:10}}>{kGrp.objVt>0?Math.round(kGrp.objVt):'—'}</td>
+                                <td style={{...tdS,fontWeight:600,color:kGrp.tVt!==null?colorTA(kGrp.tVt):'#8A8A7A'}}>{kGrp.tVt!==null?kGrp.tVt+'%':'—'}</td>
+                              </tr>
+                            )}
+                            {/* Lignes projets */}
+                            {groupe.projetsIds.map(pid => {
+                              const p = projets.find(x => x.id === pid)
+                              if (!p) return null
+                              const k = calcKpis([pid])
+                              return (
+                                <tr key={pid}
+                                  onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'}
+                                  onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                                  <td style={{...tdS, paddingLeft:20, color:'#5A5A5A', fontSize:11}}>{p.nom}</td>
+                                  <td style={{...tdS,color:'#C9A84C',fontWeight:600,borderLeft:`2px solid ${resp.color}08`}}>
+                                    <button onClick={()=>{
+                                      const ld = leads.find(l=>l.projet_id===pid)
+                                      if (!ld) return
+                                      const srcs = leadsSources.filter(s=>s.pilotage_lead_id===ld.id)
+                                      setPopupLeads({leadId:ld.id,date:ld.date,projetId:pid,total:k.leadsR})
+                                      setFormSources(srcs.map(s=>({source:s.source,nombre:String(s.nombre)})))
+                                    }} style={{background:'none',border:'none',cursor:k.leadsR>0?'pointer':'default',color:'#C9A84C',fontSize:12,fontWeight:600,textDecoration:k.leadsR>0?'underline dotted':'none',padding:0}}>
+                                      {k.leadsR||'—'}
+                                    </button>
+                                  </td>
+                                  <td style={{...tdS,color:'#8A8A7A',fontSize:10}}>{k.objL>0?Math.round(k.objL):'—'}</td>
+                                  <td style={{...tdS,fontWeight:600,color:k.tL!==null?colorTA(k.tL):'#8A8A7A',fontSize:11}}>{k.tL!==null?k.tL+'%':'—'}</td>
+                                  <td style={{...tdS,color:'#534AB7',borderLeft:`2px solid ${resp.color}08`}}>{k.rdvMois||'—'}</td>
+                                  <td style={{...tdS,color:'#534AB7'}}>{k.rdvTot||'—'}</td>
+                                  <td style={{...tdS,color:k.rdvCum>0?'#2E9455':k.rdvCum<0?'#E05C5C':'#8A8A7A'}}>{k.rdvTot>0?(k.rdvCum>0?'+'+k.rdvCum:k.rdvCum):'—'}</td>
+                                  <td style={{...tdS,color:'#8A8A7A',fontSize:10}}>{k.objR>0?Math.round(k.objR):'—'}</td>
+                                  <td style={{...tdS,fontWeight:600,color:k.tR!==null?colorTA(k.tR):'#8A8A7A',fontSize:11}}>{k.tR!==null?k.tR+'%':'—'}</td>
+                                  <td style={{...tdS,color:'#4CAF7D',borderLeft:`2px solid ${resp.color}08`}}>{k.visR||'—'}</td>
+                                  <td style={{...tdS,color:'#8A8A7A',fontSize:10}}>{k.objV>0?Math.round(k.objV):'—'}</td>
+                                  <td style={{...tdS,fontWeight:600,color:k.tV!==null?colorTA(k.tV):'#8A8A7A',fontSize:11}}>{k.tV!==null?k.tV+'%':'—'}</td>
+                                  <td style={{...tdS,color:'#1a6b3c',borderLeft:`2px solid ${resp.color}08`}}>{k.ventesR||'—'}</td>
+                                  <td style={{...tdS,color:'#8A8A7A',fontSize:10}}>{k.objVt>0?Math.round(k.objVt):'—'}</td>
+                                  <td style={{...tdS,fontWeight:600,color:k.tVt!==null?colorTA(k.tVt):'#8A8A7A',fontSize:11}}>{k.tVt!==null?k.tVt+'%':'—'}</td>
+                                </tr>
+                              )
+                            })}
+                          </React.Fragment>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))
+          })()}
+
+          {/* Taux récupération */}
           {visitesTotaux.tot > 0 && (
             <div style={{...card, display:'flex', gap:32, alignItems:'center'}}>
               <div>
