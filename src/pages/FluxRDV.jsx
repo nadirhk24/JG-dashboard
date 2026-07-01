@@ -283,13 +283,9 @@ export default function FluxRDV({ conseilleres }) {
       const vis = parseFloat(f.visites || 0)
       const ven = parseFloat(f.ventes || 0)
       const rdv_f = parseFloat(f.rdv || 0)
-      const isPeriode = f.type_saisie === 'periode' || f.type_saisie === 'non_reconnue'
-      // Période : visites incluent déjà les ventes → vis_CC = vis, rdv_CC = rdv + vis
-      // Jour    : visites n'incluent PAS les ventes → vis_CC = vis + ven, rdv_CC = rdv + vis + ven
-      const visCC = isPeriode ? vis : vis + ven
-      agg[f.commercial_id].visites += visCC
+      agg[f.commercial_id].visites += vis + ven
       agg[f.commercial_id].ventes  += ven
-      agg[f.commercial_id].rdv     += rdv_f + visCC
+      agg[f.commercial_id].rdv     += rdv_f  // RDV = bruts uniquement
     })
     return agg
   }, [fluxFiltres])
@@ -433,7 +429,7 @@ export default function FluxRDV({ conseilleres }) {
         }
         visTotal = Math.round(visTotal)
         venTotal = Math.round(venTotal)
-        const rdvTotal = Math.round(rdvBrutsTotal + visTotal)  // RDV = RDV fixés + visites (1 visite = 1 rdv)
+        const rdvTotal = Math.round(rdvBrutsTotal)  // RDV = bruts uniquement
         // Chercher toutes les lignes CC de la periode
         const { data: lignesCC } = await supabase.from('saisies')
           .select('id, date_debut, rdv')
