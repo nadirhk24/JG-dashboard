@@ -541,14 +541,17 @@ export default function PilotageCC({ saisies }) {
                         onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'}
                         onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                         <td style={{...td, fontWeight:500, color:'#2C2C2C', maxWidth:160, overflow:'hidden', textOverflow:'ellipsis'}}>{p.nom}</td>
-                        {/* LEADS + sources */}
-                        <td style={{...td, fontWeight:700, color:'#C9A84C', borderLeft:'2px solid rgba(201,168,76,0.08)', verticalAlign:'top'}}>
-                          <div>{leadsR||'—'}</div>
-                          {hasSrc && <div style={{ marginTop:4, display:'flex', flexDirection:'column', gap:2 }}>
-                            {srcMeta   > 0 && <span style={{ fontSize:9, color:'#8A8A7A' }}>📱 {srcMeta}</span>}
-                            {srcAppel  > 0 && <span style={{ fontSize:9, color:'#8A8A7A' }}>📞 {srcAppel}</span>}
-                            <span style={{ fontSize:9, color:'#C8C8C0' }}>🏠 {srcAvito}</span>
-                          </div>}
+                        {/* LEADS cliquable → popup sources */}
+                        <td style={{...td, fontWeight:700, color:'#C9A84C', borderLeft:'2px solid rgba(201,168,76,0.08)'}}>
+                          <button onClick={()=>{
+                            const ld = ldsProjet[0]
+                            if (!ld) return
+                            const srcs = leadsSources.filter(s => s.pilotage_lead_id === ld.id)
+                            setPopupLeads({leadId:ld.id, date:ld.date, projetId:p.id, total:leadsR})
+                            setFormSources(srcs.map(s=>({source:s.source, nombre:String(s.nombre)})))
+                          }} style={{ background:'none', border:'none', cursor:'pointer', color:'#C9A84C', fontSize:13, fontWeight:700, textDecoration:'underline dotted', padding:0 }}>
+                            {leadsR||'—'}
+                          </button>
                         </td>
                         <td style={{...td, color:'#8A8A7A', fontSize:11}}>{obj ? Math.round(objL) : '—'}</td>
                         <td style={{...td, fontWeight:600, color:tL!==null?colorTA(tL):'#8A8A7A'}}>{tL!==null?tL+'%':'—'}</td>
