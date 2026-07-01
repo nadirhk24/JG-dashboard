@@ -45,7 +45,8 @@ export default function PilotageCC({ saisies }) {
   const [visites,    setVisites]    = useState([])
   const [objCC,      setObjCC]      = useState([])
   const [fluxVentes, setFluxVentes] = useState([])
-  const [objVentesProjets, setObjVentesProjets] = useState([]) // depuis objectifs_vente_projets
+  const [objVentesProjets, setObjVentesProjets] = useState([])
+  const [stockParProjet,   setStockParProjet]   = useState({})
 
   const [selected,   setSelected]   = useState(() => {
     const n = new Date()
@@ -85,6 +86,7 @@ export default function PilotageCC({ saisies }) {
       { data: obj  },
       { data: flux },
       { data: ovp  },
+      { data: stk  },
     ] = await Promise.all([
       supabase.from('projets').select('id,nom,objectif_nombre,delai_livraison').eq('statut','actif').order('nom'),
       supabase.from('commerciaux').select('id,nom,equipe').eq('actif',true).order('nom'),
@@ -94,8 +96,11 @@ export default function PilotageCC({ saisies }) {
       supabase.from('pilotage_visites').select('*'),
       supabase.from('pilotage_objectifs_cc').select('*'),
       supabase.from('flux_rdv').select('commercial_id,date_debut,rdv,visites,ventes,type_saisie').gte('date_debut','2026-01-01'),
-      supabase.from('objectifs_vente_projets').select('nom_projet,delai_mois,tx_vente,tx_presence,tx_conv_tel'),
+      supabase.from('objectifs_vente_projets').select('nom_projet,delai_mois,tx_vente,tx_presence,tx_conv_tel,tx_joignabilite'),
+      supabase.from('stock').select('projet_id,unites_dispo'),
     ])
+    const stockMap = {}
+    ;(stk || []).forEach(s => { stockMap[s.projet_id] = (stockMap[s.projet_id]||0) + (s.unites_dispo||0) })
     setProjets(proj || [])
     setCommerciaux(comm || [])
     setSourcesRef(src || [])
@@ -105,6 +110,7 @@ export default function PilotageCC({ saisies }) {
     setObjCC(obj || [])
     setFluxVentes(flux || [])
     setObjVentesProjets(ovp || [])
+    setStockParProjet(stockMap)
     setLoading(false)
   }, [])
 
@@ -172,22 +178,31 @@ export default function PilotageCC({ saisies }) {
     }
   }, [objCCMois, prorata, totLeads, totRdvCC, visitesTotaux, ventesFlux])
 
-  // Calcul auto objectifs CC depuis objectifs_vente_projets
+  // Calcul auto objectifs CC depuis objectifs_vente_projets (même formule que module Objectifs)
   function getObjCCAuto(projetId, pctCC = 25) {
     const proj = projets.find(p => p.id === projetId)
     if (!proj) return { obj_leads: 0, obj_rdv: 0, obj_visites: 0, obj_ventes: 0 }
     const ov = objVentesProjets.find(o => o.nom_projet === proj.nom)
-    if (!ov || !ov.delai_mois || !ov.tx_vente) return { obj_leads: 0, obj_rdv: 0, obj_visites: 0, obj_ventes: 0 }
-    const ventesParMois  = (proj.objectif_nombre || 0) / ov.delai_mois
-    const visitesParMois = ov.tx_vente   > 0 ? ventesParMois  / (ov.tx_vente   / 100) : 0
-    const rdvParMois     = ov.tx_presence> 0 ? visitesParMois / (ov.tx_presence/ 100) : 0
-    const leadsParMois   = ov.tx_conv_tel> 0 ? rdvParMois     / (ov.tx_conv_tel/ 100) : 0
+    if (!ov || !ov.delai_mois || !ov.tx_vente || !ov.tx_presence || !ov.tx_conv_tel || !ov.tx_joignabilite) 
+      return { obj_leads: 0, obj_rdv: 0, obj_visites: 0, obj_ventes: 0 }
+    // Même formule que Objectifs.jsx calcFunnel
+    const tv = parseFloat(ov.tx_vente)       / 100
+    const tp = parseFloat(ov.tx_presence)    / 100
+    const tc = parseFloat(ov.tx_conv_tel)    / 100
+    const tj = parseFloat(ov.tx_joignabilite)/ 100
+    const stock = stockParProjet[projetId] || proj.objectif_nombre || 0
+    const d = parseInt(ov.delai_mois) || 1
+    const obj_mois = Math.round(stock / d)
+    const visites  = tv > 0 ? Math.ceil(obj_mois / tv) : 0
+    const rdv      = tp > 0 ? Math.ceil(visites  / tp) : 0
+    const echanges = tc > 0 ? Math.ceil(rdv      / tc) : 0
+    const leads    = tj > 0 ? Math.ceil(echanges / tj) : 0
     const pct = pctCC / 100
     return {
-      obj_leads:   Math.round(leadsParMois   * pct),
-      obj_rdv:     Math.round(rdvParMois     * pct),
-      obj_visites: Math.round(visitesParMois * pct),
-      obj_ventes:  Math.round(ventesParMois  * pct),
+      obj_leads:   Math.round(leads    * pct),
+      obj_rdv:     Math.round(rdv      * pct),
+      obj_visites: Math.round(visites  * pct),
+      obj_ventes:  Math.round(obj_mois * pct),
     }
   }
 
