@@ -47,6 +47,7 @@ export default function PilotageCC({ saisies }) {
   const [fluxVentes, setFluxVentes] = useState([])
   const [objVentesProjets, setObjVentesProjets] = useState([])
   const [stockParProjet,   setStockParProjet]   = useState({})
+  const [projetsCommerciaux, setProjetsCommerciaux] = useState([]) // { commercial_id, projet_id }
 
   const [selected,   setSelected]   = useState(() => {
     const n = new Date()
@@ -87,6 +88,7 @@ export default function PilotageCC({ saisies }) {
       { data: flux },
       { data: ovp  },
       { data: stk  },
+      { data: pc   },
     ] = await Promise.all([
       supabase.from('projets').select('id,nom,objectif_nombre,delai_livraison').eq('statut','actif').order('nom'),
       supabase.from('commerciaux').select('id,nom,equipe').eq('actif',true).order('nom'),
@@ -98,6 +100,7 @@ export default function PilotageCC({ saisies }) {
       supabase.from('flux_rdv').select('commercial_id,date_debut,rdv,visites,ventes,type_saisie').gte('date_debut','2026-01-01'),
       supabase.from('objectifs_vente_projets').select('id,nom_projet,delai_mois,tx_vente,tx_presence,tx_conv_tel,tx_joignabilite'),
       supabase.from('objectifs_vente_biens').select('projet_id,stock'),
+      supabase.from('projets_commerciaux').select('commercial_id,projet_id'),
     ])
     const stockMap = {}
     ;(stk || []).forEach(s => { stockMap[s.projet_id] = (stockMap[s.projet_id]||0) + (s.stock||0) })
@@ -111,6 +114,7 @@ export default function PilotageCC({ saisies }) {
     setFluxVentes(flux || [])
     setObjVentesProjets(ovp || [])
     setStockParProjet(stockMap)
+    setProjetsCommerciaux(pc || [])
     setLoading(false)
   }, [])
 
@@ -515,6 +519,19 @@ export default function PilotageCC({ saisies }) {
               },
             ]
 
+            // NR IDs
+            const NR_KENITRA_ID = '00000000-0000-0000-0000-000000000002'
+            const NR_SALE_ID    = '00000000-0000-0000-0000-000000000001'
+            // Nb projets par région pour répartition NR
+            const projetsKenitra = ['b1000000-0000-0000-0000-000000000005','b1000000-0000-0000-0000-000000000006','b1000000-0000-0000-0000-000000000011','b1000000-0000-0000-0000-000000000009','b1000000-0000-0000-0000-000000000008','b1000000-0000-0000-0000-000000000001','b1000000-0000-0000-0000-000000000002','b1000000-0000-0000-0000-000000000007','b1000000-0000-0000-0000-000000000010','b1000000-0000-0000-0000-000000000012','b1000000-0000-0000-0000-000000000013','b1000000-0000-0000-0000-000000000004','b1000000-0000-0000-0000-000000000003']
+            const projetsSale   = ['b2000000-0000-0000-0000-000000000001','65e17a5b-5657-4ffe-86dd-58ae3214d40b']
+            // Visites/ventes NR par région
+            const filtreDate = f => selected?.type !== 'month' || f.date_debut.startsWith(selected.value)
+            const nrKenVis = Math.round(fluxVentes.filter(f => f.commercial_id === NR_KENITRA_ID && filtreDate(f)).reduce((s,f)=>s+parseFloat(f.visites||0)+parseFloat(f.ventes||0),0))
+            const nrKenVen = Math.round(fluxVentes.filter(f => f.commercial_id === NR_KENITRA_ID && filtreDate(f)).reduce((s,f)=>s+parseFloat(f.ventes||0),0))
+            const nrSalVis = Math.round(fluxVentes.filter(f => f.commercial_id === NR_SALE_ID    && filtreDate(f)).reduce((s,f)=>s+parseFloat(f.visites||0)+parseFloat(f.ventes||0),0))
+            const nrSalVen = Math.round(fluxVentes.filter(f => f.commercial_id === NR_SALE_ID    && filtreDate(f)).reduce((s,f)=>s+parseFloat(f.ventes||0),0))
+
             // Fonction calcul KPIs pour une liste de projet IDs
             function calcKpis(projetsIds) {
               const ldsP  = leads.filter(l => projetsIds.includes(l.projet_id) && (selected?.type !== 'month' || l.date.startsWith(selected.value)))
@@ -526,16 +543,17 @@ export default function PilotageCC({ saisies }) {
               const srcsP   = ldsP.flatMap(l => leadsSources.filter(s => s.pilotage_lead_id === l.id))
               const srcMeta  = srcsP.filter(s=>s.source==='Meta Ads').reduce((s,x)=>s+(x.nombre||0),0)
               const srcAppel = srcsP.filter(s=>s.source==='Appels entrants').reduce((s,x)=>s+(x.nombre||0),0)
-              // Visites & Ventes depuis flux_rdv pour ces projets
-              const fluxP = fluxVentes.filter(f => {
-                const comm = commerciaux.find(c => c.id === f.commercial_id)
-                if (!comm) return false
-                const ok = selected?.type !== 'month' || f.date_debut.startsWith(selected.value)
-                return ok
-              })
-              // Calculer via projets_commerciaux en mémoire - on filtre par projet
-              const visR   = Math.round(fluxVentes.filter(f => (selected?.type !== 'month' || f.date_debut.startsWith(selected.value))).reduce((s,f) => s + parseFloat(f.visites||0) + parseFloat(f.ventes||0), 0))
-              const ventesR = Math.round(fluxVentes.filter(f => (selected?.type !== 'month' || f.date_debut.startsWith(selected.value))).reduce((s,f) => s + parseFloat(f.ventes||0), 0))
+              // Commerciaux liés à ces projets
+              const commIds = projetsCommerciaux.filter(pc => projetsIds.includes(pc.projet_id)).map(pc => pc.commercial_id)
+              // Visites & Ventes depuis flux_rdv
+              const fluxFiltre = fluxVentes.filter(f => commIds.includes(f.commercial_id) && filtreDate(f))
+              let visR   = Math.round(fluxFiltre.reduce((s,f) => s+parseFloat(f.visites||0)+parseFloat(f.ventes||0), 0))
+              let ventesR = Math.round(fluxFiltre.reduce((s,f) => s+parseFloat(f.ventes||0), 0))
+              // Répartir NR en égalité par projet dans la région
+              const nbProjK = projetsIds.filter(id => projetsKenitra.includes(id)).length
+              const nbProjS = projetsIds.filter(id => projetsSale.includes(id)).length
+              if (nbProjK > 0) { visR += Math.round(nrKenVis * nbProjK / projetsKenitra.length); ventesR += Math.round(nrKenVen * nbProjK / projetsKenitra.length) }
+              if (nbProjS > 0) { visR += Math.round(nrSalVis * nbProjS / projetsSale.length);   ventesR += Math.round(nrSalVen * nbProjS / projetsSale.length) }
               // Objectifs CC
               const objTot = projetsIds.reduce((acc, pid) => {
                 const o = objCC.find(o => o.projet_id === pid && o.mois === moisSel)
@@ -568,7 +586,7 @@ export default function PilotageCC({ saisies }) {
                     return (
                       <div style={{ display:'flex', gap:20, fontSize:12 }}>
                         <span style={{ color:'#C9A84C', fontWeight:700 }}>{k.leadsR} leads</span>
-                        <span style={{ color:'#534AB7', fontWeight:700 }}>{k.rdvMois} RDV</span>
+                        <span style={{ color:'#534AB7', fontWeight:700 }}>{k.rdvTot} RDV</span>
                         <span style={{ color:'#4CAF7D', fontWeight:700 }}>{k.visR} visites</span>
                         <span style={{ color:'#1a6b3c', fontWeight:700 }}>{k.ventesR} ventes</span>
                       </div>
