@@ -9,6 +9,7 @@ const ROUTE_PERMISSION = {
   '/perf-commercial': 'perf_commercial',
   '/centre-appel': 'centre_appel',
   '/flux-rdv':     'flux_rdv',
+  '/qualite':      'qualite',
   '/marketing':    'marketing',
   '/analyse-cv':   'analyse_cv',
   '/objectifs':    'objectifs',
@@ -28,6 +29,7 @@ const NAV_STRUCTURE = [
       { path: '/passagers',    label: 'Passagers',               permKey: 'passagers' },
       { path: '/centre-appel', label: 'Call Center',             permKey: 'centre_appel' },
       { path: '/pilotage-cc',  label: '📡 Pilotage CC',          permKey: 'pilotage_cc'  },
+      { path: '/qualite',      label: '🎧 Évaluation Qualité',   permKey: 'qualite'  },
       { path: '/marketing',    label: 'Performance Marketing',   permKey: 'marketing' },
       { path: '/analyse-cv',   label: 'Analyse Capabilité',      permKey: 'analyse_cv' },
     ]

@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Sidebar from './components/Sidebar'
 import DashboardCentreAppel from './pages/DashboardCentreAppel'
 import PilotageCC from './pages/PilotageCC'
+import QualiteEvaluation from './pages/QualiteEvaluation'
 import DashboardMarketing from './pages/DashboardMarketing'
 import Conseilleres from './pages/Conseilleres'
 import Objectifs from './pages/Objectifs'
@@ -126,6 +127,7 @@ function AppContent() {
               <Route path="/" element={<Navigate to="/centre-appel" />} />
               <Route path="/centre-appel" element={<ProtectedRoute permKey="centre_appel"><DashboardCentreAppel {...sharedProps} conseilleresActives={conseilleresActives} /></ProtectedRoute>} />
               <Route path="/pilotage-cc" element={<ProtectedRoute permKey="pilotage_cc"><PilotageCC saisies={saisies} /></ProtectedRoute>} />
+              <Route path="/qualite" element={<ProtectedRoute permKey="qualite"><QualiteEvaluation /></ProtectedRoute>} />
               <Route path="/marketing" element={<ProtectedRoute permKey="marketing"><DashboardMarketing /></ProtectedRoute>} />
               <Route path="/objectifs" element={<ProtectedRoute permKey="objectifs"><Objectifs conseilleres={conseilleresActives} /></ProtectedRoute>} />
               <Route path="/conseilleres" element={<ProtectedRoute permKey="conseilleres"><Conseilleres {...sharedProps} /></ProtectedRoute>} />
