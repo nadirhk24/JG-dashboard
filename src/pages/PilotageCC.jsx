@@ -513,7 +513,7 @@ export default function PilotageCC({ saisies }) {
                 groupes: [
                   { chef: null, projetsIds: [
                     'b2000000-0000-0000-0000-000000000001', // La Cascade
-                    '65e17a5b-5657-4ffe-86dd-58ae3214d40b', // La Capitale
+                    '1ec1fb6a-b19d-4799-a6bc-d8e2b4bd781a', // La Capitale
                   ]},
                 ]
               },
