@@ -488,8 +488,7 @@ export default function PilotageCC({ saisies }) {
                 nom: 'Karima SNAIKI', equipe: 'Kénitra', color: '#534AB7',
                 groupes: [
                   { chef: 'Nissrine IRFDEN', projetsIds: [
-                    'b1000000-0000-0000-0000-000000000005', // Riad I
-                    'b1000000-0000-0000-0000-000000000006', // Riad II
+                    'b1000000-0000-0000-0000-000000000005', // Riad I+II
                     'b1000000-0000-0000-0000-000000000011', // Ittihad
                     'b1000000-0000-0000-0000-000000000009', // Louay
                   ]},
@@ -664,12 +663,17 @@ export default function PilotageCC({ saisies }) {
                             {groupe.projetsIds.map(pid => {
                               const p = projets.find(x => x.id === pid)
                               if (!p) return null
-                              const k = calcKpis([pid])
+                              // Riad El Kheir : fusionner I+II sur une seule ligne
+                              const RIAD1 = 'b1000000-0000-0000-0000-000000000005'
+                              const RIAD2 = 'b1000000-0000-0000-0000-000000000006'
+                              const kPids = pid === RIAD1 ? [RIAD1, RIAD2] : [pid]
+                              const k = calcKpis(kPids)
+                              const nomAffiche = pid === RIAD1 ? 'Riad El Kheir I+II' : p.nom
                               return (
                                 <tr key={pid}
                                   onMouseEnter={e=>e.currentTarget.style.background='#F7F0DC'}
                                   onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                                  <td style={{...tdS, paddingLeft:20, color:'#5A5A5A', fontSize:11}}>{p.nom}</td>
+                                  <td style={{...tdS, paddingLeft:20, color:'#5A5A5A', fontSize:11}}>{nomAffiche}</td>
                                   <td style={{...tdS,color:'#C9A84C',fontWeight:600,borderLeft:`2px solid ${resp.color}08`}}>
                                     <button onClick={()=>{
                                       const ld = leads.find(l=>l.projet_id===pid)
