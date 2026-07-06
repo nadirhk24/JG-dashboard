@@ -575,12 +575,15 @@ export default function PilotageCC({ saisies }) {
                 const o = objCC.find(o => o.projet_id === pid && o.mois === moisSel)
                 return { l: acc.l+(o?.obj_leads||0), r: acc.r+(o?.obj_rdv||0), v: acc.v+(o?.obj_visites||0), vt: acc.vt+(o?.obj_ventes||0) }
               }, {l:0,r:0,v:0,vt:0})
-              const objL = objTot.l * prorata, objR = objTot.r * prorata
-              const objV = objTot.v * prorata, objVt = objTot.vt * prorata
-              const tL  = objL  > 0 ? Math.round((leadsR /objL) *100) : null
-              const tR  = objR  > 0 ? Math.round((rdvMois/objR) *100) : null
-              const tV  = objV  > 0 ? Math.round((visR   /objV) *100) : null
-              const tVt = objVt > 0 ? Math.round((ventesR/objVt)*100) : null
+              const objL = objTot.l, objR = objTot.r
+              const objV = objTot.v, objVt = objTot.vt
+              // Prorata uniquement pour le calcul du taux
+              const objLP = objTot.l * prorata, objRP = objTot.r * prorata
+              const objVP = objTot.v * prorata, objVtP = objTot.vt * prorata
+              const tL  = objLP  > 0 ? Math.round((leadsR /objLP) *100) : null
+              const tR  = objRP  > 0 ? Math.round((rdvMois/objRP) *100) : null
+              const tV  = objVP  > 0 ? Math.round((visR   /objVP) *100) : null
+              const tVt = objVtP > 0 ? Math.round((ventesR/objVtP)*100) : null
               return { leadsR, rdvMois, rdvTot, rdvCum, srcMeta, srcAppel, visR, ventesR, objL, objR, objV, objVt, tL, tR, tV, tVt }
             }
 
