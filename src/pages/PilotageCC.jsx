@@ -487,19 +487,18 @@ export default function PilotageCC({ saisies }) {
               {
                 nom: 'Karima SNAIKI', equipe: 'Kénitra', color: '#534AB7',
                 groupes: [
-                  { chef: 'Nissrine IRFDEN', projetsIds: [
-                    'b1000000-0000-0000-0000-000000000005', // Riad I+II
+                  { chef: 'Youssef SAADOUNI', projetsIds: [
+                    'b1000000-0000-0000-0000-000000000005', // Riad I
+                    'b1000000-0000-0000-0000-000000000006', // Riad II
                     'b1000000-0000-0000-0000-000000000011', // Ittihad
                     'b1000000-0000-0000-0000-000000000009', // Louay
                   ]},
-                  { chef: 'Youssef SAADOUNI', projetsIds: [
+                  { chef: 'Marouane CACHCHI', projetsIds: [
                     'b1000000-0000-0000-0000-000000000008', // BC
                     'b1000000-0000-0000-0000-000000000001', // Mall
                     'b1000000-0000-0000-0000-000000000002', // Marina
                     'b1000000-0000-0000-0000-000000000007', // Camelia
                     'b1000000-0000-0000-0000-000000000010', // Parisien
-                  ]},
-                  { chef: 'Marouane CACHCHI', projetsIds: [
                     'b1000000-0000-0000-0000-000000000012', // Prestige
                     'b1000000-0000-0000-0000-000000000013', // Défense
                     'b1000000-0000-0000-0000-000000000004', // Cleopatra
