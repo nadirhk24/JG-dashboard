@@ -668,6 +668,8 @@ export default function PilotageCC({ saisies }) {
                               // Riad El Kheir : fusionner I+II sur une seule ligne
                               const RIAD1 = 'b1000000-0000-0000-0000-000000000005'
                               const RIAD2 = 'b1000000-0000-0000-0000-000000000006'
+                              // On saute Riad II : ses chiffres sont déjà inclus dans la ligne Riad I
+                              if (pid === RIAD2) return null
                               const kPids = pid === RIAD1 ? [RIAD1, RIAD2] : [pid]
                               const k = calcKpis(kPids)
                               const nomAffiche = pid === RIAD1 ? 'Riad El Kheir I+II' : p.nom
