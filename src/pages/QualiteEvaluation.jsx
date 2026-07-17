@@ -123,7 +123,9 @@ export default function QualiteEvaluation() {
   const { profil } = useAuth()
   const isSuperAdmin        = profil?.role === 'super_admin'
   const isConseillere       = profil?.role === 'conseillere'
-  const isControleurQualite = profil?.role === 'controleur_qualite'
+  // Le "contrôleur qualité" peut être soit un rôle dédié, soit un droit additionnel
+  // accordé à un compte existant (ex: une conseillère qui garde son rôle mais gagne ce droit).
+  const isControleurQualite = profil?.role === 'controleur_qualite' || profil?.permissions?.qualite_controleur === true
   // Le contrôleur qualité a les mêmes droits d'évaluation que le super admin, sauf suppression
   const peutEvaluer = isSuperAdmin || isControleurQualite
 
@@ -143,16 +145,16 @@ export default function QualiteEvaluation() {
       supabase.from('evaluations_qualite').select('*').order('date_appel', { ascending: false }),
       supabase.from('conseilleres').select('id, nom').order('nom'),
     ])
-    // Une conseillère ne voit que ses évals publiées
+    // Une conseillère (qui n'est pas aussi contrôleuse qualité) ne voit que ses évals publiées
     let visibles = evals || []
-    if (isConseillere) {
+    if (isConseillere && !peutEvaluer) {
       const myId = profil?.conseillere_id
       visibles = visibles.filter(e => e.conseillere_id === myId && e.statut === 'publiee')
     }
     setEvaluations(visibles)
     setConseilleres(cons || [])
     setLoading(false)
-  }, [isConseillere, profil])
+  }, [isConseillere, peutEvaluer, profil])
 
   useEffect(() => { loadAll() }, [loadAll])
 

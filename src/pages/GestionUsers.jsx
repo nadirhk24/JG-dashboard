@@ -8,6 +8,7 @@ const VOLETS = [
   { key: 'stock',           label: 'Stock',               icon: '🏗️' },
   { key: 'centre_appel',  label: 'Call Center',           icon: '📞' },
   { key: 'qualite',       label: 'Évaluation Qualité',    icon: '🎧' },
+  { key: 'qualite_controleur', label: 'Contrôleur Qualité', icon: '🛂' },
   { key: 'flux_rdv',      label: 'Flux RDV',              icon: '📅' },
   { key: 'marketing',     label: 'Marketing',             icon: '📊' },
   { key: 'analyse_cv',    label: 'Analyse Capabilité',    icon: '📈' },
