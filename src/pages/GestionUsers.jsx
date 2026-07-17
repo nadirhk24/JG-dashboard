@@ -19,9 +19,10 @@ const VOLETS = [
 ]
 
 const ROLE_LABELS = {
-  super_admin:      { label: 'Super Admin',  color: '#C9A84C', bg: 'rgba(201,168,76,0.1)' },
-  responsable_sale: { label: 'Responsable',  color: '#534AB7', bg: 'rgba(83,74,183,0.1)' },
-  conseillere:      { label: 'Conseillère',  color: '#2E9455', bg: 'rgba(46,148,85,0.1)' },
+  super_admin:        { label: 'Super Admin',       color: '#C9A84C', bg: 'rgba(201,168,76,0.1)' },
+  responsable_sale:   { label: 'Responsable',       color: '#534AB7', bg: 'rgba(83,74,183,0.1)' },
+  conseillere:        { label: 'Conseillère',       color: '#2E9455', bg: 'rgba(46,148,85,0.1)' },
+  controleur_qualite: { label: 'Contrôleur Qualité', color: '#378ADD', bg: 'rgba(55,138,221,0.1)' },
 }
 
 function Toggle({ value, onChange, disabled }) {

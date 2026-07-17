@@ -121,8 +121,11 @@ function badgeConformite(globale, seuil) {
 
 export default function QualiteEvaluation() {
   const { profil } = useAuth()
-  const isSuperAdmin  = profil?.role === 'super_admin'
-  const isConseillere = profil?.role === 'conseillere'
+  const isSuperAdmin        = profil?.role === 'super_admin'
+  const isConseillere       = profil?.role === 'conseillere'
+  const isControleurQualite = profil?.role === 'controleur_qualite'
+  // Le contrôleur qualité a les mêmes droits d'évaluation que le super admin, sauf suppression
+  const peutEvaluer = isSuperAdmin || isControleurQualite
 
   const [section, setSection] = useState('evaluations') // 'evaluations' | 'dashboard' | 'referentiel'
   const [evaluations, setEvaluations] = useState([])
@@ -186,7 +189,7 @@ export default function QualiteEvaluation() {
           vue={vue} setVue={setVue}
           evalActive={evalActive} setEvalActive={setEvalActive}
           evaluations={evaluations} conseilleres={conseilleres}
-          isSuperAdmin={isSuperAdmin} isConseillere={isConseillere}
+          isSuperAdmin={isSuperAdmin} isConseillere={isConseillere} peutEvaluer={peutEvaluer}
           reload={loadAll}
           styles={{ card, inp, lab, th, td }}
         />
@@ -208,14 +211,14 @@ export default function QualiteEvaluation() {
 // ════════════════════════════════════════════════════════════════════════════
 // SECTION ÉVALUATIONS : liste + formulaire + détail
 // ════════════════════════════════════════════════════════════════════════════
-function SectionEvaluations({ vue, setVue, evalActive, setEvalActive, evaluations, conseilleres, isSuperAdmin, isConseillere, reload, styles }) {
+function SectionEvaluations({ vue, setVue, evalActive, setEvalActive, evaluations, conseilleres, isSuperAdmin, isConseillere, peutEvaluer, reload, styles }) {
   const { card, inp, lab, th, td } = styles
 
   // ── VUE LISTE ──────────────────────────────────────────────────────────────
   if (vue === 'liste') {
     return (
       <div>
-        {isSuperAdmin && (
+        {peutEvaluer && (
           <button onClick={()=>{ setEvalActive(null); setVue('form') }}
             style={{ marginBottom:16, padding:'10px 22px', borderRadius:22, background:'#C9A84C', color:'#fff', border:'none', fontSize:13, fontWeight:500, cursor:'pointer' }}>
             + Nouvelle évaluation
@@ -268,8 +271,9 @@ function SectionEvaluations({ vue, setVue, evalActive, setEvalActive, evaluation
   return (
     <FormulaireEvaluation
       evalActive={evalActive}
-      lectureSeule={vue === 'detail' && !isSuperAdmin}
+      lectureSeule={vue === 'detail' && !peutEvaluer}
       isSuperAdmin={isSuperAdmin}
+      peutEvaluer={peutEvaluer}
       conseilleres={conseilleres}
       onRetour={()=>{ setVue('liste'); reload() }}
       styles={styles}
@@ -280,8 +284,13 @@ function SectionEvaluations({ vue, setVue, evalActive, setEvalActive, evaluation
 // ════════════════════════════════════════════════════════════════════════════
 // FORMULAIRE D'ÉVALUATION (création / édition / consultation)
 // ════════════════════════════════════════════════════════════════════════════
-function FormulaireEvaluation({ evalActive, lectureSeule, isSuperAdmin, conseilleres, onRetour, styles }) {
+function FormulaireEvaluation({ evalActive, lectureSeule, isSuperAdmin, peutEvaluer, conseilleres, onRetour, styles }) {
   const { card, inp, lab } = styles
+
+  // Une fois l'évaluation créée (id existant), le numéro et le lien de l'appel
+  // deviennent non modifiables pour tout le monde sauf le super admin.
+  const champsAppelVerrouilles = !!evalActive?.id && !isSuperAdmin
+  const disabledNumeroLien = lectureSeule || champsAppelVerrouilles
 
   const [entete, setEntete] = useState({
     conseillere_id: evalActive?.conseillere_id || '',
@@ -328,13 +337,18 @@ function FormulaireEvaluation({ evalActive, lectureSeule, isSuperAdmin, conseill
     return pts
   }, [etat])
 
+  // Tant que le numéro et le lien de l'appel ne sont pas renseignés, impossible de démarrer la notation
+  const grilleBloquee = !lectureSeule && (!entete.numero_prospect?.trim() || !entete.lien_appel?.trim())
+
   function setItem(sectionNom, itemNom, statut) {
     if (lectureSeule) return
+    if (grilleBloquee) { setMsg({ type:'error', text:"Renseigne d'abord le numéro et le lien de l'appel pour démarrer l'évaluation" }); return }
     setEtat(prev => ({ ...prev, [`${sectionNom}||${itemNom}`]: statut }))
   }
 
   async function enregistrer(statutPublication) {
     if (!entete.conseillere_id) { setMsg({ type:'error', text:'Choisis une conseillère' }); return }
+    if (!entete.numero_prospect?.trim() || !entete.lien_appel?.trim()) { setMsg({ type:'error', text:"Le numéro et le lien de l'appel sont obligatoires" }); return }
     setSaving(true)
 
     // 1. Upload audio si nouveau fichier
@@ -410,20 +424,36 @@ function FormulaireEvaluation({ evalActive, lectureSeule, isSuperAdmin, conseill
             </select>
           </div>
           <div><label style={lab}>Nom du prospect</label><input value={entete.nom_prospect} disabled={lectureSeule} onChange={e=>setEntete(p=>({...p,nom_prospect:e.target.value}))} style={inp} placeholder="Nom du prospect"/></div>
-          <div><label style={lab}>Numéro du prospect</label><input value={entete.numero_prospect} disabled={lectureSeule} onChange={e=>setEntete(p=>({...p,numero_prospect:e.target.value}))} style={inp} placeholder="06..."/></div>
-          <div><label style={lab}>Lien de l'appel</label><input value={entete.lien_appel} disabled={lectureSeule} onChange={e=>setEntete(p=>({...p,lien_appel:e.target.value}))} style={inp} placeholder="https://..."/></div>
+          <div>
+            <label style={lab}>Numéro du prospect</label>
+            <input value={entete.numero_prospect} disabled={disabledNumeroLien} onChange={e=>setEntete(p=>({...p,numero_prospect:e.target.value}))} style={inp} placeholder="06..."/>
+          </div>
+          <div>
+            <label style={lab}>Lien de l'appel</label>
+            <input value={entete.lien_appel} disabled={disabledNumeroLien} onChange={e=>setEntete(p=>({...p,lien_appel:e.target.value}))} style={inp} placeholder="https://..."/>
+          </div>
           <div><label style={lab}>Date de l'appel</label><input type="date" value={entete.date_appel} disabled={lectureSeule} onChange={e=>setEntete(p=>({...p,date_appel:e.target.value}))} style={inp}/></div>
           <div>
             <label style={lab}>Enregistrement audio</label>
-            {isSuperAdmin && !lectureSeule
+            {peutEvaluer && !lectureSeule
               ? <input type="file" accept="audio/*" onChange={e=>setAudioFile(e.target.files[0])} style={{...inp, padding:'6px'}}/>
               : <div style={{ fontSize:12, color:'#8A8A7A', paddingTop:8 }}>{audioUrl ? '🎵 Disponible ci-dessous' : 'Aucun'}</div>}
           </div>
         </div>
+        {champsAppelVerrouilles && (
+          <div style={{ marginTop:14, padding:'8px 12px', borderRadius:8, background:'rgba(201,168,76,0.08)', fontSize:12, color:'#8a6a1a' }}>
+            🔒 Le numéro et le lien de l'appel sont verrouillés après démarrage de l'évaluation. Seul le super admin peut les modifier.
+          </div>
+        )}
+        {grilleBloquee && (
+          <div style={{ marginTop:14, padding:'10px 14px', borderRadius:8, background:'rgba(224,92,92,0.08)', border:'1px solid rgba(224,92,92,0.2)', fontSize:12, color:'#a03030' }}>
+            ⚠️ Renseigne le numéro et le lien de l'appel avant de démarrer l'évaluation.
+          </div>
+        )}
         {/* Lecteur audio */}
         {audioUrl && (
           <div style={{ marginTop:16 }}>
-            <audio controls controlsList={isSuperAdmin ? '' : 'nodownload'} src={audioUrl} style={{ width:'100%' }} />
+            <audio controls controlsList={peutEvaluer ? '' : 'nodownload'} src={audioUrl} style={{ width:'100%' }} />
           </div>
         )}
       </div>
@@ -491,7 +521,7 @@ function FormulaireEvaluation({ evalActive, lectureSeule, isSuperAdmin, conseill
         <textarea value={entete.observation} disabled={lectureSeule} onChange={e=>setEntete(p=>({...p,observation:e.target.value}))}
           rows={4} style={{...inp, resize:'vertical', fontFamily:'inherit'}} placeholder="Ton observation générale sur l'appel..."/>
 
-        {isSuperAdmin && !lectureSeule && (
+        {peutEvaluer && !lectureSeule && (
           <div style={{ marginTop:14, width:200 }}>
             <label style={lab}>Seuil de conformité (%)</label>
             <input type="number" min="0" max="100" value={entete.seuil_conformite} onChange={e=>setEntete(p=>({...p,seuil_conformite:parseInt(e.target.value)||0}))} style={inp}/>
@@ -510,18 +540,20 @@ function FormulaireEvaluation({ evalActive, lectureSeule, isSuperAdmin, conseill
       </div>
 
       {/* ── BOUTONS ── */}
-      {isSuperAdmin && !lectureSeule && (
+      {peutEvaluer && !lectureSeule && (
         <div style={{ display:'flex', gap:12, justifyContent:'flex-end', marginBottom:40 }}>
-          <button onClick={()=>enregistrer('brouillon')} disabled={saving}
-            style={{ padding:'11px 24px', borderRadius:22, border:'1.5px solid #8A8A7A', background:'#fff', color:'#5A5A5A', fontSize:13, fontWeight:500, cursor:'pointer' }}>
+          <button onClick={()=>enregistrer('brouillon')} disabled={saving || grilleBloquee}
+            style={{ padding:'11px 24px', borderRadius:22, border:'1.5px solid #8A8A7A', background:'#fff', color:'#5A5A5A', fontSize:13, fontWeight:500, cursor: grilleBloquee?'not-allowed':'pointer', opacity: grilleBloquee?0.5:1 }}>
             💾 {saving?'...':'Enregistrer (brouillon)'}
           </button>
-          <button onClick={()=>enregistrer('publiee')} disabled={saving}
-            style={{ padding:'11px 24px', borderRadius:22, border:'none', background:'#2E9455', color:'#fff', fontSize:13, fontWeight:500, cursor:'pointer' }}>
+          <button onClick={()=>enregistrer('publiee')} disabled={saving || grilleBloquee}
+            style={{ padding:'11px 24px', borderRadius:22, border:'none', background:'#2E9455', color:'#fff', fontSize:13, fontWeight:500, cursor: grilleBloquee?'not-allowed':'pointer', opacity: grilleBloquee?0.5:1 }}>
             👁️ {saving?'...':'Afficher à la conseillère'}
           </button>
         </div>
       )}
+      {/* Note : aucun bouton de suppression n'existe dans ce module — le contrôleur qualité
+          a donc automatiquement les mêmes droits que le super admin sans pouvoir supprimer. */}
     </div>
   )
 }
